@@ -118,3 +118,25 @@ profiles/default/memories/*
 !scripts/
 scripts/*
 !scripts/**
+
+# ── MCP Rust crate source code ──
+!crates/
+crates/*
+!crates/mcp-server-util/
+crates/mcp-server-util/*
+!crates/mcp-server-util/**
+!crates/mcp-server-fetch/
+crates/mcp-server-fetch/*
+!crates/mcp-server-fetch/**
+!crates/mcp-server-filesystem/
+crates/mcp-server-filesystem/*
+!crates/mcp-server-filesystem/**
+!crates/mcp-server-docker-compose/
+crates/mcp-server-docker-compose/*
+!crates/mcp-server-docker-compose/**
+!crates/mcp-server-skills/
+crates/mcp-server-skills/*
+!crates/mcp-server-skills/**
+
+# ── Build artifacts ──
+target/

@@ -1,8 +1,10 @@
 {
-  "name": "filesystem",
+  "id": "mcp-server-filesystem",
+  "name": "Filesystem MCP Server",
   "version": "0.1.0",
-  "type": "mcp",
   "description": "Filesystem tools — read, write, list, search, info on local files",
+  "type": "mcp",
+  "entrypoint": "mcp-server-filesystem",
   "config_schema": [
     {
       "key": "OMNI_DATA_DIR",

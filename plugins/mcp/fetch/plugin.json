@@ -1,7 +1,9 @@
 {
-  "name": "fetch",
+  "id": "mcp-server-fetch",
+  "name": "Fetch MCP Server",
   "version": "0.1.0",
-  "type": "mcp",
   "description": "HTTP GET tool — fetch web pages and API responses",
+  "type": "mcp",
+  "entrypoint": "mcp-server-fetch",
   "config_schema": []
 }

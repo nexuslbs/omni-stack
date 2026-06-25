@@ -1,17 +1,7 @@
 {
-  "servers": [
-    {
-      "name": "skills",
-      "transport": "stdio",
-      "command": "python3",
-      "args": [
-        "/opt/data/plugins/mcp/skills/server.py"
-      ],
-      "timeout_secs": 30,
-      "max_retries": 2,
-      "allowed_tools": [
-        "*"
-      ]
-    }
-  ]
+  "command": "/app/target/release/mcp-server-skills",
+  "env": {
+    "OMNI_DATA_DIR": "${OMNI_DATA_DIR:-/opt/data}",
+    "RUST_LOG": "info"
+  }
 }

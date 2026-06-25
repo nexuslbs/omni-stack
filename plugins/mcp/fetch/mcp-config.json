@@ -1,17 +1,6 @@
 {
-  "servers": [
-    {
-      "name": "fetch",
-      "transport": "stdio",
-      "command": "python3",
-      "args": [
-        "/opt/data/plugins/mcp/fetch/server.py"
-      ],
-      "timeout_secs": 60,
-      "max_retries": 2,
-      "allowed_tools": [
-        "*"
-      ]
-    }
-  ]
+  "command": "/app/target/release/mcp-server-fetch",
+  "env": {
+    "RUST_LOG": "info"
+  }
 }

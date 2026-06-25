@@ -1,0 +1,14 @@
+platforms:
+  mattermost:
+    enabled: false
+    config: {}
+  telegram:
+    enabled: false
+    config:
+      bot_token: ""
+  test-python:
+    enabled: false
+    config: {}
+  test-rust:
+    enabled: false
+    config: {}

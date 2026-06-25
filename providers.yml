@@ -1,0 +1,17 @@
+providers:
+  anthropic:
+    enabled: false
+    config:
+      default_model: claude-sonnet-4
+  deepseek:
+    enabled: true
+    config:
+      default_model: deepseek-v4-flash
+  openai:
+    enabled: false
+    config:
+      default_model: gpt-4o
+  opencode-go:
+    enabled: true
+    config:
+      default_model: deepseek-v4-flash

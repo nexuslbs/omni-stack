@@ -1,0 +1,51 @@
+tools:
+  cron:
+    config: {}
+    enabled: true
+  docker_compose:
+    config: {}
+    enabled: true
+  fetch:
+    config: {}
+    enabled: true
+  filesystem:
+    config:
+      OMNI_DATA_DIR: /opt/data
+      WORKSPACE_DIR: /opt/workspace
+    enabled: true
+  git:
+    config: {}
+    enabled: false
+  kanban:
+    config: {}
+    enabled: true
+  memory:
+    config: {}
+    enabled: true
+  metrics:
+    config: {}
+    enabled: true
+  plugin-manager:
+    config: {}
+    enabled: true
+  query:
+    config: {}
+    enabled: true
+  search:
+    config: {}
+    enabled: true
+  skills:
+    config:
+      OMNI_DATA_DIR: /opt/data
+    enabled: true
+  subtasks:
+    config: {}
+    enabled: true
+  test-python-tool:
+    config:
+      GREETING_NAME: World
+    enabled: true
+  test-rust-tool:
+    config:
+      GREETING_NAME: World
+    enabled: true

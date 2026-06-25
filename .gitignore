@@ -1,143 +1,24 @@
 # omni-stack .gitignore
-# Ignore everything by default — only explicitly allowed files are tracked.
-# This prevents runtime-evolved data (wiki edits, memories, generated templates)
-# from accidentally being versioned.
-
-*
-
-# ── Root config files ──
-!.gitignore
-!docker-compose.yml
-!.env.example
-!Vagrantfile
-!README.md
-!actions.yml
-!backup/
-backup/*
-!backup/**/
-
-# ── Plugin directories ──
-!plugins/
-plugins/*
-!plugins/providers/
-plugins/providers/*
-!plugins/providers/deepseek/
-plugins/providers/deepseek/*
-!plugins/providers/deepseek/**
-!plugins/providers/opencode-go/
-plugins/providers/opencode-go/*
-!plugins/providers/opencode-go/**
-!plugins/providers/openai/
-plugins/providers/openai/*
-!plugins/providers/openai/**
-!plugins/providers/anthropic/
-plugins/providers/anthropic/*
-!plugins/providers/anthropic/**
-
-!plugins/platforms/
-plugins/platforms/*
-!plugins/platforms/telegram/
-plugins/platforms/telegram/*
-!plugins/platforms/telegram/**
-!plugins/platforms/mattermost/
-plugins/platforms/mattermost/*
-!plugins/platforms/mattermost/**
-!plugins/platforms/test-python/
-plugins/platforms/test-python/*
-!plugins/platforms/test-python/**
-!plugins/platforms/test-rust/
-plugins/platforms/test-rust/*
-!plugins/platforms/test-rust/**
-
-!plugins/mcp/
-plugins/mcp/*
-!plugins/mcp/cron/
-plugins/mcp/cron/*
-!plugins/mcp/cron/**
-!plugins/mcp/docker-compose/
-plugins/mcp/docker-compose/*
-!plugins/mcp/docker-compose/**
-!plugins/mcp/fetch/
-plugins/mcp/fetch/*
-!plugins/mcp/fetch/**
-!plugins/mcp/filesystem/
-plugins/mcp/filesystem/*
-!plugins/mcp/filesystem/**
-!plugins/mcp/git/
-plugins/mcp/git/*
-!plugins/mcp/git/**
-!plugins/mcp/kanban/
-plugins/mcp/kanban/*
-!plugins/mcp/kanban/**
-!plugins/mcp/memory/
-plugins/mcp/memory/*
-!plugins/mcp/memory/**
-!plugins/mcp/metrics/
-plugins/mcp/metrics/*
-!plugins/mcp/metrics/**
-!plugins/mcp/plugin-manager/
-plugins/mcp/plugin-manager/*
-!plugins/mcp/plugin-manager/**
-!plugins/mcp/query/
-plugins/mcp/query/*
-!plugins/mcp/query/**
-!plugins/mcp/search/
-plugins/mcp/search/*
-!plugins/mcp/search/**
-!plugins/mcp/skills/
-plugins/mcp/skills/*
-!plugins/mcp/skills/**
-!plugins/mcp/subtasks/
-plugins/mcp/subtasks/*
-!plugins/mcp/subtasks/**
-!plugins/mcp/test-python-tool/
-plugins/mcp/test-python-tool/*
-!plugins/mcp/test-python-tool/**
-!plugins/mcp/test-rust-tool/
-plugins/mcp/test-rust-tool/*
-!plugins/mcp/test-rust-tool/**
-
-# ── Profile: always track config, templates, memories ──
-!profiles/
-profiles/*
-!profiles/default/
-profiles/default/*
-!profiles/default/config.json
-!profiles/default/templates/
-profiles/default/templates/*
-!profiles/default/templates/**
-!profiles/default/memories/
-profiles/default/memories/*
-!profiles/default/memories/**
-
-# Wiki, skills, tmp: NONE tracked by default.
-# To version a specific file, add an override below.
-# !profiles/default/wiki/SpecificPage.md
-# !profiles/default/skills/specific-skill.md
-
-# Scripts — all tracked
-!scripts/
-scripts/*
-!scripts/**
-
-# ── MCP Rust crate source code ──
-!crates/
-crates/*
-!crates/mcp-server-util/
-crates/mcp-server-util/*
-!crates/mcp-server-util/**
-!crates/mcp-server-fetch/
-crates/mcp-server-fetch/*
-!crates/mcp-server-fetch/**
-!crates/mcp-server-filesystem/
-crates/mcp-server-filesystem/*
-!crates/mcp-server-filesystem/**
-!crates/mcp-server-docker-compose/
-crates/mcp-server-docker-compose/*
-!crates/mcp-server-docker-compose/**
-!crates/mcp-server-skills/
-crates/mcp-server-skills/*
-!crates/mcp-server-skills/**
+# Allow everything by default — only exclude build artifacts, env files, and secrets.
 
 # ── Build artifacts ──
 target/
+node_modules/
+dist/
+
+# ── Environment / secrets ──
+.env
+credentials/
+
+# ── OS files ──
+.DS_Store
+Thumbs.db
+
+# ── Runtime-only: temp, logs ──
+*.log
+tmp/
+profiles/default/tmp/
+hindsight_watermark.json
+
+# ── Eliminated struct — workspace root, each plugin has own Cargo.toml ──
+/Cargo.toml

@@ -1,51 +1,66 @@
 tools:
-  cron:
-    config: {}
+  # ── Built-in action tools (compiled into omniagent binary) ──
+  actions_kanban_dispatcher:
+    builtin: true
     enabled: true
-  docker_compose:
-    config: {}
+  actions_relevance_indexer:
+    builtin: true
+    enabled: true
+  actions_hindsight_populator:
+    builtin: true
+    enabled: true
+  actions_setup_knowledge_pipeline:
+    builtin: true
+    enabled: true
+
+  # ── Bundled MCP servers (from plugins/mcp/ in omni-stack) ──
+  cron:
+    builtin: true
+    enabled: true
+  docker-compose:
+    builtin: true
     enabled: true
   fetch:
-    config: {}
+    builtin: true
     enabled: true
   filesystem:
-    config:
-      OMNI_DATA_DIR: /opt/data
-      WORKSPACE_DIR: /opt/workspace
+    builtin: true
     enabled: true
   git:
-    config: {}
-    enabled: false
+    builtin: true
+    enabled: true
   kanban:
-    config: {}
+    builtin: true
     enabled: true
   memory:
-    config: {}
+    builtin: true
     enabled: true
   metrics:
-    config: {}
+    builtin: true
     enabled: true
   plugin-manager:
-    config: {}
+    builtin: true
     enabled: true
   query:
-    config: {}
+    builtin: true
     enabled: true
   search:
-    config: {}
+    builtin: true
     enabled: true
   skills:
-    config:
-      OMNI_DATA_DIR: /opt/data
+    builtin: true
     enabled: true
   subtasks:
-    config: {}
+    builtin: true
     enabled: true
+
+  # ── Test tools (for development and testing) ──
   test-python-tool:
-    config:
-      GREETING_NAME: World
+    builtin: true
     enabled: true
-  test-rust-tool:
-    config:
-      GREETING_NAME: World
+  test-js-tool:
+    builtin: true
     enabled: true
+
+providers: null
+platforms: null

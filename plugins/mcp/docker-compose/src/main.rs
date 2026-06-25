@@ -87,7 +87,7 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
 
     let timeout_secs = if command.starts_with("build") { 600u64 } else { 300u64 };
 
-    // Use std::process::Command + mpsc for timeout (same pattern as pre-ext code)
+    // Use std::process::Command + mpsc for timeout
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let result = cmd.output();

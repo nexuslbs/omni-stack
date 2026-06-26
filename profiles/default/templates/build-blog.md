@@ -35,9 +35,24 @@ docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app",
 - ❌ search_messages — skip entirely  
 - ❌ filesystem_list on /app — skip entirely
 - ❌ list_cron_jobs — skip entirely
+- ❌ all cron tools (create, delete, update, list) — skip entirely
 - ✅ docker_compose — USE THIS
 - ✅ filesystem_write — USE TO FIX BUILD ERRORS
 - ✅ filesystem_read — USE TO READ FILES
+
+## PROHIBITED TOOLS FOR THIS TASK
+Do NOT call these tools — they waste iterations and are not needed for building:
+- list_kanban_tasks, create_kanban_task, update_kanban_task, delete_kanban_task
+- add_kanban_dependency, remove_kanban_dependency
+- list_cron_jobs, create_cron_job, delete_cron_job, update_cron_job
+- plugin_manager
+- search_messages, search_wiki (the context provided is sufficient)
+
+## REQUIRED TOOLS FOR THIS TASK
+Only these tools are needed:
+- filesystem_read — Read project files (docker-compose.yml, Cargo.toml, package.json)
+- filesystem_write — Write/update project files when build errors need fixing
+- docker_compose — Build, start, exec, and manage Docker services (build, up -d, exec, logs, ps, down)
 
 ## Report
 After all steps, output a summary of what was built, whether services are running, and any errors.

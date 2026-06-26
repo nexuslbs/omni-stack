@@ -36,6 +36,20 @@ fn truncate_content(content: &str, max_chars: usize) -> String {
 }
 
 /// Return thresholds and labels for human-readable sizes.
+
+/// Wrap a handler so any Err(e) becomes Ok((error_msg, true)).
+/// This prevents access-denied and file-not-found errors from
+/// triggering the circuit breaker on the MCP client side.
+fn soft_error<F>(handler: F) -> Box<dyn Fn(&Value) -> Result<(String, bool)> + Send + Sync>
+where
+    F: Fn(&Value) -> Result<(String, bool)> + Send + Sync + 'static,
+{
+    Box::new(move |args: &Value| match handler(args) {
+        Ok((text, is_error)) => Ok((text, is_error)),
+        Err(e) => Ok((format!("{}", e), true)),
+    })
+}
+
 fn format_size(size: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * 1024;
@@ -224,23 +238,23 @@ async fn main() -> Result<()> {
 
     let d1 = data_dir.clone();
     let w1 = workspace_dir.clone();
-    let read_handler: ToolHandler = Box::new(move |args: &Value| handle_read(args, &d1, &w1));
+    let read_handler = soft_error(move |args: &Value| handle_read(args, &d1, &w1));
 
     let d2 = data_dir.clone();
     let w2 = workspace_dir.clone();
-    let write_handler: ToolHandler = Box::new(move |args: &Value| handle_write(args, &d2, &w2));
+    let write_handler = soft_error(move |args: &Value| handle_write(args, &d2, &w2));
 
     let d3 = data_dir.clone();
     let w3 = workspace_dir.clone();
-    let list_handler: ToolHandler = Box::new(move |args: &Value| handle_list(args, &d3, &w3));
+    let list_handler = soft_error(move |args: &Value| handle_list(args, &d3, &w3));
 
     let d4 = data_dir.clone();
     let w4 = workspace_dir.clone();
-    let search_handler: ToolHandler = Box::new(move |args: &Value| handle_search(args, &d4, &w4));
+    let search_handler = soft_error(move |args: &Value| handle_search(args, &d4, &w4));
 
     let d5 = data_dir;
     let w5 = workspace_dir;
-    let info_handler: ToolHandler = Box::new(move |args: &Value| handle_info(args, &d5, &w5));
+    let info_handler = soft_error(move |args: &Value| handle_info(args, &d5, &w5));
 
     let tools = vec![
         McpToolEntry {

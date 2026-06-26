@@ -40,13 +40,13 @@ services:
       QDRANT_URL: http://qdrant:6333
       HOST: 0.0.0.0
       PORT: 8080
-      WORKSPACE_DIR: /opt/workspace/omni-workspace
+      WORKSPACE_DIR: /opt/workspace
       HINDSIGHT_URL: http://hindsight:8888
     volumes:
       - ./:/opt/data:rw
       - /opt/workspace/omniagent:/app:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
-      - /opt/workspace/omni-workspace:/opt/workspace/omni-workspace:rw
+      - /opt/workspace/omni-workspace:/opt/workspace:rw
       - /opt/data/credentials:/opt/data/credentials:ro
       - /opt/data/.env:/opt/data/.env:rw
     expose:

@@ -25,8 +25,8 @@ const FORBIDDEN_CHARS: &[char] = &['|', ';', '&', '`', '$', '>', '<', '?', '[', 
 fn default_timeout(verb: &str) -> u64 {
     match verb {
         "build" | "pull" => 600,
-        "up" | "restart" => 900,
-        "exec" | "run" => 900,
+        "up" | "restart" => 300,
+        "exec" | "run" => 600,
         _ => 300, // ps, logs, down, stop
     }
 }
@@ -239,7 +239,7 @@ async fn main() -> Result<()> {
                     },
                     "timeout": {
                         "type": "number",
-                        "description": "Optional — override default timeout in seconds. Defaults: build/pull=600, up/restart/exec/run=900, ps/logs/down/stop=300"
+                        "description": "Optional — override default timeout in seconds. Defaults: build/pull=600, up/restart=300, exec/run=600, ps/logs/down/stop=300"
                     }
                 },
                 "required": ["project_dir", "command"]

@@ -9,10 +9,15 @@ use serde_json::Value;
 use std::path::Path;
 use std::time::Duration;
 
-/// Characters that are forbidden in arguments to prevent shell injection.
-const FORBIDDEN_CHARS: &[char] = &['|', ';', '&', '`', '$', '>', '<', '*', '?', '[', ']', '{', '}', '!', '~'];
+/// Allowed compose subcommands. Everything else will be rejected.
+const ALLOWED_VERBS: &[&str] = &[
+    "up", "down", "ps", "logs", "build", "restart", "stop", "exec", "run", "pull",
+];
 
-/// Validate that a string contains no shell-metacharacters.
+/// Characters forbidden in non-exec/run arguments (compose verb, service name, flags).
+const FORBIDDEN_CHARS: &[char] = &['|', ';', '&', '`', '$', '>', '<', '?', '[', ']', '{', '}', '!', '~'];
+
+/// Validate that a string contains no forbidden shell-metacharacters.
 fn contains_forbidden_chars(s: &str) -> bool {
     s.chars().any(|c| FORBIDDEN_CHARS.contains(&c))
 }
@@ -54,35 +59,69 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
         .ok_or_else(|| anyhow::anyhow!("Missing 'command' argument"))?
         .to_string();
 
-    if contains_forbidden_chars(&command) {
-        anyhow::bail!("Forbidden characters in command argument");
-    }
-
     let project_dir = args["project_dir"].as_str().unwrap_or("").to_string();
+    let service_name = args["service"].as_str().unwrap_or("");
+    let exec_args = args["args"].as_str().unwrap_or("");
+
+    // Validate project_dir
     if contains_forbidden_chars(&project_dir) {
         anyhow::bail!("Forbidden characters in project_dir argument");
     }
-
     if !project_dir.is_empty() {
         validate_workspace_path(&project_dir, &workspace_dir)?;
     }
 
-    // Build arguments: `docker compose <command>`
+    // Validate the compose verb is in the allowed list
+    let verb = command.split_whitespace().next().unwrap_or("");
+    if verb.is_empty() || !ALLOWED_VERBS.contains(&verb) {
+        anyhow::bail!(
+            "Unrecognized compose command '{}'. Allowed: {}",
+            verb,
+            ALLOWED_VERBS.join(", ")
+        );
+    }
+
+    // Build the docker compose command
     let mut cmd = std::process::Command::new("docker");
     cmd.arg("compose");
 
-    // Split the command string to support e.g. "up -d", "logs --tail=50"
-    for part in command.split_whitespace() {
-        if !part.is_empty() {
-            if contains_forbidden_chars(part) {
-                anyhow::bail!("Forbidden characters in command argument");
-            }
-            cmd.arg(part);
-        }
-    }
-
     if !project_dir.is_empty() {
         cmd.current_dir(&project_dir);
+    }
+
+    // Add the compose subcommand (verb + flags from `command`)
+    // Only validate non-exec/run parts for forbidden chars
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    cmd.arg(verb);
+
+    // Add any flags/args that were part of the `command` string (e.g. "-d" in "up -d")
+    for part in &parts[1..] {
+        if contains_forbidden_chars(part) {
+            anyhow::bail!("Forbidden characters in command argument: '{}'", part);
+        }
+        cmd.arg(part);
+    }
+
+    // For exec and run: add service + args (unrestricted — they run inside the container)
+    // std::process::Command passes args directly to the child process via execve,
+    // so there is NO shell interpretation regardless of special characters.
+    if verb == "exec" || verb == "run" {
+        if service_name.is_empty() {
+            anyhow::bail!("'service' is required for '{}' command", verb);
+        }
+        cmd.arg(service_name);
+
+        // Args run inside the container — no character restrictions.
+        // std::process::Command passes them directly via execve, no shell involved.
+        if !exec_args.is_empty() {
+            // Split the exec args so each word is a separate argv element.
+            // This mirrors how `docker compose exec` expects them: as separate
+            // arguments, not a single quoted string. Each element is passed
+            // directly to execve inside the container.
+            for arg in exec_args.split_whitespace() {
+                cmd.arg(arg);
+            }
+        }
     }
 
     let timeout_secs = if command.starts_with("build") { 600u64 } else { 300u64 };
@@ -145,9 +184,12 @@ async fn main() -> Result<()> {
         def: McpToolDef {
             name: "docker_compose".to_string(),
             description:
-                "Run docker compose commands (up, down, ps, logs, exec, build, restart, stop). \
-                 Use 'project_dir' to set the directory containing docker-compose.yml. \
-                 Use 'command' for the compose subcommand and arguments (e.g. 'up -d', 'ps', 'logs --tail=50')."
+                "Run docker compose commands. \
+                 Use 'project_dir' for the directory with docker-compose.yml. \
+                 Use 'command' for the compose verb + flags (e.g. 'up -d', 'ps', 'logs --tail=50'). \
+                 For exec/run: use 'service' (container name) and 'args' (command to run inside container). \
+                 Args for exec/run have NO character restrictions — they run inside the container via Docker, \
+                 not through a shell. Multiple commands work (e.g. args='sh -c \"cargo build && cargo test\"')."
                     .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -158,7 +200,15 @@ async fn main() -> Result<()> {
                     },
                     "command": {
                         "type": "string",
-                        "description": "Docker compose command and arguments (e.g. 'up -d', 'ps', 'logs --tail=50')"
+                        "description": "Compose subcommand and flags (e.g. 'up -d', 'ps', 'build', 'logs --tail=50')"
+                    },
+                    "service": {
+                        "type": "string",
+                        "description": "Service/container name (required for exec and run commands)"
+                    },
+                    "args": {
+                        "type": "string",
+                        "description": "Command to run inside the container (for exec/run). NO character restrictions — runs via Docker exec, not a shell. Examples: 'cargo build', 'npm test', 'sh -c \"cmd1 && cmd2\"'"
                     }
                 },
                 "required": ["project_dir", "command"]

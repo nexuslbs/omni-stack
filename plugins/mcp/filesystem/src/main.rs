@@ -40,13 +40,18 @@ fn truncate_content(content: &str, max_chars: usize) -> String {
 /// Wrap a handler so any Err(e) becomes Ok((error_msg, true)).
 /// This prevents access-denied and file-not-found errors from
 /// triggering the circuit breaker on the MCP client side.
-fn soft_error<F>(handler: F) -> Box<dyn Fn(&Value) -> Result<(String, bool)> + Send + Sync>
+fn soft_error<F>(handler: F) -> AsyncToolHandler
 where
-    F: Fn(&Value) -> Result<(String, bool)> + Send + Sync + 'static,
+    F: Fn(Value) -> Result<(String, bool)> + Clone + Send + Sync + 'static,
 {
-    Box::new(move |args: &Value| match handler(args) {
-        Ok((text, is_error)) => Ok((text, is_error)),
-        Err(e) => Ok((format!("{}", e), true)),
+    Box::new(move |args: Value| {
+        let h = handler.clone();
+        Box::pin(async move {
+            match h(args) {
+                Ok((text, is_error)) => Ok((text, is_error)),
+                Err(e) => Ok((format!("{}", e), true)),
+            }
+        })
     })
 }
 
@@ -66,7 +71,7 @@ fn format_size(size: u64) -> String {
 // Tool: filesystem_read
 // ---------------------------------------------------------------------------
 
-fn handle_read(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
+fn handle_read(args: Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
     let path = args["path"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing 'path' argument"))?;
@@ -80,7 +85,7 @@ fn handle_read(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(Str
 // Tool: filesystem_write
 // ---------------------------------------------------------------------------
 
-fn handle_write(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
+fn handle_write(args: Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
     let path = args["path"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing 'path' argument"))?;
@@ -114,7 +119,7 @@ fn handle_write(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(St
 // Tool: filesystem_list
 // ---------------------------------------------------------------------------
 
-fn handle_list(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
+fn handle_list(args: Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
     let path = args["path"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing 'path' argument"))?;
@@ -153,7 +158,7 @@ fn handle_list(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(Str
 // Tool: filesystem_search
 // ---------------------------------------------------------------------------
 
-fn handle_search(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
+fn handle_search(args: Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
     let pattern = args["pattern"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing 'pattern' argument"))?;
@@ -187,7 +192,7 @@ fn handle_search(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(S
 // Tool: filesystem_info
 // ---------------------------------------------------------------------------
 
-fn handle_info(args: &Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
+fn handle_info(args: Value, data_dir: &str, workspace_dir: &str) -> Result<(String, bool)> {
     let path = args["path"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing 'path' argument"))?;
@@ -238,23 +243,23 @@ async fn main() -> Result<()> {
 
     let d1 = data_dir.clone();
     let w1 = workspace_dir.clone();
-    let read_handler = soft_error(move |args: &Value| handle_read(args, &d1, &w1));
+    let read_handler = soft_error(move |args: Value| handle_read(args, &d1, &w1));
 
     let d2 = data_dir.clone();
     let w2 = workspace_dir.clone();
-    let write_handler = soft_error(move |args: &Value| handle_write(args, &d2, &w2));
+    let write_handler = soft_error(move |args: Value| handle_write(args, &d2, &w2));
 
     let d3 = data_dir.clone();
     let w3 = workspace_dir.clone();
-    let list_handler = soft_error(move |args: &Value| handle_list(args, &d3, &w3));
+    let list_handler = soft_error(move |args: Value| handle_list(args, &d3, &w3));
 
     let d4 = data_dir.clone();
     let w4 = workspace_dir.clone();
-    let search_handler = soft_error(move |args: &Value| handle_search(args, &d4, &w4));
+    let search_handler = soft_error(move |args: Value| handle_search(args, &d4, &w4));
 
     let d5 = data_dir;
     let w5 = workspace_dir;
-    let info_handler = soft_error(move |args: &Value| handle_info(args, &d5, &w5));
+    let info_handler = soft_error(move |args: Value| handle_info(args, &d5, &w5));
 
     let tools = vec![
         McpToolEntry {

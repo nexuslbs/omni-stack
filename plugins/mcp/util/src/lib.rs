@@ -6,12 +6,23 @@
 //! 1. Defines its tools in `handle_tools_list()`
 //! 2. Dispatches tool calls via `handle_tools_call()`
 //! 3. Calls `run_server(server_info, handlers)` to start the loop
+//!
+//! ## Concurrency model
+//!
+//! Tools/call requests are dispatched to independent tokio tasks so that
+//! long-running tools (e.g. docker compose) do not block other requests.
+//! Responses are multiplexed over the single stdout stream using the
+//! JSON-RPC request id — the MCP client matches responses to requests.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::Mutex;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -130,223 +141,20 @@ pub enum ToolContent {
 }
 
 // ---------------------------------------------------------------------------
-// Server info
+// Async handler type
 // ---------------------------------------------------------------------------
 
-/// Server identity.
-#[derive(Debug, Clone)]
-pub struct ServerInfo {
-    pub name: String,
-    pub version: String,
-}
+/// Async handler function type — receives owned tool arguments,
+/// returns result text + error flag as a future.
+pub type AsyncToolHandler =
+    Box<dyn Fn(Value) -> Pin<Box<dyn Future<Output = Result<(String, bool)>> + Send>>
+        + Send
+        + Sync>;
 
-/// Handler function type — receives tool arguments, returns result text + error flag.
-pub type ToolHandler = Box<dyn Fn(&Value) -> Result<(String, bool)> + Send + Sync>;
-
-/// A registered tool definition + handler.
+/// A registered tool definition + async handler.
 pub struct McpToolEntry {
     pub def: McpToolDef,
-    pub handler: ToolHandler,
-}
-
-// ---------------------------------------------------------------------------
-// Server loop
-// ---------------------------------------------------------------------------
-
-/// Run the MCP stdio event loop.
-///
-/// `server_info`: identity reported in initialize response.
-/// `tools`: list of (tool_def, handler) pairs.
-pub async fn run_server(
-    server_info: ServerInfo,
-    tools: Vec<McpToolEntry>,
-) -> Result<()> {
-    // Initialize tracing — log to stderr
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("info").into()),
-        )
-        .with_writer(std::io::stderr)
-        .try_init();
-
-    tracing::info!("{} MCP server starting", server_info.name);
-
-    let index: HashMap<String, &McpToolEntry> =
-        tools.iter().map(|t| (t.def.name.clone(), t)).collect();
-
-    let stdin = tokio::io::stdin();
-    let reader = BufReader::new(stdin);
-    let mut lines = reader.lines();
-
-    let stdout = tokio::io::stdout();
-    let mut writer = tokio::io::BufWriter::new(stdout);
-
-    let mut initialized = false;
-
-    while let Some(line) = lines.next_line().await? {
-        let line = line.trim().to_string();
-        if line.is_empty() {
-            continue;
-        }
-
-        let request: JsonRpcRequest = match serde_json::from_str(&line) {
-            Ok(req) => req,
-            Err(e) => {
-                tracing::error!("Failed to parse JSON-RPC: {e}");
-                continue;
-            }
-        };
-
-        let req_id = request.id;
-        let method = request.method.as_str();
-
-        match method {
-            "initialize" => {
-                if let Some(id) = req_id {
-                    handle_initialize(&mut writer, id, &server_info).await?;
-                    initialized = true;
-                }
-            }
-            "notifications/initialized" => {
-                tracing::info!("Client initialized notification received");
-            }
-            "tools/list" => {
-                if !initialized {
-                    send_error(&mut writer, req_id.unwrap_or(0), -32000, "Server not initialized").await?;
-                    continue;
-                }
-                if let Some(id) = req_id {
-                    handle_tools_list(&mut writer, id, &tools).await?;
-                }
-            }
-            "tools/call" => {
-                if !initialized {
-                    send_error(&mut writer, req_id.unwrap_or(0), -32000, "Server not initialized").await?;
-                    continue;
-                }
-                if let Some(id) = req_id {
-                    let params = request.params.unwrap_or_default();
-                    let call_params: CallToolParams =
-                        serde_json::from_value(params)
-                            .map_err(|e| anyhow::anyhow!("Invalid tools/call params: {e}"))?;
-                    handle_tools_call(&mut writer, id, &call_params, &index).await?;
-                }
-            }
-            _ => {
-                tracing::warn!("Unknown method: {method}");
-                if let Some(id) = req_id {
-                    send_error(&mut writer, id, -32601, format!("Method not found: {method}")).await?;
-                }
-            }
-        }
-    }
-
-    tracing::info!("{} MCP server shutting down (stdin closed)", server_info.name);
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Handler implementations
-// ---------------------------------------------------------------------------
-
-async fn handle_initialize<W: AsyncWriteExt + Unpin>(
-    writer: &mut tokio::io::BufWriter<W>,
-    req_id: u64,
-    server_info: &ServerInfo,
-) -> Result<()> {
-    let result = InitializeResult {
-        protocol_version: MCP_PROTOCOL_VERSION.to_string(),
-        capabilities: ServerCapabilities {
-            tools: Some(ToolCapabilities { list_changed: false }),
-        },
-        server_info: Implementation {
-            name: server_info.name.clone(),
-            version: server_info.version.clone(),
-        },
-    };
-
-    let response = JsonRpcSuccess {
-        jsonrpc: "2.0".to_string(),
-        id: req_id,
-        result: serde_json::to_value(result)?,
-    };
-
-    let json = serde_json::to_string(&response)?;
-    writer.write_all(json.as_bytes()).await?;
-    writer.write_all(b"\n").await?;
-    writer.flush().await?;
-
-    tracing::info!("Initialized: {} v{}", server_info.name, server_info.version);
-    Ok(())
-}
-
-async fn handle_tools_list<W: AsyncWriteExt + Unpin>(
-    writer: &mut tokio::io::BufWriter<W>,
-    req_id: u64,
-    tools: &[McpToolEntry],
-) -> Result<()> {
-    let defs: Vec<McpToolDef> = tools.iter().map(|t| t.def.clone()).collect();
-    let result = ListToolsResult { tools: defs };
-
-    let response = JsonRpcSuccess {
-        jsonrpc: "2.0".to_string(),
-        id: req_id,
-        result: serde_json::to_value(result)?,
-    };
-
-    let json = serde_json::to_string(&response)?;
-    writer.write_all(json.as_bytes()).await?;
-    writer.write_all(b"\n").await?;
-    writer.flush().await?;
-
-    tracing::info!("tools/list returned {} tool(s)", tools.len());
-    Ok(())
-}
-
-async fn handle_tools_call<W: AsyncWriteExt + Unpin>(
-    writer: &mut tokio::io::BufWriter<W>,
-    req_id: u64,
-    params: &CallToolParams,
-    index: &HashMap<String, &McpToolEntry>,
-) -> Result<()> {
-    tracing::info!("tools/call: name='{}'", params.name);
-
-    let entry = match index.get(&params.name) {
-        Some(e) => e,
-        None => {
-            send_error(writer, req_id, -32602, format!("Unknown tool: {}", params.name)).await?;
-            return Ok(());
-        }
-    };
-
-    let args = params.arguments.as_ref().unwrap_or(&serde_json::Value::Null);
-    let (text, is_error) = match tokio::task::block_in_place(|| (entry.handler)(args)) {
-        Ok(result) => result,
-        Err(e) => {
-            send_error(writer, req_id, -32603, format!("Handler error: {e}")).await?;
-            return Ok(());
-        }
-    };
-
-    let result = CallToolResult {
-        content: vec![ToolContent::Text { text }],
-        is_error,
-    };
-
-    let response = JsonRpcSuccess {
-        jsonrpc: "2.0".to_string(),
-        id: req_id,
-        result: serde_json::to_value(result)?,
-    };
-
-    let json = serde_json::to_string(&response)?;
-    writer.write_all(json.as_bytes()).await?;
-    writer.write_all(b"\n").await?;
-    writer.flush().await?;
-
-    tracing::info!("tools/call '{}' completed (is_error={})", params.name, is_error);
-    Ok(())
+    pub handler: AsyncToolHandler,
 }
 
 // ---------------------------------------------------------------------------
@@ -374,4 +182,279 @@ async fn send_error<W: AsyncWriteExt + Unpin>(
     writer.write_all(b"\n").await?;
     writer.flush().await?;
     Ok(())
+}
+
+/// Shared writer so multiple tokio tasks can write to stdout safely.
+type SharedWriter = Arc<Mutex<tokio::io::BufWriter<tokio::io::Stdout>>>;
+
+fn make_writer() -> SharedWriter {
+    Arc::new(Mutex::new(tokio::io::BufWriter::new(tokio::io::stdout())))
+}
+
+async fn send_success(writer: &SharedWriter, req_id: u64, result: Value) -> Result<()> {
+    let response = JsonRpcSuccess {
+        jsonrpc: "2.0".to_string(),
+        id: req_id,
+        result,
+    };
+    let json = serde_json::to_string(&response)?;
+    let mut w = writer.lock().await;
+    w.write_all(json.as_bytes()).await?;
+    w.write_all(b"\n").await?;
+    w.flush().await?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Server loop
+// ---------------------------------------------------------------------------
+
+/// Run the MCP stdio event loop with concurrent tool execution.
+///
+/// `server_info`: identity reported in initialize response.
+/// `tools`: list of (tool_def, handler) pairs.
+///
+/// Tools/call requests are dispatched to independent tokio tasks so that
+/// long-running tools do not block other requests.
+pub async fn run_server(
+    server_info: ServerInfo,
+    tools: Vec<McpToolEntry>,
+) -> Result<()> {
+    // Initialize tracing — log to stderr
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| format!("info").into()),
+        )
+        .with_writer(std::io::stderr)
+        .try_init();
+
+    tracing::info!("{} MCP server starting", server_info.name);
+
+    let index: Arc<HashMap<String, McpToolEntry>> =
+        Arc::new(tools.into_iter().map(|t| (t.def.name.clone(), t)).collect());
+
+    let stdin = tokio::io::stdin();
+    let reader = BufReader::new(stdin);
+    let mut lines = reader.lines();
+
+    let writer = make_writer();
+    let mut initialized = false;
+
+    while let Some(line) = lines.next_line().await? {
+        let line = line.trim().to_string();
+        if line.is_empty() {
+            continue;
+        }
+
+        let request: JsonRpcRequest = match serde_json::from_str(&line) {
+            Ok(req) => req,
+            Err(e) => {
+                tracing::error!("Failed to parse JSON-RPC: {e}");
+                continue;
+            }
+        };
+
+        let req_id = request.id;
+        let method = request.method.as_str();
+
+        match method {
+            "initialize" => {
+                if let Some(id) = req_id {
+                    handle_initialize(&writer, id, &server_info).await?;
+                    initialized = true;
+                }
+            }
+            "notifications/initialized" => {
+                tracing::info!("Client initialized notification received");
+            }
+            "tools/list" => {
+                if !initialized {
+                    send_error(
+                        &mut *writer.lock().await,
+                        req_id.unwrap_or(0),
+                        -32000,
+                        "Server not initialized",
+                    )
+                    .await?;
+                    continue;
+                }
+                if let Some(id) = req_id {
+                    handle_tools_list(&writer, id, &index).await?;
+                }
+            }
+            "tools/call" => {
+                if !initialized {
+                    send_error(
+                        &mut *writer.lock().await,
+                        req_id.unwrap_or(0),
+                        -32000,
+                        "Server not initialized",
+                    )
+                    .await?;
+                    continue;
+                }
+                if let Some(id) = req_id {
+                    let params = request.params.unwrap_or_default();
+                    let call_params: CallToolParams =
+                        match serde_json::from_value(params) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                send_error(
+                                    &mut *writer.lock().await,
+                                    id,
+                                    -32602,
+                                    format!("Invalid tools/call params: {e}"),
+                                )
+                                .await?;
+                                continue;
+                            }
+                        };
+
+                    let index_clone = index.clone();
+                    let writer_clone = writer.clone();
+
+                    // Spawn each tool call as an independent task so
+                    // long-running tools don't block other requests.
+                    tokio::spawn(async move {
+                        if let Err(e) = handle_tools_call_concurrent(
+                            &writer_clone,
+                            id,
+                            &call_params,
+                            &index_clone,
+                        )
+                        .await
+                        {
+                            tracing::error!(
+                                "tools/call '{}' failed: {e}",
+                                call_params.name
+                            );
+                        }
+                    });
+                }
+            }
+            _ => {
+                tracing::warn!("Unknown method: {method}");
+                if let Some(id) = req_id {
+                    send_error(
+                        &mut *writer.lock().await,
+                        id,
+                        -32601,
+                        format!("Method not found: {method}"),
+                    )
+                    .await?;
+                }
+            }
+        }
+    }
+
+    tracing::info!(
+        "{} MCP server shutting down (stdin closed)",
+        server_info.name
+    );
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Initial handler implementations (synchronous, writer is Arc<Mutex<>>)
+// ---------------------------------------------------------------------------
+
+async fn handle_initialize(
+    writer: &SharedWriter,
+    req_id: u64,
+    server_info: &ServerInfo,
+) -> Result<()> {
+    let result = InitializeResult {
+        protocol_version: MCP_PROTOCOL_VERSION.to_string(),
+        capabilities: ServerCapabilities {
+            tools: Some(ToolCapabilities { list_changed: false }),
+        },
+        server_info: Implementation {
+            name: server_info.name.clone(),
+            version: server_info.version.clone(),
+        },
+    };
+    send_success(writer, req_id, serde_json::to_value(result)?).await?;
+    tracing::info!("Initialized: {} v{}", server_info.name, server_info.version);
+    Ok(())
+}
+
+async fn handle_tools_list(
+    writer: &SharedWriter,
+    req_id: u64,
+    index: &Arc<HashMap<String, McpToolEntry>>,
+) -> Result<()> {
+    let defs: Vec<McpToolDef> =
+        index.values().map(|t| t.def.clone()).collect();
+    let result = ListToolsResult { tools: defs };
+    send_success(writer, req_id, serde_json::to_value(result)?).await?;
+    tracing::info!("tools/list returned {} tool(s)", index.len());
+    Ok(())
+}
+
+/// Run a single tool call handler asynchronously and write the response.
+async fn handle_tools_call_concurrent(
+    writer: &SharedWriter,
+    req_id: u64,
+    params: &CallToolParams,
+    index: &Arc<HashMap<String, McpToolEntry>>,
+) -> Result<()> {
+    tracing::info!("tools/call: name='{}'", params.name);
+
+    let entry = match index.get(&params.name) {
+        Some(e) => e,
+        None => {
+            send_error(
+                &mut *writer.lock().await,
+                req_id,
+                -32602,
+                format!("Unknown tool: {}", params.name),
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+
+    let args = params
+        .arguments
+        .clone()
+        .unwrap_or(serde_json::Value::Null);
+
+    let (text, is_error) = match (entry.handler)(args).await {
+        Ok(result) => result,
+        Err(e) => {
+            send_error(
+                &mut *writer.lock().await,
+                req_id,
+                -32603,
+                format!("Handler error: {e}"),
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+
+    let result = CallToolResult {
+        content: vec![ToolContent::Text { text }],
+        is_error,
+    };
+
+    send_success(writer, req_id, serde_json::to_value(result)?).await?;
+    tracing::info!(
+        "tools/call '{}' completed (is_error={})",
+        params.name,
+        is_error
+    );
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Server info
+// ---------------------------------------------------------------------------
+
+/// Server identity.
+#[derive(Debug, Clone)]
+pub struct ServerInfo {
+    pub name: String,
+    pub version: String,
 }

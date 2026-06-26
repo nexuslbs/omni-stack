@@ -5,7 +5,7 @@
       "transport": "stdio",
       "command": "/app/target/release/mcp-server-docker-compose",
       "args": [],
-      "timeout_secs": 310,
+      "timeout_secs": 910,
       "max_retries": 1,
       "allowed_tools": [
         "*"

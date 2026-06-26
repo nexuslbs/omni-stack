@@ -11,7 +11,7 @@ use serde_json::Value;
 // Tool: fetch
 // ---------------------------------------------------------------------------
 
-fn handle_fetch(args: &Value) -> Result<(String, bool)> {
+fn handle_fetch(args: Value) -> Result<(String, bool)> {
     let url = args["url"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing required argument: 'url'"))?;
@@ -51,7 +51,9 @@ fn handle_fetch(args: &Value) -> Result<(String, bool)> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let fetch_handler: ToolHandler = Box::new(|args: &Value| handle_fetch(args));
+    let fetch_handler: AsyncToolHandler = Box::new(|args: Value| {
+        Box::pin(async move { handle_fetch(args) })
+    });
 
     let tools = vec![McpToolEntry {
         def: McpToolDef {

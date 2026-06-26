@@ -248,7 +248,7 @@ fn run_git(args: &[&str], cwd: Option<&str>, timeout_secs: u64) -> (String, Stri
 // ── Tool Handlers ───────────────────────────────────────────────────────────
 
 /// `create_github_repo` — create a repository under nexuslbs org.
-fn handle_create_github_repo(args: &Value) -> Result<(String, bool)> {
+fn handle_create_github_repo(args: Value) -> Result<(String, bool)> {
     let repo_name = args["name"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing required parameter: name"))?
@@ -324,7 +324,7 @@ fn handle_create_github_repo(args: &Value) -> Result<(String, bool)> {
 }
 
 /// `clone_repo` — clone a git repository to local filesystem.
-fn handle_clone_repo(args: &Value) -> Result<(String, bool)> {
+fn handle_clone_repo(args: Value) -> Result<(String, bool)> {
     let url = args["url"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing required parameter: url"))?
@@ -386,7 +386,7 @@ fn handle_clone_repo(args: &Value) -> Result<(String, bool)> {
 }
 
 /// `commit_and_push` — stage, commit, and push changes.
-fn handle_commit_and_push(args: &Value) -> Result<(String, bool)> {
+fn handle_commit_and_push(args: Value) -> Result<(String, bool)> {
     let repo_dir = args["repo_dir"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing required parameter: repo_dir"))?
@@ -512,7 +512,7 @@ fn handle_commit_and_push(args: &Value) -> Result<(String, bool)> {
 }
 
 /// `status` — get git status of a repository.
-fn handle_status(args: &Value) -> Result<(String, bool)> {
+fn handle_status(args: Value) -> Result<(String, bool)> {
     let repo_dir = args["repo_dir"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Missing required parameter: repo_dir"))?
@@ -577,7 +577,7 @@ async fn main() -> Result<()> {
                     "required": ["name"]
                 }),
             },
-            handler: Box::new(handle_create_github_repo),
+            handler: Box::new(|args: Value| Box::pin(async move { handle_create_github_repo(args) })),
         },
         McpToolEntry {
             def: McpToolDef {
@@ -602,7 +602,7 @@ async fn main() -> Result<()> {
                     "required": ["url"]
                 }),
             },
-            handler: Box::new(handle_clone_repo),
+            handler: Box::new(|args: Value| Box::pin(async move { handle_clone_repo(args) })),
         },
         McpToolEntry {
             def: McpToolDef {
@@ -633,7 +633,7 @@ async fn main() -> Result<()> {
                     "required": ["repo_dir", "message"]
                 }),
             },
-            handler: Box::new(handle_commit_and_push),
+            handler: Box::new(|args: Value| Box::pin(async move { handle_commit_and_push(args) })),
         },
         McpToolEntry {
             def: McpToolDef {
@@ -651,7 +651,7 @@ async fn main() -> Result<()> {
                     "required": ["repo_dir"]
                 }),
             },
-            handler: Box::new(handle_status),
+            handler: Box::new(|args: Value| Box::pin(async move { handle_status(args) })),
         },
     ];
 

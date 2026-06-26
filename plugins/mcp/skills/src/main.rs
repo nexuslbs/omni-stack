@@ -13,7 +13,7 @@ use std::path::Path;
 // Tool: create_skill
 // ---------------------------------------------------------------------------
 
-fn handle_create_skill(args: &Value) -> Result<(String, bool)> {
+fn handle_create_skill(args: Value) -> Result<(String, bool)> {
     let data_dir = std::env::var("OMNI_DATA_DIR")
         .unwrap_or_else(|_| "/opt/data".to_string());
 
@@ -84,7 +84,9 @@ fn handle_create_skill(args: &Value) -> Result<(String, bool)> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let create_skill_handler: ToolHandler = Box::new(|args: &Value| handle_create_skill(args));
+    let create_skill_handler: AsyncToolHandler = Box::new(|args: Value| {
+        Box::pin(async move { handle_create_skill(args) })
+    });
 
     let tools = vec![McpToolEntry {
         def: McpToolDef {

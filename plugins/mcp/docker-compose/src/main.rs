@@ -2,12 +2,16 @@
 //! Communicates via stdio JSON-RPC (MCP protocol).
 //!
 //! Tools: docker_compose
+//!
+//! **Concurrency**: Each tool call runs in its own tokio task, so long-running
+//! compose commands (up, exec, run) do not block other concurrent tool calls.
 
 use anyhow::Result;
 use mcp_server_util::*;
 use serde_json::Value;
 use std::path::Path;
 use std::time::Duration;
+use tokio::process::Command;
 
 /// Allowed compose subcommands. Everything else will be rejected.
 const ALLOWED_VERBS: &[&str] = &[
@@ -16,6 +20,16 @@ const ALLOWED_VERBS: &[&str] = &[
 
 /// Characters forbidden in non-exec/run arguments (compose verb, service name, flags).
 const FORBIDDEN_CHARS: &[char] = &['|', ';', '&', '`', '$', '>', '<', '?', '[', ']', '{', '}', '!', '~'];
+
+/// Default timeouts per command verb (seconds).
+fn default_timeout(verb: &str) -> u64 {
+    match verb {
+        "build" | "pull" => 600,
+        "up" | "restart" => 900,
+        "exec" | "run" => 900,
+        _ => 300, // ps, logs, down, stop
+    }
+}
 
 /// Validate that a string contains no forbidden shell-metacharacters.
 fn contains_forbidden_chars(s: &str) -> bool {
@@ -46,11 +60,59 @@ fn validate_workspace_path(project_dir: &str, workspace_dir: &str) -> Result<()>
     Ok(())
 }
 
+/// Build a tokio::process::Command for `docker compose`.
+fn build_compose_command(
+    command: &str,
+    project_dir: &str,
+    service_name: &str,
+    exec_args: &str,
+) -> Result<Command> {
+    let verb = command.split_whitespace().next().unwrap_or("");
+    if verb.is_empty() || !ALLOWED_VERBS.contains(&verb) {
+        anyhow::bail!(
+            "Unrecognized compose command '{}'. Allowed: {}",
+            verb,
+            ALLOWED_VERBS.join(", ")
+        );
+    }
+
+    let mut cmd = Command::new("docker");
+    cmd.arg("compose");
+
+    if !project_dir.is_empty() {
+        cmd.current_dir(&project_dir);
+    }
+
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    cmd.arg(verb);
+
+    for part in &parts[1..] {
+        if contains_forbidden_chars(part) {
+            anyhow::bail!("Forbidden characters in command argument: '{}'", part);
+        }
+        cmd.arg(part);
+    }
+
+    if verb == "exec" || verb == "run" {
+        if service_name.is_empty() {
+            anyhow::bail!("'service' is required for '{}' command", verb);
+        }
+        cmd.arg(service_name);
+        if !exec_args.is_empty() {
+            for arg in exec_args.split_whitespace() {
+                cmd.arg(arg);
+            }
+        }
+    }
+
+    Ok(cmd)
+}
+
 // ---------------------------------------------------------------------------
-// Tool: docker_compose
+// Tool: docker_compose (async handler)
 // ---------------------------------------------------------------------------
 
-fn handle_compose(args: &Value) -> Result<(String, bool)> {
+async fn handle_compose(args: Value) -> Result<(String, bool)> {
     let workspace_dir = std::env::var("WORKSPACE_DIR")
         .unwrap_or_else(|_| "/opt/workspace".to_string());
 
@@ -63,6 +125,12 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
     let service_name = args["service"].as_str().unwrap_or("");
     let exec_args = args["args"].as_str().unwrap_or("");
 
+    // Optional per-command timeout override (seconds).
+    // When omitted, the default for the verb is used.
+    let timeout_override = args["timeout"]
+        .as_u64()
+        .or_else(|| args["timeout"].as_str().and_then(|s| s.parse().ok()));
+
     // Validate project_dir
     if contains_forbidden_chars(&project_dir) {
         anyhow::bail!("Forbidden characters in project_dir argument");
@@ -71,8 +139,10 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
         validate_workspace_path(&project_dir, &workspace_dir)?;
     }
 
-    // Validate the compose verb is in the allowed list
     let verb = command.split_whitespace().next().unwrap_or("");
+    let timeout_secs = timeout_override.unwrap_or_else(|| default_timeout(verb));
+
+    // Validate the verb is allowed (build_compose_command will also check)
     if verb.is_empty() || !ALLOWED_VERBS.contains(&verb) {
         anyhow::bail!(
             "Unrecognized compose command '{}'. Allowed: {}",
@@ -81,59 +151,12 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
         );
     }
 
-    // Build the docker compose command
-    let mut cmd = std::process::Command::new("docker");
-    cmd.arg("compose");
+    let mut cmd = build_compose_command(&command, &project_dir, service_name, exec_args)?;
 
-    if !project_dir.is_empty() {
-        cmd.current_dir(&project_dir);
-    }
+    // Run the command with tokio::timeout — non-blocking, no thread pool needed.
+    let result = tokio::time::timeout(Duration::from_secs(timeout_secs), cmd.output()).await;
 
-    // Add the compose subcommand (verb + flags from `command`)
-    // Only validate non-exec/run parts for forbidden chars
-    let parts: Vec<&str> = command.split_whitespace().collect();
-    cmd.arg(verb);
-
-    // Add any flags/args that were part of the `command` string (e.g. "-d" in "up -d")
-    for part in &parts[1..] {
-        if contains_forbidden_chars(part) {
-            anyhow::bail!("Forbidden characters in command argument: '{}'", part);
-        }
-        cmd.arg(part);
-    }
-
-    // For exec and run: add service + args (unrestricted — they run inside the container)
-    // std::process::Command passes args directly to the child process via execve,
-    // so there is NO shell interpretation regardless of special characters.
-    if verb == "exec" || verb == "run" {
-        if service_name.is_empty() {
-            anyhow::bail!("'service' is required for '{}' command", verb);
-        }
-        cmd.arg(service_name);
-
-        // Args run inside the container — no character restrictions.
-        // std::process::Command passes them directly via execve, no shell involved.
-        if !exec_args.is_empty() {
-            // Split the exec args so each word is a separate argv element.
-            // This mirrors how `docker compose exec` expects them: as separate
-            // arguments, not a single quoted string. Each element is passed
-            // directly to execve inside the container.
-            for arg in exec_args.split_whitespace() {
-                cmd.arg(arg);
-            }
-        }
-    }
-
-    let timeout_secs = if command.starts_with("build") { 600u64 } else { 300u64 };
-
-    // Use std::process::Command + mpsc for timeout
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let result = cmd.output();
-        let _ = tx.send(result);
-    });
-
-    match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
+    match result {
         Ok(Ok(output)) => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -151,7 +174,6 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
             let content = if stdout.is_empty() {
                 format!("docker compose {}: ok", command)
             } else {
-                // Truncate
                 let max_chars: usize = 50_000;
                 if stdout.len() > max_chars {
                     format!(
@@ -168,7 +190,13 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
             Ok((content, false))
         }
         Ok(Err(e)) => Ok((format!("docker command failed: {}", e), true)),
-        Err(_) => Ok((format!("docker command timed out after {}s", timeout_secs), true)),
+        Err(_elapsed) => Ok((
+            format!(
+                "docker compose command timed out after {}s (use 'timeout' param to override)",
+                timeout_secs
+            ),
+            true,
+        )),
     }
 }
 
@@ -178,8 +206,6 @@ fn handle_compose(args: &Value) -> Result<(String, bool)> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let compose_handler: ToolHandler = Box::new(|args: &Value| handle_compose(args));
-
     let tools = vec![McpToolEntry {
         def: McpToolDef {
             name: "docker_compose".to_string(),
@@ -189,7 +215,8 @@ async fn main() -> Result<()> {
                  Use 'command' for the compose verb + flags (e.g. 'up -d', 'ps', 'logs --tail=50'). \
                  For exec/run: use 'service' (container name) and 'args' (command to run inside container). \
                  Args for exec/run have NO character restrictions — they run inside the container via Docker, \
-                 not through a shell. Multiple commands work (e.g. args='sh -c \"cargo build && cargo test\"')."
+                 not through a shell. Multiple commands work (e.g. args='sh -c \"cargo build && cargo test\"'). \
+                 Optional 'timeout' parameter overrides the default timeout for long-running commands (e.g. migrations)."
                     .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -209,12 +236,18 @@ async fn main() -> Result<()> {
                     "args": {
                         "type": "string",
                         "description": "Command to run inside the container (for exec/run). NO character restrictions — runs via Docker exec, not a shell. Examples: 'cargo build', 'npm test', 'sh -c \"cmd1 && cmd2\"'"
+                    },
+                    "timeout": {
+                        "type": "number",
+                        "description": "Optional — override default timeout in seconds. Defaults: build/pull=600, up/restart/exec/run=900, ps/logs/down/stop=300"
                     }
                 },
                 "required": ["project_dir", "command"]
             }),
         },
-        handler: compose_handler,
+        handler: Box::new(|args: Value| {
+            Box::pin(async move { handle_compose(args).await })
+        }),
     }];
 
     let server_info = ServerInfo {

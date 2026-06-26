@@ -335,3 +335,46 @@ Test matrix:
 | `/opt/workspace/omniagent/src/prompt_builder.rs` | Template-aware prompt building |
 | `/opt/workspace/omni-stack/profiles/default/templates/build-blog.md` | Tool constraints in template |
 | `/opt/workspace/omni-stack/profiles/default/skills/workspace-development.md` | Tool constraints in skill |
+
+---
+
+## Debug Log — Experiment Results (June 26, 2026)
+
+### Attempt 1: kanban task auto_subtasks, CONDENSE_KEEP_TURNS=0
+
+**Settings:**
+- MAX_ITERATIONS_COMPLEX_PLAN=10 (from .env) → agent hit iteration cap
+- PLANNING_MODE=auto_subtasks (kanban got auto_subtasks via channel override + resolve_max_plan)
+- CONDENSE_KEEP_TURNS=0 → ALL tool results compacted after 1 turn
+- STATE_BLOCK_UPDATE_INTERVAL=1 → condensation check every turn
+- channel test-cli planning_mode=auto_subtasks
+
+**Result:** Agent created 6 subtasks but then fell into filesystem_list("/opt/workspace/blog") loop — called it 10+ times without writing any files.
+
+**Root cause of loop:** CONDENSE_KEEP_TURNS=0 means all tool results are stripped on the next LLM call. The agent "forgets" it already listed the directory and lists again. The compressed metadata block doesn't convey "you already listed this" effectively.
+
+**Fixes applied:**
+1. MAX_ITERATIONS_COMPLEX_PLAN removed from .env — defaults to code default (600)
+2. Removed MAX_ITERATIONS_COMPLEX_PLAN from /opt/data/.env (Hermes env) — was 60
+3. CONDENSE_KEEP_TURNS=0 → 2 (keep last 2 full tool→result cycles)
+4. STATE_BLOCK_UPDATE_INTERVAL=1 → 3 (check every 3 turns, less aggressive)
+5. channel test-cli planning_mode='' (cleared — kanban uses global resolve_max_plan)
+6. PLANNING_MODE set to auto_plan (via settings API, persisted in .env)
+7. Removed legacy omniagent/.env file (compose is in omni-stack)
+
+### Settings verification (after fixes):
+- MAX_ITERATIONS_NO_PLAN: 30 (code default)
+- MAX_ITERATIONS_SIMPLE_PLAN: 120 (code default)
+- MAX_ITERATIONS_COMPLEX_PLAN: 600 (code default, no env override)
+- PLANNING_MODE: auto_plan
+
+### Env file situation (important!)
+There are TWO .env files:
+1. `/opt/workspace/omni-stack/.env` — read by docker compose `env_file: .env` at container start. Has CONDENSE_KEEP_TURNS, STATE_BLOCK_UPDATE_INTERVAL, PLANNING_MODE
+2. `/opt/data/.env` (Hermes env) — mounted as `/opt/data/.env` IN the container, OVERRIDES the stack's .env. The settings API reads/writes THIS file.
+
+The settings API writes to Hermes .env + calls set_var(). But when container restarts, compose loads the STACK .env, NOT the Hermes .env. So settings changes only survive restart if also in the stack .env.
+
+**Fix applied:** Added PLANNING_MODE=auto_plan to both files via settings API (writes Hermes) and direct edit (stack .env).
+
+### Attempt 2: pending — kanban task with auto_plan, CONDENSE_KEEP_TURNS=2

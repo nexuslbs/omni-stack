@@ -188,6 +188,16 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
     }
 
     let mut cmd = build_compose_command(&command, &project_dir, service_name, exec_args, raw_script)?;
+    let cmd_repr = format!("{:?}", cmd);
+
+    // Truncated command display for error messages (max 1000 chars to avoid
+    // bloating LLM context with huge inline scripts in exec_args).
+    const CMD_DISPLAY_MAX: usize = 1000;
+    let cmd_display = if cmd_repr.len() > CMD_DISPLAY_MAX {
+        format!("{}... [truncated from {} chars]", &cmd_repr[..CMD_DISPLAY_MAX], cmd_repr.len())
+    } else {
+        cmd_repr.clone()
+    };
 
     // If script is provided, pipe it via stdin
     if verb == "exec" && !raw_script.is_empty() {
@@ -211,9 +221,9 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
 
         if rc != 0 {
             let msg = if stderr.is_empty() {
-                format!("docker compose command failed (exit {}):\n{}", rc, stdout)
+                format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stdout, cmd_display)
             } else {
-                format!("docker compose command failed (exit {}):\n{}", rc, stderr)
+                format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stderr, cmd_display)
             };
             return Ok((msg, true));
         }
@@ -247,9 +257,9 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
 
             if rc != 0 {
                 let msg = if stderr.is_empty() {
-                    format!("docker compose command failed (exit {}):\n{}", rc, stdout)
+                    format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stdout, cmd_display)
                 } else {
-                    format!("docker compose command failed (exit {}):\n{}", rc, stderr)
+                    format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stderr, cmd_display)
                 };
                 return Ok((msg, true));
             }
@@ -272,11 +282,11 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
 
             Ok((content, false))
         }
-        Ok(Err(e)) => Ok((format!("docker command failed: {}", e), true)),
+        Ok(Err(e)) => Ok((format!("docker command failed: {}\n\nCommand:\n{}", e, cmd_display), true)),
         Err(_elapsed) => Ok((
             format!(
-                "docker compose command timed out after {}s (use 'timeout' param to override)",
-                timeout_secs
+                "docker compose command timed out after {}s (use 'timeout' param to override)\n\nCommand:\n{}",
+                timeout_secs, cmd_display,
             ),
             true,
         )),

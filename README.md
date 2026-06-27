@@ -906,3 +906,9 @@ WHERE t.channel_id = <ch_id> ORDER BY t.id;"
 curl http://localhost:8080/stop/<channel_id>
 curl http://localhost:8080/resume/<channel_id>"
 ```
+
+## TODO
+
+- [ ] **Multi-stage Dockerfile** — Builder → Runtime to reduce final image size (remove Rust toolchain from production image)
+- [ ] **Integration tests** — Spin up Postgres + Qdrant, run migrations, exercise full request-response cycle
+- [ ] **Database migration versioning** — Add migration history table to track which migrations have run and when

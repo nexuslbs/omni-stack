@@ -1,15 +1,15 @@
 tools:
   # ── Built-in action tools (compiled into omniagent binary) ──
-  actions_kanban_dispatcher:
+  kanban_dispatcher:
     builtin: true
     enabled: true
-  actions_relevance_indexer:
+  relevance_indexer:
     builtin: true
     enabled: true
-  actions_hindsight_populator:
+  hindsight_populator:
     builtin: true
     enabled: true
-  actions_setup_knowledge_pipeline:
+  setup_knowledge_pipeline:
     builtin: true
     enabled: true
 
@@ -53,6 +53,10 @@ tools:
   subtasks:
     builtin: true
     enabled: true
+
+  # ── Hindsight memory server — recall, retain, reflect ──
+  hindsight:
+    enabled: false
 
   # ── Test tools (for development and testing) ──
   test-python-tool:

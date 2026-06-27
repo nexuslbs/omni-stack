@@ -7,21 +7,25 @@ actions:
       thread_id: 2
   builtin_hindsight_populator:
     enabled: true
-    tool_name: actions_hindsight_populator
+    tool_name: hindsight_populator
     params: {}
     description: Populate hindsight memory from recent messages
+    is_builtin: true
   builtin_kanban_dispatcher:
     enabled: true
-    tool_name: actions_kanban_dispatcher
+    tool_name: kanban_dispatcher
     params: {}
     description: Pick up pending kanban tasks and create agent threads
+    is_builtin: true
   builtin_relevance_indexer:
     enabled: true
-    tool_name: actions_relevance_indexer
+    tool_name: relevance_indexer
     params: {}
     description: Scan wiki files and update relevant-index.md based on recency and reference count
+    is_builtin: true
   builtin_setup_knowledge_pipeline:
     enabled: true
-    tool_name: actions_setup_knowledge_pipeline
+    tool_name: setup_knowledge_pipeline
     params: {}
     description: Create the Knowledge Pipeline cron job (idempotent, runs every 6 hours by default)
+    is_builtin: true

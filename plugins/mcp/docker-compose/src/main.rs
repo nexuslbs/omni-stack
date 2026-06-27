@@ -11,6 +11,7 @@ use mcp_server_util::*;
 use serde_json::Value;
 use std::path::Path;
 use std::time::Duration;
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 /// Allowed compose subcommands. Everything else will be rejected.
@@ -66,6 +67,7 @@ fn build_compose_command(
     project_dir: &str,
     service_name: &str,
     exec_args: &str,
+    raw_script: &str,
 ) -> Result<Command> {
     let verb = command.split_whitespace().next().unwrap_or("");
     if verb.is_empty() || !ALLOWED_VERBS.contains(&verb) {
@@ -80,13 +82,26 @@ fn build_compose_command(
     cmd.arg("compose");
 
     if !project_dir.is_empty() {
-        cmd.current_dir(&project_dir);
+        cmd.arg("--project-directory");
+        cmd.arg(&project_dir);
     }
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     cmd.arg(verb);
 
-    for part in &parts[1..] {
+    // Build the extra flags from parts[1..], stripping the service name
+    // if the LLM put it in the command field (e.g. "exec wiki").
+    // Without this strip, the service name appears TWICE -- once from
+    // parts[1..] and once from the explicit service_name arg below --
+    // producing "docker compose exec wiki wiki" -> exit 127.
+    let mut extra_parts: Vec<&str> = parts[1..].to_vec();
+    if (verb == "exec" || verb == "run") && !service_name.is_empty() {
+        if extra_parts.first().copied() == Some(service_name) {
+            extra_parts.remove(0);
+        }
+    }
+
+    for part in &extra_parts {
         if contains_forbidden_chars(part) {
             anyhow::bail!("Forbidden characters in command argument: '{}'", part);
         }
@@ -97,10 +112,23 @@ fn build_compose_command(
         if service_name.is_empty() {
             anyhow::bail!("'service' is required for '{}' command", verb);
         }
-        cmd.arg(service_name);
-        if !exec_args.is_empty() {
-            for arg in exec_args.split_whitespace() {
-                cmd.arg(arg);
+        if verb == "exec" && !raw_script.is_empty() {
+            // Pipe script via stdin to avoid forbidden chars in command args.
+            cmd.arg("-T"); // no TTY -- required for stdin piping
+            cmd.arg(service_name);
+            cmd.arg("python3");
+        } else {
+            cmd.arg("-T"); // no TTY -- prevents hangs on output-producing commands
+            cmd.arg(service_name);
+            if !exec_args.is_empty() {
+                // Pass the full command string as a single argument to sh -c
+                // so shell operators (&&, ||, |, quotes) work inside the container.
+                // Docker compose exec passes args directly through execve --
+                // no host shell stripping.  Wrapping in sh -c gives the
+                // container-side shell full interpretation of the command.
+                cmd.arg("sh");
+                cmd.arg("-c");
+                cmd.arg(exec_args);
             }
         }
     }
@@ -118,15 +146,22 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
 
     let command = args["command"]
         .as_str()
-        .ok_or_else(|| anyhow::anyhow!("Missing 'command' argument"))?
+        .ok_or_else(|| anyhow::anyhow!(
+            "Missing 'command' argument. Valid parameters: project_dir (string) - directory with docker-compose.yml, \
+            command (string, required) - compose verb + flags (e.g. 'up -d', 'build', 'ps', 'logs --tail=50'), \
+            service (string) - container name (required for exec/run), \
+            args (string) - command to run inside container (for exec/run, no char restrictions), \
+            script (string) - Python code piped via stdin to python3 inside container (for exec only), \
+            timeout (number) - override default timeout in seconds"
+        ))?
         .to_string();
 
     let project_dir = args["project_dir"].as_str().unwrap_or("").to_string();
     let service_name = args["service"].as_str().unwrap_or("");
     let exec_args = args["args"].as_str().unwrap_or("");
+    let raw_script = args["script"].as_str().unwrap_or("");
 
     // Optional per-command timeout override (seconds).
-    // When omitted, the default for the verb is used.
     let timeout_override = args["timeout"]
         .as_u64()
         .or_else(|| args["timeout"].as_str().and_then(|s| s.parse().ok()));
@@ -151,9 +186,56 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
         );
     }
 
-    let mut cmd = build_compose_command(&command, &project_dir, service_name, exec_args)?;
+    let mut cmd = build_compose_command(&command, &project_dir, service_name, exec_args, raw_script)?;
 
-    // Run the command with tokio::timeout — non-blocking, no thread pool needed.
+    // If script is provided, pipe it via stdin
+    if verb == "exec" && !raw_script.is_empty() {
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        cmd.stdin(std::process::Stdio::piped());
+
+        let mut child = cmd.spawn()?;
+
+        // Write script to stdin
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(raw_script.as_bytes()).await?;
+            // Close stdin so the remote python process knows to stop reading
+            drop(stdin);
+        }
+
+        let output = child.wait_with_output().await?;
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let rc = output.status.code().unwrap_or(-1);
+
+        if rc != 0 {
+            let msg = if stderr.is_empty() {
+                format!("docker compose command failed (exit {}):\n{}", rc, stdout)
+            } else {
+                format!("docker compose command failed (exit {}):\n{}", rc, stderr)
+            };
+            return Ok((msg, true));
+        }
+
+        let content = if stdout.is_empty() {
+            format!("docker compose {}: ok ({} bytes script piped via stdin)", command, raw_script.len())
+        } else {
+            let max_chars: usize = 50_000;
+            if stdout.len() > max_chars {
+                format!(
+                    "```\n{}\n```\n\n[... truncated from {} to ~{} chars]",
+                    &stdout[..max_chars],
+                    stdout.len(),
+                    max_chars
+                )
+            } else {
+                format!("```\n{}\n```", stdout)
+            }
+        };
+        return Ok((content, false));
+    }
+
+    // Standard execution (no script piped via stdin)
     let result = tokio::time::timeout(Duration::from_secs(timeout_secs), cmd.output()).await;
 
     match result {
@@ -212,11 +294,13 @@ async fn main() -> Result<()> {
             description:
                 "Run docker compose commands. \
                  Use 'project_dir' for the directory with docker-compose.yml. \
-                 Use 'command' for the compose verb + flags (e.g. 'up -d', 'ps', 'logs --tail=50'). \
+                 Use 'command' for the compose verb + flags (e.g. 'up -d', 'ps', 'build', 'logs --tail=50'). \
                  For exec/run: use 'service' (container name) and 'args' (command to run inside container). \
-                 Args for exec/run have NO character restrictions — they run inside the container via Docker, \
-                 not through a shell. Multiple commands work (e.g. args='sh -c \"cargo build && cargo test\"'). \
-                 Optional 'timeout' parameter overrides the default timeout for long-running commands (e.g. migrations)."
+                 'args' have NO character restrictions -- automatically wrapped in sh -c, \
+                 so use shell operators (&&, ||, |, quotes) exactly as on a host terminal. \
+                 For exec with 'script': pass Python code as the 'script' parameter and it will be piped \
+                 to python3 inside the container via stdin (no character restrictions -- ideal for complex scripts). \
+                 Optional 'timeout' parameter overrides the default timeout for long-running commands."
                     .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
@@ -227,7 +311,7 @@ async fn main() -> Result<()> {
                     },
                     "command": {
                         "type": "string",
-                        "description": "Compose subcommand and flags (e.g. 'up -d', 'ps', 'build', 'logs --tail=50')"
+                        "description": "Compose subcommand and flags (e.g. 'up -d', 'ps', 'build', 'exec', 'logs --tail=50')"
                     },
                     "service": {
                         "type": "string",
@@ -235,11 +319,15 @@ async fn main() -> Result<()> {
                     },
                     "args": {
                         "type": "string",
-                        "description": "Command to run inside the container (for exec/run). NO character restrictions — runs via Docker exec, not a shell. Examples: 'cargo build', 'npm test', 'sh -c \"cmd1 && cmd2\"'"
+                        "description": "Command to run inside the container (for exec/run). No character restrictions. Automatically wrapped in sh -c, so write commands exactly as on a host terminal. Examples: 'cd /app && npm run build', 'ls -la && cat config.json'"
+                    },
+                    "script": {
+                        "type": "string",
+                        "description": "Python script to pipe via stdin into python3 inside the container (for exec only). No character restrictions. Use this for complex multi-line scripts instead of 'args'."
                     },
                     "timeout": {
                         "type": "number",
-                        "description": "Optional — override default timeout in seconds. Defaults: build/pull=600, up/restart=300, exec/run=600, ps/logs/down/stop=300"
+                        "description": "Optional -- override default timeout in seconds. Defaults: build/pull=600, up/restart=300, exec/run=600, ps/logs/down/stop=300"
                     }
                 },
                 "required": ["project_dir", "command"]

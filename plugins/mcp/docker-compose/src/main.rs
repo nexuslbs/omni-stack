@@ -89,17 +89,18 @@ fn build_compose_command(
     let parts: Vec<&str> = command.split_whitespace().collect();
     cmd.arg(verb);
 
-    // Build the extra flags from parts[1..], stripping the service name
-    // if the LLM put it in the command field (e.g. "exec wiki").
-    // Without this strip, the service name appears TWICE -- once from
-    // parts[1..] and once from the explicit service_name arg below --
-    // producing "docker compose exec wiki wiki" -> exit 127.
-    let mut extra_parts: Vec<&str> = parts[1..].to_vec();
-    if (verb == "exec" || verb == "run") && !service_name.is_empty() {
-        if extra_parts.first().copied() == Some(service_name) {
-            extra_parts.remove(0);
-        }
-    }
+    // For exec/run: only pass through flag-like parts (starting with '-').
+    // The service name and command args have their own dedicated parameters
+    // (service_name, exec_args). Any non-flag words in parts[1..] are leaked
+    // service names or shell commands that the LLM accidentally put in the
+    // command field -- they would cause a double-service-name error or
+    // forbidden-char rejections if passed through.  Strip them out.
+    let is_exec_or_run = verb == "exec" || verb == "run";
+    let extra_parts: Vec<&str> = if is_exec_or_run {
+        parts[1..].iter().filter(|p| p.starts_with('-')).copied().collect()
+    } else {
+        parts[1..].to_vec()
+    };
 
     for part in &extra_parts {
         if contains_forbidden_chars(part) {

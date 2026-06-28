@@ -55,6 +55,9 @@ services:
     user: root
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - omniagent_default
 
   dashboard:
     image: node:22-alpine
@@ -107,3 +110,7 @@ volumes:
   postgres_data:
   qdrant_data:
   hindsight-data:
+
+networks:
+  omniagent_default:
+    external: true

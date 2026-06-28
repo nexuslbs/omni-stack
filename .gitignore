@@ -22,3 +22,8 @@ hindsight_watermark.json
 
 # ── Eliminated struct — workspace root, each plugin has own Cargo.toml ──
 /Cargo.toml
+
+# ── Dashboard build output (copied into plugins/ by build process) ──
+plugins/assets/
+plugins/favicon.svg
+plugins/index.html

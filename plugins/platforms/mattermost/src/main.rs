@@ -459,6 +459,11 @@ struct DeliverParams {
     thread_id: i64,
     #[serde(default)]
     cause_external_id: Option<String>,
+    /// If the cause message was itself a reply in a thread, use this as the
+    /// reply target instead of cause_external_id — Mattermost doesn't allow
+    /// nested threads, so all replies must reference the thread root.
+    #[serde(default)]
+    cause_root_id: Option<String>,
     #[serde(default)]
     is_summary: bool,
     #[serde(default)]
@@ -826,10 +831,13 @@ async fn handle_deliver(
     }
 
     // Determine if this is a threaded reply.
-    // Mattermost uses root_id for threading. Use cause_external_id as the
-    // parent post ID whenever it's available so all responses within a thread
-    // stay in the thread.
-    let root_id = if params.is_summary || params.cause_external_id.is_some() {
+    // Mattermost uses root_id for threading. When the user's message was
+    // inside an existing thread (cause_root_id is set), use that as the
+    // reply target — Mattermost doesn't allow nested threads, so all
+    // replies must reference the thread root. Otherwise use cause_external_id.
+    let root_id = if params.cause_root_id.as_ref().is_some_and(|r| !r.is_empty()) {
+        params.cause_root_id.as_deref()
+    } else if params.is_summary || params.cause_external_id.is_some() {
         params.cause_external_id.as_deref()
     } else {
         None

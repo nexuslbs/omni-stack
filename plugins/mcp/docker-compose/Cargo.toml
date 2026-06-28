@@ -1,5 +1,5 @@
 [package]
-name = "mcp-server-docker-compose"
+name = "mcp-server-compose"
 version = "0.1.0"
 edition = "2021"
 description = "Docker Compose MCP server — run docker compose commands"

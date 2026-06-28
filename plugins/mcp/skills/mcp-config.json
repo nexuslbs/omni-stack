@@ -1,7 +1,7 @@
 {
   "servers": [
     {
-      "name": "create_skill",
+      "name": "skills",
       "transport": "stdio",
       "command": "/app/target/release/mcp-server-skills",
       "args": [],

@@ -14,8 +14,8 @@ You MUST create a complete Flask blog application at **/opt/workspace/blog/** as
 **Tool order of operations:**
 1. `filesystem_list("/opt/workspace/blog/")` — ONCE, at the very start
 2. `filesystem_write(...)` for each file you need to create
-3. `docker_compose(project_dir="/opt/workspace/blog", command="build")`
-4. `docker_compose(project_dir="/opt/workspace/blog", command="up", args="-d")`
+3. `compose(project_dir="/opt/workspace/blog", command="build")`
+4. `compose(project_dir="/opt/workspace/blog", command="up", args="-d")`
 5. Verification (curl, docker ps)
 
 If you catch yourself calling `filesystem_list` again after already having listed the directory, STOP and call `filesystem_write` instead.
@@ -88,7 +88,7 @@ Only call these:
 - ✅ filesystem_write — Create all project files
 - ✅ filesystem_read — Read existing files when you need to check content (not list dir)
 - ✅ filesystem_list — List /opt/workspace/blog/ EXACTLY ONCE, never again
-- ✅ docker_compose — Build and start Docker services
+- ✅ `compose` — Build and start Docker services
 - ✅ terminal — For curl testing
 
 ## SELF-CHECK

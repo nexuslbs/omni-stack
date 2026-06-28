@@ -5,12 +5,6 @@ actions:
     params:
       subtask_id: 1
       thread_id: 2
-  builtin_hindsight_populator:
-    enabled: true
-    tool_name: hindsight_populator
-    params: {}
-    description: Populate hindsight memory from recent messages
-    is_builtin: true
   builtin_kanban_dispatcher:
     enabled: true
     tool_name: kanban_dispatcher
@@ -22,6 +16,12 @@ actions:
     tool_name: relevance_indexer
     params: {}
     description: Scan wiki files and update relevant-index.md based on recency and reference count
+    is_builtin: true
+  builtin_hindsight_populator:
+    enabled: true
+    tool_name: hindsight_populator
+    params: {}
+    description: Populate hindsight memory from recent messages
     is_builtin: true
   builtin_setup_knowledge_pipeline:
     enabled: true

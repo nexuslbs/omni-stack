@@ -12,7 +12,7 @@ Use this skill when asked to build, run, or test code projects in the workspace.
 ## Tools Available
 
 - **`filesystem_write` / `filesystem_read` / `filesystem_info` / `filesystem_search`** — create and edit project files
-- **`docker_compose`** — `build`, `up -d`, `exec`, `down`, `logs -n 50`, `ps` — all Docker operations
+- **`compose`** — `build`, `up -d`, `exec`, `down`, `logs -n 50`, `ps` — all Docker operations
 - **`commit_and_push`** — git commit + push
 - **`query_database`** — run SQL on the shared PostgreSQL to retrieve agent memories, past messages, threads, kanban tasks and config info (for context, not for building)
 - **`clone_repo` / `create_github_repo`** — manage git repos
@@ -30,7 +30,7 @@ Use this skill when asked to build, run, or test code projects in the workspace.
 
 ## compose Tool Usage
 
-The `docker_compose` tool accepts these parameters:
+The `compose` tool accepts these parameters:
 - `project_dir` — directory with docker-compose.yml
 - `command` — compose verb + flags (e.g. `up -d`, `build`, `logs --tail=50`)
 - `service` — container name (required for exec/run)
@@ -40,27 +40,27 @@ The `docker_compose` tool accepts these parameters:
 
 ```
 # Build images
-docker_compose(project_dir="/opt/workspace/blog", command="build")
+compose(project_dir="/opt/workspace/blog", command="build")
 
 # Start services
-docker_compose(project_dir="/opt/workspace/blog", command="up", args="-d")
+compose(project_dir="/opt/workspace/blog", command="up", args="-d")
 
 # Run commands INSIDE a container — NO character restrictions
 # Everything in `args` runs inside the container via Docker exec, not a shell
-docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="cargo build")
-docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="npm test")
-docker_compose(project_dir="/opt/workspace/blog", command="exec", service="db", args="mysql --help")
-docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="sh -c 'cargo build && cargo test'")
-docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="ls -la /app/data")
+compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="cargo build")
+compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="npm test")
+compose(project_dir="/opt/workspace/blog", command="exec", service="db", args="mysql --help")
+compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="sh -c 'cargo build && cargo test'")
+compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="ls -la /app/data")
 
 # View logs
-docker_compose(project_dir="/opt/workspace/blog", command="logs", args="-n 50")
+compose(project_dir="/opt/workspace/blog", command="logs", args="-n 50")
 
 # Check running services
-docker_compose(project_dir="/opt/workspace/blog", command="ps")
+compose(project_dir="/opt/workspace/blog", command="ps")
 
 # Stop everything
-docker_compose(project_dir="/opt/workspace/blog", command="down")
+compose(project_dir="/opt/workspace/blog", command="down")
 ```
 
 ### Important: Character Safety
@@ -69,7 +69,7 @@ docker_compose(project_dir="/opt/workspace/blog", command="down")
 
 To run multiple commands inside the container, use a shell:
 ```
-docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="sh -c 'cd /app && cargo build && cargo test'")
+compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="sh -c 'cd /app && cargo build && cargo test'")
 ```
 
 This runs a shell *inside* the container, and the `&&` chaining executes safely there — never on the host.

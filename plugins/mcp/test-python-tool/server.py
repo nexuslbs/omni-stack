@@ -54,8 +54,8 @@ def handle_initialize(req_id):
 def handle_tools_list(req_id):
     tools = [
         {
-            "name": "wait",
-            "description": "Sleep for a specified duration in seconds (default 900 = 15 minutes)",
+            "name": "test-python-tool.wait",
+            "description": "[test-python-tool] Sleep for a specified duration in seconds (default 900 = 15 minutes)",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -69,8 +69,8 @@ def handle_tools_list(req_id):
             },
         },
         {
-            "name": "echo",
-            "description": "Echo back a greeting: 'Hello, {input}'",
+            "name": "test-python-tool.echo",
+            "description": "[test-python-tool] Echo back a greeting: 'Hello, {input}'",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -80,8 +80,8 @@ def handle_tools_list(req_id):
             },
         },
         {
-            "name": "save_datetime",
-            "description": "Write the current date/time (ISO 8601 format) to a file",
+            "name": "test-python-tool.save_datetime",
+            "description": "[test-python-tool] Write the current date/time (ISO 8601 format) to a file",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -91,8 +91,8 @@ def handle_tools_list(req_id):
             },
         },
         {
-            "name": "test_error",
-            "description": "Return a test error: 'Test error from python: <input>'",
+            "name": "test-python-tool.test_error",
+            "description": "[test-python-tool] Return a test error: 'Test error from python: <input>'",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -291,13 +291,13 @@ def main():
                 tool_name = params.get("name", "")
                 arguments = params.get("arguments", {})
 
-                if tool_name == "wait":
+                if tool_name == "test-python-tool.wait":
                     handle_wait(req_id, arguments)
-                elif tool_name == "echo":
+                elif tool_name == "test-python-tool.echo":
                     handle_echo(req_id, arguments)
-                elif tool_name == "save_datetime":
+                elif tool_name == "test-python-tool.save_datetime":
                     handle_save_datetime(req_id, arguments)
-                elif tool_name == "test_error":
+                elif tool_name == "test-python-tool.test_error":
                     handle_test_error(req_id, arguments)
                 else:
                     if req_id is not None:

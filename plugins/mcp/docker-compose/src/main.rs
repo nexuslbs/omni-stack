@@ -1,7 +1,7 @@
-//! mcp-server-docker-compose — standalone MCP server for docker compose commands.
+//! mcp-server-compose — standalone MCP server for docker compose commands.
 //! Communicates via stdio JSON-RPC (MCP protocol).
 //!
-//! Tools: docker_compose
+//! Tools: compose
 //!
 //! **Concurrency**: Each tool call runs in its own tokio task, so long-running
 //! compose commands (up, exec, run) do not block other concurrent tool calls.
@@ -138,7 +138,7 @@ fn build_compose_command(
 }
 
 // ---------------------------------------------------------------------------
-// Tool: docker_compose (async handler)
+// Tool: compose (async handler)
 // ---------------------------------------------------------------------------
 
 async fn handle_compose(args: Value) -> Result<(String, bool)> {
@@ -220,11 +220,17 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
         let rc = output.status.code().unwrap_or(-1);
 
         if rc != 0 {
-            let msg = if stderr.is_empty() {
-                format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stdout, cmd_display)
-            } else {
-                format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stderr, cmd_display)
-            };
+            let mut msg = format!("docker compose command failed (exit {}):\n\n", rc);
+            if !stdout.is_empty() {
+                msg.push_str(&format!("--- stdout ({} chars) ---\n{}\n", stdout.len(), stdout));
+            }
+            if !stderr.is_empty() {
+                msg.push_str(&format!("--- stderr ({} chars) ---\n{}\n", stderr.len(), stderr));
+            }
+            if stdout.is_empty() && stderr.is_empty() {
+                msg.push_str("(no output)\n");
+            }
+            msg.push_str(&format!("\nCommand:\n{}", cmd_display));
             return Ok((msg, true));
         }
 
@@ -256,11 +262,17 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
             let rc = output.status.code().unwrap_or(-1);
 
             if rc != 0 {
-                let msg = if stderr.is_empty() {
-                    format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stdout, cmd_display)
-                } else {
-                    format!("docker compose command failed (exit {}):\n{}\n\nCommand:\n{}", rc, stderr, cmd_display)
-                };
+                let mut msg = format!("docker compose command failed (exit {}):\n\n", rc);
+                if !stdout.is_empty() {
+                    msg.push_str(&format!("--- stdout ({} chars) ---\n{}\n", stdout.len(), stdout));
+                }
+                if !stderr.is_empty() {
+                    msg.push_str(&format!("--- stderr ({} chars) ---\n{}\n", stderr.len(), stderr));
+                }
+                if stdout.is_empty() && stderr.is_empty() {
+                    msg.push_str("(no output)\n");
+                }
+                msg.push_str(&format!("\nCommand:\n{}", cmd_display));
                 return Ok((msg, true));
             }
 
@@ -301,7 +313,7 @@ async fn handle_compose(args: Value) -> Result<(String, bool)> {
 async fn main() -> Result<()> {
     let tools = vec![McpToolEntry {
         def: McpToolDef {
-            name: "docker_compose".to_string(),
+            name: "compose".to_string(),
             description:
                 "Run docker compose commands. \
                  Use 'project_dir' for the directory with docker-compose.yml. \
@@ -350,7 +362,7 @@ async fn main() -> Result<()> {
     }];
 
     let server_info = ServerInfo {
-        name: "mcp-server-docker-compose".to_string(),
+        name: "mcp-server-compose".to_string(),
         version: "0.1.0".to_string(),
     };
 

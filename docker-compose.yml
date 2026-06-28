@@ -46,7 +46,7 @@ services:
       - ./:/opt/data:rw
       - /opt/workspace/omniagent:/app:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
-      - /opt/workspace/omni-workspace:/opt/workspace:rw
+      - /opt/workspace:/opt/workspace:rw
       - /opt/data/credentials:/opt/data/credentials:ro
     expose:
       - "8080"

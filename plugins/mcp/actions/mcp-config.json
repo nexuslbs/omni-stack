@@ -1,0 +1,20 @@
+{
+  "servers": [
+    {
+      "name": "actions",
+      "transport": "stdio",
+      "command": "/app/target/release/mcp-server-actions",
+      "args": [],
+      "timeout_secs": 120,
+      "max_retries": 2,
+      "allowed_tools": [
+        "*"
+      ],
+      "env": {
+        "DATABASE_URL": "${DATABASE_URL}",
+        "HINDSIGHT_URL": "${HINDSIGHT_URL}",
+        "RUST_LOG": "info"
+      }
+    }
+  ]
+}

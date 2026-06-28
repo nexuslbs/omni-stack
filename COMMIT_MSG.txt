@@ -1,0 +1,1 @@
+fix: docker-compose MCP exec — strip duplicate service name, add -T flag

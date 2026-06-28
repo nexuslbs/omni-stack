@@ -1,9 +1,9 @@
 {
   "servers": [
     {
-      "name": "docker_compose",
+      "name": "docker",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-docker-compose",
+      "command": "/app/target/release/mcp-server-compose",
       "args": [],
       "timeout_secs": 910,
       "max_retries": 1,

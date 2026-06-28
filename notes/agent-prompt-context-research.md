@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-When a kanban task is dispatched (e.g. "Build a blog project"), OmniAgent keeps calling `list_kanban_tasks`, `list_cron_jobs`, and `filesystem_list` instead of executing the actual task with `docker_compose` and `filesystem_write`. This wastes iterations (25+ in one case) and frustrates the user.
+When a kanban task is dispatched (e.g. "Build a blog project"), OmniAgent keeps calling `list_kanban_tasks`, `list_cron_jobs`, and `filesystem_list` instead of executing the actual task with `compose` and `filesystem_write`. This wastes iterations (25+ in one case) and frustrates the user.
 
 ## Root Cause Analysis
 
@@ -15,7 +15,7 @@ ChatMessage::system(template_section)         # task template (build-blog.md or 
 ChatMessage::system("=== Additional Context ===" + context_messages)  # recent thread msgs + summary + skills + retrieval
 ChatMessage::system("=== Generated Plan ===" + plan)  # plan (if planning phase ran)
 ChatMessage::user(cause_msg.content)          # "Execute kanban task: Build a blog..."
-+ ALL tools (kanban, cron, docker_compose, filesystem, etc.)
++ ALL tools (kanban, cron, compose, filesystem, etc.)
 ```
 
 **Key issues working together:**
@@ -26,7 +26,7 @@ ChatMessage::user(cause_msg.content)          # "Execute kanban task: Build a bl
 | **Context pulls irrelevant past messages** | Recent thread messages, channel summary, retrieved content — all irrelevant for a fresh autonomous task but present in the prompt, priming kanban/cron associations |
 | **Template is just another system message** | No structural distinction from other context — gets blended into the noise |
 | **No per-task tool restrictions** | A "build blog" task has the same toolset as a "check cron jobs" task |
-| **Model-specific behavior** | deepseek-v4-flash may have higher affinity for "information retrieval" patterns (kanban/cron) vs "execution" patterns (docker_compose) |
+| **Model-specific behavior** | deepseek-v4-flash may have higher affinity for "information retrieval" patterns (kanban/cron) vs "execution" patterns (compose) |
 | **Tool definition descriptions** | `list_kanban_tasks` description makes it sound like useful context gathering |
 
 ---
@@ -43,7 +43,7 @@ Add `allowed_tools` to template metadata. When a kanban task uses template X, on
 allowed_tools:
   - filesystem_write
   - filesystem_read  
-  - docker_compose
+  - compose
 blocked_tools:
   - list_kanban_tasks
   - list_cron_jobs
@@ -64,7 +64,7 @@ Each template can optionally specify a "profile" or "tool preset" that defines w
 ```rust
 enum ToolPreset {
     Default,   // all tools
-    Build,     // filesystem + docker_compose only
+    Build,     // filesystem + compose only
     Research,  // search + fetch + query_database only
     Admin,     // kanban + cron only
 }
@@ -159,11 +159,11 @@ When a template like `build-blog.md` defines explicit steps, parse them into sub
 ```rust
 // In template format, support typed steps:
 ## Step 1: Build images
-tool: docker_compose
+tool: compose
 params: { project_dir: "/opt/workspace/blog", command: "build" }
 
 ## Step 2: Start services
-tool: docker_compose
+tool: compose
 params: { project_dir: "/opt/workspace/blog", command: "up", args: "-d" }
 ```
 
@@ -198,7 +198,7 @@ Do NOT call these tools — they will waste iterations:
 Use these tools:
 - filesystem_read: Read project files
 - filesystem_write: Write/update project files
-- docker_compose: Build, start, exec, and manage Docker services
+- compose: Build, start, exec, and manage Docker services
 ```
 
 **Pros:** Direct. No code changes needed — works with existing template format.
@@ -208,7 +208,7 @@ Use these tools:
 
 ### Approach H: Tool Name Priority in the Registry
 
-Change how tools are ordered in `to_openai_tools()`. Put "execution" tools first (filesystem, docker_compose) and "management" tools last (kanban, cron). Some models show position bias — they try the first tools listed.
+Change how tools are ordered in `to_openai_tools()`. Put "execution" tools first (filesystem, compose) and "management" tools last (kanban, cron). Some models show position bias — they try the first tools listed.
 
 **Implementation:**
 ```rust
@@ -243,7 +243,7 @@ enabled_toolsets: ["terminal", "file"]
 ```
 
 The MCP registry's `to_openai_tools` filters by toolset. Toolsets map to tool name patterns:
-- `build` → filesystem_*, docker_compose
+- `build` → filesystem_*, compose
 - `manage` → kanban_*, cron_*
 - `data` → query_database, search_*
 
@@ -270,7 +270,7 @@ if template_section.is_some() && msg_type == "kanban" {
     // 2. Modify user message to include template
     cause_msg.content = format!("{}\n\n## Task\n{}", template_section, cause_msg.content);
     // 3. Add tool constraints block
-    constraints = "ALLOWED: filesystem_read, filesystem_write, docker_compose\nBLOCKED: all other tools";
+    constraints = "ALLOWED: filesystem_read, filesystem_write, compose\nBLOCKED: all other tools";
     messages.push(ChatMessage::system(constraints));
 }
 ```

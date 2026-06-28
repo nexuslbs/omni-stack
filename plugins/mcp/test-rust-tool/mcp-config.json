@@ -3,11 +3,16 @@
     {
       "name": "test-rust-tool",
       "transport": "stdio",
-      "command": "./plugins/mcp/test-rust-tool/target/release/test-rust-tool",
+      "command": "/opt/data/plugins/mcp/test-rust-tool/target/release/test-rust-tool",
       "args": [],
       "env": {
         "GREETING_NAME": "Omni"
-      }
+      },
+      "timeout_secs": 900,
+      "max_retries": 1,
+      "allowed_tools": [
+        "*"
+      ]
     }
   ]
 }

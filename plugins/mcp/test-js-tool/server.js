@@ -4,10 +4,10 @@
  * test-js-tool MCP server — implements standard MCP JSON-RPC over stdio.
  *
  * Tools:
- *   - wait: Sleep for N seconds (default 900)
- *   - echo: Echo back input text
- *   - save_datetime: Write current date/time to a file
- *   - test_error: Return a test error
+ *   - test-js-tool.wait: Sleep for N seconds (default 900)
+ *   - test-js-tool.echo: Echo back input text
+ *   - test-js-tool.save_datetime: Write current date/time to a file
+ *   - test-js-tool.test_error: Return a test error
  */
 
 const readline = require("readline");
@@ -48,9 +48,9 @@ function handleInitialize(reqId) {
 function handleToolsList(reqId) {
   const tools = [
     {
-      name: "wait",
+      name: "test-js-tool.wait",
       description:
-        "Sleep for a specified duration in seconds (default 900 = 15 minutes)",
+        "[test-js-tool] Sleep for a specified duration in seconds (default 900 = 15 minutes)",
       inputSchema: {
         type: "object",
         properties: {
@@ -64,8 +64,8 @@ function handleToolsList(reqId) {
       },
     },
     {
-      name: "echo",
-      description: "Echo back a greeting: 'Hello, {input}'",
+      name: "test-js-tool.echo",
+      description: "[test-js-tool] Echo back a greeting: 'Hello, {input}'",
       inputSchema: {
         type: "object",
         properties: {
@@ -79,9 +79,9 @@ function handleToolsList(reqId) {
       },
     },
     {
-      name: "save_datetime",
+      name: "test-js-tool.save_datetime",
       description:
-        "Write the current date/time (ISO 8601 format) to a file",
+        "[test-js-tool] Write the current date/time (ISO 8601 format) to a file",
       inputSchema: {
         type: "object",
         properties: {
@@ -94,8 +94,8 @@ function handleToolsList(reqId) {
       },
     },
     {
-      name: "test_error",
-      description: "Return a test error: 'Test error from js: <input>'",
+      name: "test-js-tool.test_error",
+      description: "[test-js-tool] Return a test error: 'Test error from js: <input>'",
       inputSchema: {
         type: "object",
         properties: {
@@ -241,15 +241,15 @@ rl.on("line", function (line) {
       const toolName = params.name || "";
       const args = params.arguments || {};
 
-      if (toolName === "wait") {
+      if (toolName === "test-js-tool.wait") {
         handleWait(reqId, args).catch(function (err) {
           console.error("[test-js-tool] wait tool error: " + err.message);
         });
-      } else if (toolName === "echo") {
+      } else if (toolName === "test-js-tool.echo") {
         handleEcho(reqId, args);
-      } else if (toolName === "save_datetime") {
+      } else if (toolName === "test-js-tool.save_datetime") {
         handleSaveDatetime(reqId, args);
-      } else if (toolName === "test_error") {
+      } else if (toolName === "test-js-tool.test_error") {
         handleTestError(reqId, args);
       } else {
         if (reqId != null) {

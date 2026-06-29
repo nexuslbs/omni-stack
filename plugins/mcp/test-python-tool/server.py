@@ -54,7 +54,7 @@ def handle_initialize(req_id):
 def handle_tools_list(req_id):
     tools = [
         {
-            "name": "test-python-tool.wait",
+            "name": "test-python-tool_wait",
             "description": "[test-python-tool] Sleep for a specified duration in seconds (default 900 = 15 minutes)",
             "inputSchema": {
                 "type": "object",
@@ -69,7 +69,7 @@ def handle_tools_list(req_id):
             },
         },
         {
-            "name": "test-python-tool.echo",
+            "name": "test-python-tool_echo",
             "description": "[test-python-tool] Echo back a greeting: 'Hello, {input}'",
             "inputSchema": {
                 "type": "object",
@@ -80,7 +80,7 @@ def handle_tools_list(req_id):
             },
         },
         {
-            "name": "test-python-tool.save_datetime",
+            "name": "test-python-tool_save-datetime",
             "description": "[test-python-tool] Write the current date/time (ISO 8601 format) to a file",
             "inputSchema": {
                 "type": "object",
@@ -91,7 +91,7 @@ def handle_tools_list(req_id):
             },
         },
         {
-            "name": "test-python-tool.test_error",
+            "name": "test-python-tool_test-error",
             "description": "[test-python-tool] Return a test error: 'Test error from python: <input>'",
             "inputSchema": {
                 "type": "object",
@@ -185,11 +185,11 @@ def handle_save_datetime(req_id, arguments):
                 },
             )
         )
-        log.warning("save_datetime tool called without path argument")
+        log.warning("save-datetime tool called without path argument")
         return
 
     datetime_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    log.info("save_datetime tool called: path='%s'", path)
+    log.info("save-datetime tool called: path='%s'", path)
 
     try:
         with open(path, "w") as f:
@@ -203,7 +203,7 @@ def handle_save_datetime(req_id, arguments):
                 },
             )
         )
-        log.info("save_datetime tool completed: wrote to %s", path)
+        log.info("save-datetime tool completed: wrote to %s", path)
     except Exception as e:
         send_json(
             make_success(
@@ -214,13 +214,13 @@ def handle_save_datetime(req_id, arguments):
                 },
             )
         )
-        log.warning("save_datetime tool failed to write to %s: %s", path, e)
+        log.warning("save-datetime tool failed to write to %s: %s", path, e)
 
 
 def handle_test_error(req_id, arguments):
     input_val = (arguments or {}).get("input", "")
     text = f"Test error from python: {input_val}"
-    log.info("test_error tool called: input='%s'", input_val)
+    log.info("test-error tool called: input='%s'", input_val)
     send_json(
         make_success(
             req_id,
@@ -230,7 +230,7 @@ def handle_test_error(req_id, arguments):
             },
         )
     )
-    log.info("test_error tool completed")
+    log.info("test-error tool completed")
 
 
 def main():
@@ -291,13 +291,13 @@ def main():
                 tool_name = params.get("name", "")
                 arguments = params.get("arguments", {})
 
-                if tool_name == "test-python-tool.wait":
+                if tool_name == "test-python-tool_wait":
                     handle_wait(req_id, arguments)
-                elif tool_name == "test-python-tool.echo":
+                elif tool_name == "test-python-tool_echo":
                     handle_echo(req_id, arguments)
-                elif tool_name == "test-python-tool.save_datetime":
+                elif tool_name == "test-python-tool_save-datetime":
                     handle_save_datetime(req_id, arguments)
-                elif tool_name == "test-python-tool.test_error":
+                elif tool_name == "test-python-tool_test-error":
                     handle_test_error(req_id, arguments)
                 else:
                     if req_id is not None:

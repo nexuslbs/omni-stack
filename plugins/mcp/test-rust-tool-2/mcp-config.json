@@ -1,0 +1,16 @@
+{
+  "servers": [
+    {
+      "name": "test-rust-tool-2",
+      "transport": "stdio",
+      "command": "/opt/data/plugins/mcp/test-rust-tool-2/target/release/test-rust-tool-2",
+      "args": [],
+      "timeout_secs": 30,
+      "max_retries": 1,
+      "pool_size": 1,
+      "allowed_tools": [
+        "*"
+      ]
+    }
+  ]
+}

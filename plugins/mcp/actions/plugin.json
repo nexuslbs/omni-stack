@@ -11,12 +11,6 @@
   },
   "config_schema": [
     {
-      "key": "DATABASE_URL",
-      "label": "Database URL",
-      "type": "secret",
-      "required": true
-    },
-    {
       "key": "HINDSIGHT_URL",
       "label": "Hindsight Service URL",
       "type": "string",

@@ -9,18 +9,5 @@
     "args": [],
     "transport": "stdio"
   },
-  "config_schema": [
-    {
-      "key": "DATABASE_URL",
-      "label": "Database URL",
-      "type": "secret",
-      "required": true
-    },
-    {
-      "key": "DATA_DIR",
-      "label": "Data directory",
-      "type": "string",
-      "required": true
-    }
-  ]
+  "config_schema": []
 }

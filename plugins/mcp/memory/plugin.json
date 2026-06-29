@@ -2,25 +2,12 @@
   "id": "mcp-server-memory",
   "name": "Memory MCP Server",
   "version": "0.1.0",
-  "description": "Memory promotion, listing, review, and management \u2014 promotes facts to wiki storage",
+  "description": "Memory promotion, listing, review, and management — promotes facts to wiki storage",
   "type": "mcp",
   "entrypoint": {
     "command": "mcp-server-memory",
     "args": [],
     "transport": "stdio"
   },
-  "config_schema": [
-    {
-      "key": "DATABASE_URL",
-      "label": "Database URL",
-      "type": "secret",
-      "required": true
-    },
-    {
-      "key": "DATA_DIR",
-      "label": "Data directory",
-      "type": "string",
-      "required": true
-    }
-  ]
+  "config_schema": []
 }

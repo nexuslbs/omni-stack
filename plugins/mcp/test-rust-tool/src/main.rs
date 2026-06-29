@@ -262,7 +262,7 @@ async fn handle_tools_list<W: AsyncWriteExt + Unpin>(
     req_id: u64,
 ) -> Result<()> {
     let wait_tool = McpTool {
-        name: "test-rust-tool.wait".to_string(),
+        name: "test-rust-tool_wait".to_string(),
         description: "[test-rust-tool] Sleep for a specified duration in seconds (default 900 = 15 minutes)".to_string(),
         input_schema: serde_json::json!({
             "type": "object",
@@ -278,7 +278,7 @@ async fn handle_tools_list<W: AsyncWriteExt + Unpin>(
     };
 
     let echo_tool = McpTool {
-        name: "test-rust-tool.echo".to_string(),
+        name: "test-rust-tool_echo".to_string(),
         description: "[test-rust-tool] Echo back a greeting: 'Hello, {input}'".to_string(),
         input_schema: serde_json::json!({
             "type": "object",
@@ -293,7 +293,7 @@ async fn handle_tools_list<W: AsyncWriteExt + Unpin>(
     };
 
     let save_datetime_tool = McpTool {
-        name: "test-rust-tool.save_datetime".to_string(),
+        name: "test-rust-tool_save-datetime".to_string(),
         description: "[test-rust-tool] Write the current date/time (ISO 8601 format) to a file".to_string(),
         input_schema: serde_json::json!({
             "type": "object",
@@ -308,7 +308,7 @@ async fn handle_tools_list<W: AsyncWriteExt + Unpin>(
     };
 
     let test_error_tool = McpTool {
-        name: "test-rust-tool.test_error".to_string(),
+        name: "test-rust-tool_test-error".to_string(),
         description: "[test-rust-tool] Return a test error: 'Test error from rust: <input>'".to_string(),
         input_schema: serde_json::json!({
             "type": "object",
@@ -349,10 +349,10 @@ async fn handle_tools_call<W: AsyncWriteExt + Unpin>(
     tracing::info!("tools/call: name='{}' arguments={:?}", params.name, params.arguments);
 
     match params.name.as_str() {
-        "test-rust-tool.wait" => handle_wait(writer, req_id, params).await?,
-        "test-rust-tool.echo" => handle_echo(writer, req_id, params).await?,
-        "test-rust-tool.save_datetime" => handle_save_datetime(writer, req_id, params).await?,
-        "test-rust-tool.test_error" => handle_test_error(writer, req_id, params).await?,
+        "test-rust-tool_wait" => handle_wait(writer, req_id, params).await?,
+        "test-rust-tool_echo" => handle_echo(writer, req_id, params).await?,
+        "test-rust-tool_save-datetime" => handle_save_datetime(writer, req_id, params).await?,
+        "test-rust-tool_test-error" => handle_test_error(writer, req_id, params).await?,
         _ => {
             send_error(
                 writer,
@@ -382,76 +382,32 @@ async fn handle_wait<W: AsyncWriteExt + Unpin>(
 
     tracing::info!("wait tool called: sleeping for {duration_secs} second(s)");
 
-    // Sleep in 1-second chunks with stdin check for cancellation
-    let stdin = tokio::io::stdin();
-    let reader = BufReader::new(stdin);
-    let mut lines = reader.lines();
+    // Sleep for the requested duration (single sleep — no stdin conflict).
+    // Do NOT create a new stdin BufReader here: the main loop already owns
+    // the stdin reader, and a second BufReader on tokio::io::stdin() shares
+    // the same fd, causing data loss when the next queued request arrives
+    // on stdin during the wait.
+    tokio::time::sleep(Duration::from_secs(duration_secs)).await;
 
-    let mut slept = 0u64;
-    let mut cancelled = false;
+    let result = CallToolResult {
+        content: vec![ToolContent::Text {
+            text: format!("Waited for {duration_secs} seconds"),
+        }],
+        is_error: false,
+    };
 
-    for _ in 0..duration_secs {
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(1)) => {
-                slept += 1;
-            }
-            line = lines.next_line() => {
-                match line {
-                    Ok(Some(_)) => {
-                        slept += 1;
-                    }
-                    _ => {
-                        tracing::info!("wait tool cancelled: stdin closed");
-                        cancelled = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
+    let response = JsonRpcSuccess {
+        jsonrpc: "2.0".to_string(),
+        id: req_id,
+        result: serde_json::to_value(result)?,
+    };
 
-    if cancelled {
-        let result = CallToolResult {
-            content: vec![ToolContent::Text {
-                text: format!("Waited for {slept} second(s) before cancellation"),
-            }],
-            is_error: false,
-        };
+    let json = serde_json::to_string(&response)?;
+    writer.write_all(json.as_bytes()).await?;
+    writer.write_all(b"\n").await?;
+    writer.flush().await?;
 
-        let response = JsonRpcSuccess {
-            jsonrpc: "2.0".to_string(),
-            id: req_id,
-            result: serde_json::to_value(result)?,
-        };
-
-        let json = serde_json::to_string(&response)?;
-        writer.write_all(json.as_bytes()).await?;
-        writer.write_all(b"\n").await?;
-        writer.flush().await?;
-
-        tracing::info!("wait tool cancelled after {slept} second(s)");
-        std::process::exit(0);
-    } else {
-        let result = CallToolResult {
-            content: vec![ToolContent::Text {
-                text: format!("Waited for {duration_secs} seconds"),
-            }],
-            is_error: false,
-        };
-
-        let response = JsonRpcSuccess {
-            jsonrpc: "2.0".to_string(),
-            id: req_id,
-            result: serde_json::to_value(result)?,
-        };
-
-        let json = serde_json::to_string(&response)?;
-        writer.write_all(json.as_bytes()).await?;
-        writer.write_all(b"\n").await?;
-        writer.flush().await?;
-
-        tracing::info!("wait tool completed: slept for {duration_secs} second(s)");
-    }
+    tracing::info!("wait tool completed: slept for {duration_secs} second(s)");
 
     Ok(())
 }
@@ -526,14 +482,14 @@ async fn handle_save_datetime<W: AsyncWriteExt + Unpin>(
             writer.write_all(json.as_bytes()).await?;
             writer.write_all(b"\n").await?;
             writer.flush().await?;
-            tracing::warn!("save_datetime tool called without path argument");
+            tracing::warn!("save-datetime tool called without path argument");
             return Ok(());
         }
     };
 
     let datetime = Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
 
-    tracing::info!("save_datetime tool called: path='{}'", path);
+    tracing::info!("save-datetime tool called: path='{}'", path);
 
     match tokio::fs::write(&path, &datetime).await {
         Ok(_) => {
@@ -552,7 +508,7 @@ async fn handle_save_datetime<W: AsyncWriteExt + Unpin>(
             writer.write_all(json.as_bytes()).await?;
             writer.write_all(b"\n").await?;
             writer.flush().await?;
-            tracing::info!("save_datetime tool completed: wrote to {}", path);
+            tracing::info!("save-datetime tool completed: wrote to {}", path);
         }
         Err(e) => {
             let result = CallToolResult {
@@ -570,7 +526,7 @@ async fn handle_save_datetime<W: AsyncWriteExt + Unpin>(
             writer.write_all(json.as_bytes()).await?;
             writer.write_all(b"\n").await?;
             writer.flush().await?;
-            tracing::warn!("save_datetime tool failed to write to {}: {}", path, e);
+            tracing::warn!("save-datetime tool failed to write to {}: {}", path, e);
         }
     }
 
@@ -591,7 +547,7 @@ async fn handle_test_error<W: AsyncWriteExt + Unpin>(
 
     let text = format!("Test error from rust: {}", input_val);
 
-    tracing::info!("test_error tool called: input='{}'", input_val);
+    tracing::info!("test-error tool called: input='{}'", input_val);
 
     let result = CallToolResult {
         content: vec![ToolContent::Text { text }],
@@ -609,7 +565,7 @@ async fn handle_test_error<W: AsyncWriteExt + Unpin>(
     writer.write_all(b"\n").await?;
     writer.flush().await?;
 
-    tracing::info!("test_error tool completed");
+    tracing::info!("test-error tool completed");
     Ok(())
 }
 

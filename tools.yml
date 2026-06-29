@@ -53,6 +53,9 @@ tools:
   test-python-tool:
     builtin: true
     enabled: true
+  test-rust-tool:
+    builtin: true
+    enabled: true
   test-js-tool:
     builtin: true
     enabled: true

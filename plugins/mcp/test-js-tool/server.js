@@ -4,10 +4,10 @@
  * test-js-tool MCP server — implements standard MCP JSON-RPC over stdio.
  *
  * Tools:
- *   - test-js-tool.wait: Sleep for N seconds (default 900)
- *   - test-js-tool.echo: Echo back input text
- *   - test-js-tool.save_datetime: Write current date/time to a file
- *   - test-js-tool.test_error: Return a test error
+ *   - test-js-tool_wait: Sleep for N seconds (default 900)
+ *   - test-js-tool_echo: Echo back input text
+ *   - test-js-tool_save-datetime: Write current date/time to a file
+ *   - test-js-tool_test-error: Return a test error
  */
 
 const readline = require("readline");
@@ -48,7 +48,7 @@ function handleInitialize(reqId) {
 function handleToolsList(reqId) {
   const tools = [
     {
-      name: "test-js-tool.wait",
+      name: "test-js-tool_wait",
       description:
         "[test-js-tool] Sleep for a specified duration in seconds (default 900 = 15 minutes)",
       inputSchema: {
@@ -64,7 +64,7 @@ function handleToolsList(reqId) {
       },
     },
     {
-      name: "test-js-tool.echo",
+      name: "test-js-tool_echo",
       description: "[test-js-tool] Echo back a greeting: 'Hello, {input}'",
       inputSchema: {
         type: "object",
@@ -79,7 +79,7 @@ function handleToolsList(reqId) {
       },
     },
     {
-      name: "test-js-tool.save_datetime",
+      name: "test-js-tool_save-datetime",
       description:
         "[test-js-tool] Write the current date/time (ISO 8601 format) to a file",
       inputSchema: {
@@ -94,7 +94,7 @@ function handleToolsList(reqId) {
       },
     },
     {
-      name: "test-js-tool.test_error",
+      name: "test-js-tool_test-error",
       description: "[test-js-tool] Return a test error: 'Test error from js: <input>'",
       inputSchema: {
         type: "object",
@@ -153,14 +153,14 @@ function handleSaveDatetime(reqId, args) {
         toolResult("Error: 'path' argument is required", true)
       )
     );
-    console.error("[test-js-tool] save_datetime tool called without path argument");
+    console.error("[test-js-tool] save-datetime tool called without path argument");
     return;
   }
 
   const datetimeStr = new Date()
     .toISOString()
     .replace(/\.\d{3}Z$/, "Z");
-  console.error("[test-js-tool] save_datetime tool called: path='" + filePath + "'");
+  console.error("[test-js-tool] save-datetime tool called: path='" + filePath + "'");
 
   try {
     fs.writeFileSync(filePath, datetimeStr, "utf-8");
@@ -170,7 +170,7 @@ function handleSaveDatetime(reqId, args) {
         toolResult("Saved datetime to " + filePath + ": " + datetimeStr)
       )
     );
-    console.error("[test-js-tool] save_datetime tool completed: wrote to " + filePath);
+    console.error("[test-js-tool] save-datetime tool completed: wrote to " + filePath);
   } catch (e) {
     sendJson(
       makeSuccess(
@@ -178,16 +178,16 @@ function handleSaveDatetime(reqId, args) {
         toolResult("Error writing to " + filePath + ": " + e.message, true)
       )
     );
-    console.error("[test-js-tool] save_datetime tool failed: " + e.message);
+    console.error("[test-js-tool] save-datetime tool failed: " + e.message);
   }
 }
 
 function handleTestError(reqId, args) {
   const inputVal = (args && args.input) || "";
   const text = "Test error from js: " + inputVal;
-  console.error("[test-js-tool] test_error tool called: input='" + inputVal + "'");
+  console.error("[test-js-tool] test-error tool called: input='" + inputVal + "'");
   sendJson(makeSuccess(reqId, toolResult(text, true)));
-  console.error("[test-js-tool] test_error tool completed");
+  console.error("[test-js-tool] test-error tool completed");
 }
 
 // ── Main loop ──
@@ -241,15 +241,15 @@ rl.on("line", function (line) {
       const toolName = params.name || "";
       const args = params.arguments || {};
 
-      if (toolName === "test-js-tool.wait") {
+      if (toolName === "test-js-tool_wait") {
         handleWait(reqId, args).catch(function (err) {
           console.error("[test-js-tool] wait tool error: " + err.message);
         });
-      } else if (toolName === "test-js-tool.echo") {
+      } else if (toolName === "test-js-tool_echo") {
         handleEcho(reqId, args);
-      } else if (toolName === "test-js-tool.save_datetime") {
+      } else if (toolName === "test-js-tool_save-datetime") {
         handleSaveDatetime(reqId, args);
-      } else if (toolName === "test-js-tool.test_error") {
+      } else if (toolName === "test-js-tool_test-error") {
         handleTestError(reqId, args);
       } else {
         if (reqId != null) {

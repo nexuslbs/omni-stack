@@ -48,14 +48,6 @@
       "description": "How often to poll for new messages (only used in polling mode)"
     },
     {
-      "key": "channel_ids",
-      "label": "Channel IDs to watch",
-      "type": "string",
-      "required": false,
-      "default": "",
-      "description": "Comma-separated list of channel IDs to watch for inbound messages"
-    },
-    {
       "key": "bot_username",
       "label": "Bot Username",
       "type": "string",

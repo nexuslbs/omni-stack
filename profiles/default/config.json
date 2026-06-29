@@ -2,13 +2,6 @@
   "provider": "deepseek",
   "model": "deepseek-v4-flash",
   "allowed_tools": [
-    "search_messages",
-    "search_wiki",
-    "create_cron_job",
-    "delete_cron_job",
-    "list_cron_jobs",
-    "update_cron_job",
-    "query_database",
     "filesystem_info",
     "filesystem_list",
     "filesystem_read",
@@ -30,7 +23,7 @@
     "review_memories",
     "get_metrics",
     "plugin_manager",
-    "create_skill",
-    "fetch"
+    "query_database",
+    "create_skill"
   ]
 }

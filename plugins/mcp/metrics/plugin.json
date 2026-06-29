@@ -2,19 +2,12 @@
   "id": "mcp-server-metrics",
   "name": "Metrics MCP Server",
   "version": "0.1.0",
-  "description": "Agent performance metrics \u2014 token usage, latency, groundedness, retrieval, and correction proxy metrics",
+  "description": "Agent performance metrics — token usage, latency, groundedness, retrieval, and correction proxy metrics",
   "type": "mcp",
   "entrypoint": {
     "command": "mcp-server-metrics",
     "args": [],
     "transport": "stdio"
   },
-  "config_schema": [
-    {
-      "key": "DATABASE_URL",
-      "label": "Database URL",
-      "type": "secret",
-      "required": true
-    }
-  ]
+  "config_schema": []
 }

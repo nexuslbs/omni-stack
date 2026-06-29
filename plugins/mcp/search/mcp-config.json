@@ -12,7 +12,7 @@
       ],
       "env": {
         "DATABASE_URL": "${DATABASE_URL}",
-        "DATA_DIR": "${DATA_DIR}",
+        "OMNI_DATA_DIR": "${OMNI_DATA_DIR:-/opt/data}",
         "RUST_LOG": "info"
       }
     }

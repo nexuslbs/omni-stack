@@ -3,7 +3,6 @@
     {
       "name": "kanban",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-kanban",
       "args": [],
       "timeout_secs": 60,
       "max_retries": 2,

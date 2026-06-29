@@ -3,7 +3,6 @@
     {
       "name": "memory",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-memory",
       "args": [],
       "timeout_secs": 60,
       "max_retries": 2,

@@ -3,7 +3,6 @@
     {
       "name": "skills",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-skills",
       "args": [],
       "timeout_secs": 30,
       "max_retries": 2,

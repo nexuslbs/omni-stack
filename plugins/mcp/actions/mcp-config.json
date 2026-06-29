@@ -3,7 +3,6 @@
     {
       "name": "actions",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-actions",
       "args": [],
       "timeout_secs": 120,
       "max_retries": 2,

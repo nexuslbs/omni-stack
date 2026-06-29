@@ -3,7 +3,6 @@
     {
       "name": "plugin_manager",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-plugin-manager",
       "args": [],
       "timeout_secs": 60,
       "max_retries": 2,

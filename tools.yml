@@ -71,8 +71,4 @@ tools:
     enabled: true
     builtin: true
     config: {}
-  test-rust-tool-2:
-    enabled: false
-    builtin: false
-    config: {}
 providers: null

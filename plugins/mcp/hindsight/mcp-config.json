@@ -3,7 +3,6 @@
     {
       "name": "hindsight",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-hindsight",
       "args": [],
       "timeout_secs": 30,
       "max_retries": 2,

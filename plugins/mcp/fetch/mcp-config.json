@@ -3,7 +3,6 @@
     {
       "name": "fetch",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-fetch",
       "args": [],
       "timeout_secs": 60,
       "max_retries": 2,

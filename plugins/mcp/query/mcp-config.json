@@ -3,7 +3,6 @@
     {
       "name": "query",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-query",
       "args": [],
       "timeout_secs": 60,
       "max_retries": 2,

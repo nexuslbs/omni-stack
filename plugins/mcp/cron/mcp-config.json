@@ -3,7 +3,6 @@
     {
       "name": "cron",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-cron",
       "args": [],
       "timeout_secs": 60,
       "max_retries": 2,

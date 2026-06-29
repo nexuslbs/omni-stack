@@ -3,7 +3,6 @@
     {
       "name": "metrics",
       "transport": "stdio",
-      "command": "/app/target/release/mcp-server-metrics",
       "args": [],
       "timeout_secs": 60,
       "max_retries": 2,

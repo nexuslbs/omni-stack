@@ -3,7 +3,7 @@
     {
       "name": "test-js-tool",
       "transport": "stdio",
-      "command": "/usr/bin/nodejs",
+      "command": "nodejs",
       "args": [
         "/opt/data/plugins/mcp/test-js-tool/server.js"
       ],

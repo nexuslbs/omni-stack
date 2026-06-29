@@ -1,66 +1,78 @@
+platforms: null
 tools:
-  # ── Bundled MCP servers (from plugins/mcp/ in omni-stack) ──
-  cron:
-    builtin: true
-    enabled: true
-  docker:
-    builtin: true
-    enabled: true
-  fetch:
-    builtin: true
-    enabled: true
-  filesystem:
-    builtin: true
-    enabled: true
-  git:
-    builtin: true
-    enabled: true
-  kanban:
-    builtin: true
-    enabled: true
-  memory:
-    builtin: true
-    enabled: true
-  metrics:
-    builtin: true
-    enabled: true
-  plugin-manager:
-    builtin: true
-    enabled: true
-  query:
-    builtin: true
-    enabled: true
-  search:
-    builtin: true
-    enabled: true
-  skills:
-    builtin: true
-    enabled: true
-  subtasks:
-    builtin: true
-    enabled: true
-
-  # ── Built-in action tools (kanban_dispatcher, hindsight_populator, relevance_indexer, setup_knowledge_pipeline) ──
   actions:
-    builtin: true
     enabled: true
-
-  # ── Hindsight memory server — recall, retain, reflect ──
+    builtin: true
+    config: {}
+  cron:
+    enabled: true
+    builtin: true
+    config: {}
+  docker:
+    enabled: true
+    builtin: true
+    config: {}
+  fetch:
+    enabled: true
+    builtin: true
+    config: {}
+  filesystem:
+    enabled: true
+    builtin: true
+    config: {}
+  git:
+    enabled: true
+    builtin: true
+    config: {}
   hindsight:
     enabled: true
-
-  # ── Test tools (for development and testing) ──
+    config: {}
+  kanban:
+    enabled: true
+    builtin: true
+    config: {}
+  memory:
+    enabled: true
+    builtin: true
+    config: {}
+  metrics:
+    enabled: true
+    builtin: true
+    config: {}
+  plugin-manager:
+    enabled: true
+    builtin: true
+    config: {}
+  query:
+    enabled: true
+    builtin: true
+    config: {}
+  search:
+    enabled: true
+    builtin: true
+    config: {}
+  skills:
+    enabled: true
+    builtin: true
+    config: {}
+  subtasks:
+    enabled: true
+    builtin: true
+    config: {}
+  test-js-tool:
+    enabled: true
+    builtin: true
+    config: {}
   test-python-tool:
-    builtin: true
     enabled: true
+    builtin: true
+    config: {}
   test-rust-tool:
-    builtin: true
     enabled: true
+    builtin: true
+    config: {}
   test-rust-tool-2:
     enabled: false
-  test-js-tool:
-    builtin: true
-    enabled: true
-
+    builtin: false
+    config: {}
 providers: null
-platforms: null

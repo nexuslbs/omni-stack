@@ -1049,6 +1049,22 @@ async fn send_inbound_notification(post: &MattermostPost, ch_id: &str) {
     let _ = out.flush().await;
 }
 
+/// Send a message_deleted notification to stdout.
+async fn send_delete_notification(ch_id: &str, post_id: &str) {
+    let notification = PluginNotification {
+        method: "message_deleted".to_string(),
+        params: Some(serde_json::json!({
+            "resource_identifier": ch_id,
+            "external_id": post_id,
+        })),
+    };
+    let line = serde_json::to_string(&notification).unwrap_or_default();
+    let mut out = tokio::io::stdout();
+    let _ = out.write_all(line.as_bytes()).await;
+    let _ = out.write_all(b"\n").await;
+    let _ = out.flush().await;
+}
+
 /// Fetch and process new posts for a single channel since the last known cursor.
 /// Returns the number of new posts processed.
 async fn poll_channel(
@@ -1367,6 +1383,51 @@ async fn ws_event_loop(
                                         &mut last_create_at, &mut bot_cache,
                                         &mut debounce,
                                     ).await;
+                                }
+                                "post_deleted" => {
+                                    // A post was deleted. Extract the post_id and channel_id,
+                                    // then send a message_deleted notification to the omniagent.
+                                    let ch_id = match event
+                                        .pointer("/data/channel_id")
+                                        .and_then(|v| v.as_str())
+                                    {
+                                        Some(c) => c.to_string(),
+                                        None => {
+                                            tracing::debug!("post_deleted event missing channel_id");
+                                            continue;
+                                        }
+                                    };
+
+                                    // Skip channels we don't watch
+                                    if !watch_all && !channel_set.contains(&ch_id) {
+                                        continue;
+                                    }
+
+                                    // The post field may be a string (post ID) or an object with an "id" field
+                                    let post_id: Option<String> = event
+                                        .pointer("/data/post")
+                                        .and_then(|v| {
+                                            if let Some(s) = v.as_str() {
+                                                Some(s.to_string())
+                                            } else if let Some(id) = v.get("id").and_then(|i| i.as_str()) {
+                                                Some(id.to_string())
+                                            } else {
+                                                None
+                                            }
+                                        });
+
+                                    if let Some(pid) = post_id {
+                                        tracing::info!(
+                                            "Post deleted in channel {}: post_id={}",
+                                            ch_id, pid
+                                        );
+                                        send_delete_notification(&ch_id, &pid).await;
+                                    } else {
+                                        tracing::debug!(
+                                            "post_deleted event missing post id in channel {}",
+                                            ch_id
+                                        );
+                                    }
                                 }
                                 _ => {
                                     // Ignore other event types

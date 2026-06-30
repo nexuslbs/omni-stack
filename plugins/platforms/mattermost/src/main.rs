@@ -458,6 +458,8 @@ struct DeliverParams {
     #[serde(default)]
     thread_id: i64,
     #[serde(default)]
+    thread_sequence: i32,
+    #[serde(default)]
     cause_external_id: Option<String>,
     /// If the cause message was itself a reply in a thread, use this as the
     /// reply target instead of cause_external_id — Mattermost doesn't allow
@@ -842,6 +844,26 @@ async fn handle_deliver(
     } else {
         None
     };
+
+    // Non-seq-0 messages MUST be in a thread. If we have no thread context,
+    // skip delivery rather than posting to the channel directly.
+    // Seq-0 messages (thread_sequence == 0) are allowed to create new posts.
+    if root_id.is_none() && params.thread_sequence > 0 {
+        tracing::warn!(
+            "Skipping delivery of seq-{} message to '{}': no thread context available (cause_external_id={:?}, cause_root_id={:?})",
+            params.thread_sequence,
+            channel_id,
+            params.cause_external_id,
+            params.cause_root_id,
+        );
+        return make_success(
+            id,
+            serde_json::json!({
+                "delivered": false,
+                "reason": "no_thread_context",
+            }),
+        );
+    }
 
     match params.msg_type.as_str() {
         "tool" | "plan" | "reasoning" => {

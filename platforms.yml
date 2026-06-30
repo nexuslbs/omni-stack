@@ -4,6 +4,7 @@ platforms:
     builtin: false
     config:
       connection_mode: websocket
+      bot_username: $env:MATTERMOST_BOT_USER
   telegram:
     enabled: false
     config:

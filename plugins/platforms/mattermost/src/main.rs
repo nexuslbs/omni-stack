@@ -1099,6 +1099,16 @@ async fn poll_channel(
                             "Polling: detected deleted post {} in channel {}",
                             post.id, ch_id
                         );
+                    } else if post.create_at > last_ts {
+                        // Post was created AND deleted between polling cycles.
+                        // It was never in `known` (never tracked as alive), but we
+                        // still need to report the deletion for the omniagent to
+                        // remove it from its own tracking.
+                        send_delete_notification(ch_id, &post.id).await;
+                        tracing::info!(
+                            "Polling: detected cross-cycle deleted post {} in channel {}",
+                            post.id, ch_id
+                        );
                     }
                     continue;
                 }
@@ -1208,10 +1218,23 @@ async fn discover_channels(client: &MattermostClient, bot_id: &str) -> Vec<Strin
     channel_ids
 }
 
-/// Build the WebSocket URL from the HTTP(S) server URL.
-fn ws_api_url(server_url: &str) -> String {
+/// Build the WebSocket URL from the HTTP(S) server URL with auth token as query parameter.
+/// Some Mattermost versions (v10+) require the token in the URL for PAT-based auth.
+fn ws_api_url(server_url: &str, access_token: &str) -> String {
     let base = server_url.trim_end_matches('/');
-    base.replacen("http", "ws", 1).to_string() + "/api/v4/websocket"
+    let mut url = base.replacen("http", "ws", 1).to_string() + "/api/v4/websocket";
+    url.push_str("?auth_token=");
+    url.push_str(&urlencoding(&access_token));
+    url
+}
+
+/// URL-encode a string for query parameters (minimal — only encode what's needed).
+fn urlencoding(s: &str) -> String {
+    s.replace('%', "%25")
+        .replace('&', "%26")
+        .replace('=', "%3D")
+        .replace('+', "%2B")
+        .replace(' ', "%20")
 }
 
 // ---------------------------------------------------------------------------
@@ -1303,7 +1326,7 @@ async fn ws_event_loop(
     let mut processed_posts: HashMap<String, HashSet<String>> = HashMap::new();
 
     loop {
-        let url = ws_api_url(&server_url);
+        let url = ws_api_url(&server_url, &access_token);
         tracing::info!("Connecting to Mattermost WebSocket: {}", url);
 
         match connect_async(&url).await {
@@ -1362,12 +1385,26 @@ async fn ws_event_loop(
                         Some(Ok(Message::Text(text))) => {
                             let event: Value = match serde_json::from_str(&text) {
                                 Ok(v) => v,
-                                Err(_) => continue,
+                                Err(e) => {
+                                    tracing::warn!(
+                                        "WS: Failed to parse message JSON: {} — raw text (first 200 chars): {}",
+                                        e,
+                                        if text.len() > 200 { format!("{}...", &text[..200]) } else { text.to_string() }
+                                    );
+                                    continue;
+                                }
                             };
 
                             let event_type = match event.get("event").and_then(|e| e.as_str()) {
                                 Some(t) => t,
-                                None => continue,
+                                None => {
+                                    tracing::debug!(
+                                        "WS: Message has no 'event' field — keys: {:?}, raw (first 200): {}",
+                                        event.as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()).unwrap_or_default(),
+                                        if text.len() > 200 { format!("{}...", &text[..200]) } else { text.to_string() }
+                                    );
+                                    continue;
+                                }
                             };
 
                             match event_type {
@@ -1375,14 +1412,14 @@ async fn ws_event_loop(
                                     tracing::info!("WebSocket authenticated successfully");
                                 }
                                 "posted" => {
-                                    // Extract channel_id from the event to trigger a poll
+                                    // Extract channel_id from broadcast field (data doesn't have channel_id)
                                     let ch_id = match event
-                                        .pointer("/data/channel_id")
+                                        .pointer("/broadcast/channel_id")
                                         .and_then(|v| v.as_str())
                                     {
                                         Some(c) => c.to_string(),
                                         None => {
-                                            tracing::debug!("posted event missing channel_id");
+                                            tracing::debug!("posted event missing broadcast channel_id");
                                             continue;
                                         }
                                     };
@@ -1410,12 +1447,12 @@ async fn ws_event_loop(
                                     // A post was deleted. Extract the post_id and channel_id,
                                     // then send a message_deleted notification to the omniagent.
                                     let ch_id = match event
-                                        .pointer("/data/channel_id")
+                                        .pointer("/broadcast/channel_id")
                                         .and_then(|v| v.as_str())
                                     {
                                         Some(c) => c.to_string(),
                                         None => {
-                                            tracing::debug!("post_deleted event missing channel_id");
+                                            tracing::debug!("post_deleted event missing broadcast channel_id");
                                             continue;
                                         }
                                     };
@@ -1425,12 +1462,23 @@ async fn ws_event_loop(
                                         continue;
                                     }
 
-                                    // The post field may be a string (post ID) or an object with an "id" field
+                                    // The post field from Mattermost WS is a JSON-ENCODED STRING
+                                    // like "{\"id\":\"post_id\",\"channel_id\":\"...\",...}".
+                                    // We need to parse it as JSON to extract the actual ID.
                                     let post_id: Option<String> = event
                                         .pointer("/data/post")
                                         .and_then(|v| {
+                                            // First try: it's already a plain string (just the ID)
                                             if let Some(s) = v.as_str() {
-                                                Some(s.to_string())
+                                                // Try to parse it as JSON — if it works, extract the "id" field
+                                                if let Ok(post_obj) = serde_json::from_str::<Value>(s) {
+                                                    post_obj.get("id")
+                                                        .and_then(|i| i.as_str())
+                                                        .map(|id| id.to_string())
+                                                } else {
+                                                    // Not JSON — it's just a plain post ID string
+                                                    Some(s.to_string())
+                                                }
                                             } else if let Some(id) = v.get("id").and_then(|i| i.as_str()) {
                                                 Some(id.to_string())
                                             } else {
@@ -1452,7 +1500,15 @@ async fn ws_event_loop(
                                     }
                                 }
                                 _ => {
-                                    // Ignore other event types
+                                    // Log unknown event types for debugging
+                                    let data_summary = event.get("data")
+                                        .map(|d| serde_json::to_string(d).unwrap_or_default())
+                                        .unwrap_or_default();
+                                    tracing::debug!(
+                                        "WS: Unknown event type '{}' — data: {}",
+                                        event_type,
+                                        if data_summary.len() > 200 { format!("{}...", &data_summary[..200]) } else { data_summary }
+                                    );
                                 }
                             }
                         }

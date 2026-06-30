@@ -124,6 +124,17 @@ Vagrant.configure("2") do |config|
     fi
 
     echo "Mattermost credentials found — running setup..."
-    python3 /opt/omni-stack/scripts/mm-setup.py --env-file "$ENV_FILE"
+
+    COMPOSE="docker compose -f /opt/omni-stack/docker-compose.yml --profile manual"
+
+    # Start the toolbox container (idles until stopped)
+    $COMPOSE up -d toolbox --wait 2>/dev/null || $COMPOSE up -d toolbox
+
+    # Run the setup script inside the toolbox
+    $COMPOSE exec -T toolbox python3 /opt/omni-stack/scripts/mm-setup.py \
+      --env-file "$ENV_FILE"
+
+    # Stop the toolbox when done
+    $COMPOSE down
   SHELL
 end

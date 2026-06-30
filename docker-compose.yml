@@ -1,16 +1,18 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: omniagent
-      POSTGRES_USER: omniagent
-      POSTGRES_PASSWORD: omniagent
+      POSTGRES_DB: ${POSTGRES_DB:-omniagent}
+      POSTGRES_USER: ${POSTGRES_USER:-omniagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     expose:
       - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U omniagent -d omniagent"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omniagent} -d ${POSTGRES_DB:-omniagent}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -36,7 +38,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://omniagent:omniagent@postgres:5432/omniagent
+      DATABASE_URL: postgres://${POSTGRES_USER:-omniagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-omniagent}
       QDRANT_URL: http://qdrant:6333
       HOST: 0.0.0.0
       PORT: 8080
@@ -67,7 +69,9 @@ services:
       - "12346:3001"
     environment:
       PORT: "3001"
-      PGPASSWORD: omniagent
+      PGPASSWORD: ${PGPASSWORD}
+      PGUSER: ${POSTGRES_USER:-omniagent}
+      PGHOST: postgres
     volumes:
       - /opt/workspace/omni-stack/:/opt/data/:ro
       - /opt/workspace/omni-stack/user/:/opt/data/user:rw
@@ -85,9 +89,9 @@ services:
     environment:
       PGHOST: postgres
       PGPORT: "5432"
-      PGUSER: omniagent
-      PGPASSWORD: omniagent
-      PGDATABASE: omniagent
+      PGUSER: ${POSTGRES_USER:-omniagent}
+      PGPASSWORD: ${PGPASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-omniagent}
     volumes:
       - ./:/opt/data:rw
 

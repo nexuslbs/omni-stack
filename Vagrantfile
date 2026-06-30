@@ -19,6 +19,9 @@ Vagrant.configure("2") do |config|
     config.vm.disk :disk, size: VM_DISK, primary: true
   end
 
+  # ── Sync omni-stack repo (for scripts, .env access on VM) ──────────
+  config.vm.synced_folder ".", "/opt/omni-stack", type: "rsync"
+
   # ── No Host File Sharing (security) ─────────────────────────────────
   config.vm.synced_folder ".", "/vagrant", disabled: true
 
@@ -94,5 +97,33 @@ Vagrant.configure("2") do |config|
 
     # Run the startup script
     bash /opt/omniagent/scripts/startup.sh
+  SHELL
+
+  # ── Mattermost Setup (conditional on .env credentials) ──────────────
+  config.vm.provision "shell", name: "setup-mattermost", privileged: true, inline: <<-SHELL
+    set -euxo pipefail
+
+    ENV_FILE="/opt/omni-stack/.env"
+
+    # Only proceed if .env exists and has Mattermost credentials
+    if [ ! -f "$ENV_FILE" ]; then
+      echo "SKIP: No .env found at $ENV_FILE — Mattermost setup skipped"
+      exit 0
+    fi
+
+    # Source the .env (safe subset: only the vars we need)
+    ADMIN_PASS=$(grep -m1 '^MATTERMOST_ADMIN_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+    TEST_PASS=$(grep -m1 '^MATTERMOST_TEST_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+    BOT_PASS=$(grep -m1 '^MATTERMOST_BOT_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
+
+    if [ -z "$ADMIN_PASS" ] && [ -z "$TEST_PASS" ] && [ -z "$BOT_PASS" ]; then
+      echo "SKIP: No Mattermost credentials found in .env"
+      echo "  Define at least one of MATTERMOST_ADMIN_PASSWORD,"
+      echo "  MATTERMOST_TEST_PASSWORD, or MATTERMOST_BOT_PASSWORD"
+      exit 0
+    fi
+
+    echo "Mattermost credentials found — running setup..."
+    python3 /opt/omni-stack/scripts/mm-setup.py --env-file "$ENV_FILE"
   SHELL
 end

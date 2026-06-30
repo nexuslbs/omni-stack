@@ -19,6 +19,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio_tungstenite::connect_async;
@@ -614,6 +615,8 @@ async fn main() -> Result<()> {
             let mut last_create_at: HashMap<String, i64> = HashMap::new();
             let mut bot_cache: HashMap<String, bool> = HashMap::new();
             bot_cache.insert(bot_id.clone(), true);
+            // Track post IDs we've processed per channel (for deletion detection)
+            let mut processed_posts: HashMap<String, HashSet<String>> = HashMap::new();
 
             // Initialize cursors for all channels
             for ch_id in &current_ids {
@@ -672,6 +675,7 @@ async fn main() -> Result<()> {
                     let count = poll_channel(
                         &client, ch_id, &bot_id,
                         &mut last_create_at, &mut bot_cache,
+                        &mut processed_posts,
                     ).await;
                     if count > 0 {
                         tracing::debug!(
@@ -1073,6 +1077,7 @@ async fn poll_channel(
     bot_id: &str,
     last_create_at: &mut HashMap<String, i64>,
     bot_cache: &mut HashMap<String, bool>,
+    processed_posts: &mut HashMap<String, std::collections::HashSet<String>>,
 ) -> u32 {
     let mut count = 0u32;
     let last_ts = last_create_at.get(ch_id).copied().unwrap_or(0);
@@ -1080,11 +1085,25 @@ async fn poll_channel(
     match client.get_channel_posts(ch_id, 0, 60).await {
         Ok(posts) => {
             let mut newest_ts = last_ts;
+            let known = processed_posts.entry(ch_id.to_string()).or_default();
 
             // Posts are newest-first from the API. We iterate in reverse
             // so we process oldest to newest (create_at is monotonic in rev()).
             for post in posts.iter().rev() {
-                // Skip already-seen posts
+                // ── Detect deleted posts that we previously processed ──
+                if post.delete_at != 0 {
+                    if known.remove(&post.id) {
+                        // This post was previously processed and is now deleted
+                        send_delete_notification(ch_id, &post.id).await;
+                        tracing::info!(
+                            "Polling: detected deleted post {} in channel {}",
+                            post.id, ch_id
+                        );
+                    }
+                    continue;
+                }
+
+                // Skip already-seen posts (deletion check above runs regardless)
                 if post.create_at <= last_ts {
                     continue;
                 }
@@ -1093,13 +1112,7 @@ async fn poll_channel(
                     newest_ts = post.create_at;
                 }
 
-                // Skip deleted posts
-                if post.delete_at != 0 {
-                    continue;
-                }
-
                 // Skip system messages (e.g. "joined the channel", "added to team")
-                // These have a non-empty type field in Mattermost.
                 if !post.post_type.is_empty() {
                     continue;
                 }
@@ -1116,12 +1129,18 @@ async fn poll_channel(
 
                 // This is a new post from a human user
                 send_inbound_notification(&post, ch_id).await;
+                known.insert(post.id.clone());
                 count += 1;
             }
 
             // Advance cursor to the newest post on the server
             if newest_ts > last_ts {
                 last_create_at.insert(ch_id.to_string(), newest_ts);
+            }
+
+            // Trim old tracked posts: keep only those within the current 60-post window
+            if known.len() > 200 {
+                known.clear();
             }
         }
         Err(e) => {
@@ -1219,6 +1238,7 @@ async fn process_channel_event(
     last_create_at: &mut HashMap<String, i64>,
     bot_cache: &mut HashMap<String, bool>,
     debounce: &mut HashMap<String, ChannelDebounce>,
+    processed_posts: &mut HashMap<String, HashSet<String>>,
 ) {
     let state = debounce
         .entry(ch_id.to_string())
@@ -1237,7 +1257,7 @@ async fn process_channel_event(
     loop {
         state.pending = false;
 
-        let count = poll_channel(client, ch_id, bot_id, last_create_at, bot_cache).await;
+        let count = poll_channel(client, ch_id, bot_id, last_create_at, bot_cache, processed_posts).await;
         if count > 0 {
             tracing::info!("WS event: processed {} new post(s) in channel {}", count, ch_id);
         }
@@ -1280,6 +1300,7 @@ async fn ws_event_loop(
 
     let mut backoff = 1u64;
     let mut debounce: HashMap<String, ChannelDebounce> = HashMap::new();
+    let mut processed_posts: HashMap<String, HashSet<String>> = HashMap::new();
 
     loop {
         let url = ws_api_url(&server_url);
@@ -1311,6 +1332,7 @@ async fn ws_event_loop(
                     let count = poll_channel(
                         &client, ch_id, &bot_id,
                         &mut last_create_at, &mut bot_cache,
+                        &mut processed_posts,
                     ).await;
                     if count > 0 {
                         tracing::info!(
@@ -1381,7 +1403,7 @@ async fn ws_event_loop(
                                     process_channel_event(
                                         &client, &ch_id, &bot_id,
                                         &mut last_create_at, &mut bot_cache,
-                                        &mut debounce,
+                                        &mut debounce, &mut processed_posts,
                                     ).await;
                                 }
                                 "post_deleted" => {

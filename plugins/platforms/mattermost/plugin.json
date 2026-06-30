@@ -2,7 +2,7 @@
   "name": "mattermost",
   "version": "1.0.0",
   "type": "platform",
-  "description": "Mattermost platform \u2014 send and receive messages via Mattermost REST API",
+  "description": "Mattermost platform — send and receive messages via Mattermost REST API",
   "entrypoint": {
     "command": "/opt/data/plugins/platforms/mattermost/target/release/mattermost-platform",
     "args": [],
@@ -48,6 +48,14 @@
       "description": "How often to poll for new messages (only used in polling mode)"
     },
     {
+      "key": "channel_ids",
+      "label": "Channel IDs to watch",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "Comma-separated list of channel IDs to watch for inbound messages"
+    },
+    {
       "key": "bot_username",
       "label": "Bot Username",
       "type": "string",
@@ -60,11 +68,8 @@
       "label": "Connection Mode",
       "type": "enum",
       "required": false,
-      "default": "polling",
-      "allowed_values": [
-        "polling",
-        "websocket"
-      ],
+      "default": "websocket",
+      "allowed_values": ["polling", "websocket"],
       "description": "How to detect new messages: 'polling' or 'websocket' (real-time)"
     }
   ],

@@ -38,12 +38,13 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-omniagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-omniagent}
+      DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD}@postgres:5432/omniagent
       QDRANT_URL: http://qdrant:6333
       HOST: 0.0.0.0
       PORT: 8080
       WORKSPACE_DIR: /opt/workspace
       HINDSIGHT_URL: http://hindsight:8888
+      SQLX_OFFLINE: "true"
     volumes:
       - ./:/opt/data:rw
       - /opt/workspace/omniagent:/app:rw
@@ -101,12 +102,12 @@ services:
     profiles:
       - manual
     container_name: omni-toolbox
-    entrypoint: ["sh", "-c", "apk add --no-cache curl >/dev/null 2>&1; exec tail -f /dev/null"]
+    entrypoint: ["sh", "-c", "apk add --no-cache curl; exec tail -f /dev/null"]
     env_file:
       - .env
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./:/opt/omni-stack:ro
+      - ./:/opt/omni-stack:rw
     networks:
       - default
       - omniagent_default

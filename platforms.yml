@@ -2,7 +2,8 @@ platforms:
   mattermost:
     enabled: true
     builtin: false
-    config: {}
+    config:
+      connection_mode: websocket
   telegram:
     enabled: false
     config:

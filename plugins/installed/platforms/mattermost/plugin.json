@@ -20,7 +20,7 @@
       "type": "string",
       "required": false,
       "default": "http://mattermost:8065",
-      "description": "Base URL of the Mattermost server. Pre-configured via MATTERMOST_SERVER_URL env var."
+      "description": "Base URL of the Mattermost server."
     },
     {
       "key": "access_token",
@@ -28,15 +28,7 @@
       "type": "secret",
       "required": false,
       "secret": true,
-      "description": "Mattermost personal access token for the bot account. Pre-configured via MATTERMOST_ACCESS_TOKEN env var."
-    },
-    {
-      "key": "polling_enabled",
-      "label": "Enable inbound polling",
-      "type": "boolean",
-      "required": false,
-      "default": true,
-      "description": "Poll Mattermost for incoming messages (only used in polling mode)"
+      "description": "Mattermost personal access token for the bot account."
     },
     {
       "key": "polling_interval",
@@ -47,22 +39,6 @@
       "min": 5,
       "max": 300,
       "description": "How often to poll for new messages (only used in polling mode)"
-    },
-    {
-      "key": "channel_ids",
-      "label": "Channel IDs to watch",
-      "type": "string",
-      "required": false,
-      "default": "",
-      "description": "Comma-separated list of channel IDs to watch for inbound messages"
-    },
-    {
-      "key": "bot_username",
-      "label": "Bot Username",
-      "type": "string",
-      "required": false,
-      "default": "omniagent",
-      "description": "Username of the Mattermost bot account"
     },
     {
       "key": "connection_mode",
@@ -91,7 +67,7 @@
     },
     {
       "key": "bot_user",
-      "label": "Bot Username (Setup)",
+      "label": "Bot Username",
       "type": "string",
       "required": false,
       "default": "omniagent",
@@ -132,18 +108,7 @@
   ],
   "env": {
     "RUST_LOG": "mattermost_platform=debug",
-    "MATTERMOST_SERVER_URL": "${MATTERMOST_SERVER_URL}",
-    "MATTERMOST_ACCESS_TOKEN": "${MATTERMOST_ACCESS_TOKEN}",
-    "MATTERMOST_POLLING_ENABLED": "${MATTERMOST_POLLING_ENABLED}",
-    "MATTERMOST_POLLING_INTERVAL": "${MATTERMOST_POLLING_INTERVAL}",
-    "MATTERMOST_BOT_USERNAME": "${MATTERMOST_BOT_USERNAME}",
-    "MATTERMOST_CONNECTION_MODE": "${MATTERMOST_CONNECTION_MODE}",
-    "MM_SETUP_TEAM": "${MM_TEAM}",
-    "MM_SETUP_CHANNEL": "${MM_CHANNEL}",
-    "MM_BOT_USERNAME": "${MM_BOT_USERNAME}",
-    "MM_USERNAME": "${MM_USERNAME}",
-    "MM_USER_PASSWORD": "${MM_USER_PASSWORD}",
-    "MM_TEST_USERNAME": "${MM_TEST_USERNAME}",
-    "MM_TEST_PASSWORD": "${MM_TEST_PASSWORD}"
+    "server_url": "http://omm-mattermost:8065",
+    "access_token": "$env:MATTERMOST_ACCESS_TOKEN"
   }
 }

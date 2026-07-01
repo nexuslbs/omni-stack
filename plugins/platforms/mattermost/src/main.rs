@@ -1106,11 +1106,6 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Normal operation requires an access token (created during setup)
-    let access_token = access_token.context(
-        "access_token is required for normal operation. Run setup first."
-    )?;
-
     tracing::info!("Mattermost platform plugin starting");
 
     let connection_mode = config.connection_mode.to_lowercase();
@@ -1118,132 +1113,144 @@ async fn main() -> Result<()> {
 
     let polling_interval_secs = config.polling_interval;
 
-    let client = MattermostClient::new(&server_url, &access_token);
+    // Always create a client (it's just a wrapper around reqwest + auth header).
+    // With a missing or invalid token, API calls will 401 — they already have
+    // proper error handling. The plugin stays alive regardless.
+    let owned_access_token = access_token.unwrap_or_default();
+    let client = MattermostClient::new(&server_url, &owned_access_token);
 
     // Verify token by fetching bot user info
-    let bot_user = match client.get_me().await {
-        Ok(u) => {
-            tracing::info!(
-                "Authenticated as Mattermost user: {} ({})",
-                u.username,
-                u.id
-            );
-            u
-        }
-        Err(e) => {
-            tracing::error!("Failed to authenticate with Mattermost: {:?}", e);
-            return Err(e);
-        }
-    };
-
-    // Auto-discover channels the bot is a member of
-    let mut channel_ids: Vec<String> = discover_channels(&client, &bot_user.id).await;
-
-    if !channel_ids.is_empty() {
-        tracing::info!(
-            "Watching {} channel(s): {}",
-            channel_ids.len(),
-            channel_ids.join(", ")
-        );
-    }
-
-    // ── Inbound (polling or WebSocket) ──────────────────────────────────
-    let use_websocket = connection_mode == "websocket";
-    let inbound_handle: Option<tokio::task::JoinHandle<()>> = if use_websocket {
-        let bot_id = bot_user.id.clone();
-        Some(tokio::spawn(async move {
-            // WebSocket mode: watch ALL channels — the WS stream already
-            // scopes to channels the bot can access. No filter needed.
-            ws_event_loop(
-                server_url,
-                access_token,
-                vec![], // empty = watch_all = true
-                bot_id,
-            ).await;
-        }))
-    } else if polling_enabled {
-        let client = MattermostClient::new(&server_url, &access_token);
-        let bot_id = bot_user.id.clone();
-
-        Some(tokio::spawn(async move {
-            // Shared state: the channel list, periodically refreshed
-            let mut current_ids: Vec<String> = channel_ids;
-            let mut last_discovery: Vec<String> = current_ids.clone();
-
-            // Cursor tracking: oldest create_at seen per channel
-            let mut last_create_at: HashMap<String, i64> = HashMap::new();
-            let mut bot_cache: HashMap<String, bool> = HashMap::new();
-            bot_cache.insert(bot_id.clone(), true);
-            // Track post IDs we've processed per channel (for deletion detection)
-            let mut processed_posts: HashMap<String, HashSet<String>> = HashMap::new();
-
-            // Initialize cursors for all channels
-            for ch_id in &current_ids {
-                init_channel_cursor(&client, ch_id, &mut last_create_at).await;
+    let bot_user: Option<MattermostUser> = if !owned_access_token.is_empty() {
+        match client.get_me().await {
+            Ok(u) => {
+                tracing::info!(
+                    "Authenticated as Mattermost user: {} ({})",
+                    u.username,
+                    u.id
+                );
+                Some(u)
             }
-
-            let mut refresh_counter: u64 = 0;
-            let refresh_interval: u64 = 4; // refresh discovery every N poll cycles
-
-            loop {
-                tokio::time::sleep(std::time::Duration::from_secs(polling_interval_secs)).await;
-
-                // Periodically refresh channel discovery (every N cycles)
-                refresh_counter += 1;
-                if refresh_counter >= refresh_interval {
-                    refresh_counter = 0;
-
-                    // Discover channels the bot is currently a member of
-                    let discovered = discover_channels(&client, &bot_id).await;
-
-                    let mut merged = discovered.clone();
-
-                    // Detect new channels since last refresh
-                    for ch_id in &merged {
-                        if !last_discovery.contains(ch_id) {
-                            tracing::info!(
-                                "Discovered new channel {}, initializing cursor",
-                                ch_id
-                            );
-                            if !last_create_at.contains_key(ch_id.as_str()) {
-                                init_channel_cursor(&client, ch_id, &mut last_create_at).await;
-                            }
-                        }
-                    }
-
-                    // Detect removed channels
-                    for ch_id in &last_discovery {
-                        if !merged.contains(ch_id) {
-                            tracing::info!("Channel {} no longer accessible, removing", ch_id);
-                            last_create_at.remove(ch_id.as_str());
-                        }
-                    }
-
-                    current_ids = merged;
-                    last_discovery = current_ids.clone();
-                }
-
-                // Poll all known channels
-                for ch_id in &current_ids {
-                    let count = poll_channel(
-                        &client, ch_id, &bot_id,
-                        &mut last_create_at, &mut bot_cache,
-                        &mut processed_posts,
-                    ).await;
-                    if count > 0 {
-                        tracing::debug!(
-                            "Polling: processed {} new post(s) in channel {}",
-                            count, ch_id
-                        );
-                    }
-                }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to authenticate with Mattermost: {:?}. \
+                     Plugin will run without inbound capability until a valid token is provided.",
+                    e
+                );
+                None
             }
-        }))
+        }
     } else {
+        tracing::warn!(
+            "No access_token provided. \
+             Plugin will run without inbound capability until setup is run."
+        );
         None
     };
 
+    // Auto-discover channels the bot is a member of
+    let mut channel_ids: Vec<String> = if let Some(ref bot) = bot_user {
+        let ids = discover_channels(&client, &bot.id).await;
+        if !ids.is_empty() {
+            tracing::info!(
+                "Watching {} channel(s): {}",
+                ids.len(),
+                ids.join(", ")
+            );
+        }
+        ids
+    } else {
+        Vec::new()
+    };
+
+    // ── Inbound (polling or WebSocket) ──────────────────────────────────
+    let use_websocket = connection_mode == "websocket";
+    let inbound_handle: Option<tokio::task::JoinHandle<()>> = match bot_user.as_ref() {
+        Some(bot) if use_websocket => {
+            let bot_id = bot.id.clone();
+            Some(tokio::spawn(async move {
+                ws_event_loop(
+                    server_url,
+                    owned_access_token.clone(),
+                    vec![],
+                    bot_id,
+                ).await;
+            }))
+        }
+        Some(bot) if polling_enabled => {
+            let poll_client = MattermostClient::new(&server_url, &owned_access_token);
+            let bot_id = bot.id.clone();
+
+            Some(tokio::spawn(async move {
+                let mut current_ids: Vec<String> = channel_ids;
+                let mut last_discovery: Vec<String> = current_ids.clone();
+                let mut last_create_at: HashMap<String, i64> = HashMap::new();
+                let mut bot_cache: HashMap<String, bool> = HashMap::new();
+                bot_cache.insert(bot_id.clone(), true);
+                let mut processed_posts: HashMap<String, HashSet<String>> = HashMap::new();
+
+                for ch_id in &current_ids {
+                    init_channel_cursor(&poll_client, ch_id, &mut last_create_at).await;
+                }
+
+                let mut refresh_counter: u64 = 0;
+                let refresh_interval: u64 = 4;
+
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(polling_interval_secs)).await;
+
+                    refresh_counter += 1;
+                    if refresh_counter >= refresh_interval {
+                        refresh_counter = 0;
+
+                        let discovered = discover_channels(&poll_client, &bot_id).await;
+                        let mut merged = discovered.clone();
+
+                        for ch_id in &merged {
+                            if !last_discovery.contains(ch_id) {
+                                tracing::info!(
+                                    "Discovered new channel {}, initializing cursor",
+                                    ch_id
+                                );
+                                if !last_create_at.contains_key(ch_id.as_str()) {
+                                    init_channel_cursor(&poll_client, ch_id, &mut last_create_at).await;
+                                }
+                            }
+                        }
+
+                        for ch_id in &last_discovery {
+                            if !merged.contains(ch_id) {
+                                tracing::info!("Channel {} no longer accessible, removing", ch_id);
+                                last_create_at.remove(ch_id.as_str());
+                            }
+                        }
+
+                        current_ids = merged;
+                        last_discovery = current_ids.clone();
+                    }
+
+                    for ch_id in &current_ids {
+                        let count = poll_channel(
+                            &poll_client, ch_id, &bot_id,
+                            &mut last_create_at, &mut bot_cache,
+                            &mut processed_posts,
+                        ).await;
+                        if count > 0 {
+                            tracing::debug!(
+                                "Polling: processed {} new post(s) in channel {}",
+                                count, ch_id
+                            );
+                        }
+                    }
+                }
+            }))
+        }
+        _ => None,
+    };
+
     // ── Main request-response loop ─────────────────────────────────────
+    // Cache bot_user_id for the react handler
+    let bot_user_id: Option<&str> = bot_user.as_ref().map(|u| u.id.as_str());
+
     loop {
         let line = match lines.next_line().await {
             Ok(Some(line)) => line,
@@ -1324,7 +1331,7 @@ async fn main() -> Result<()> {
             "react" => {
                 if let Some(params) = request.params {
                     match serde_json::from_value::<ReactParams>(params) {
-                        Ok(p) => handle_react(req_id, &client, &bot_user.id, &p).await,
+                        Ok(p) => handle_react(req_id, &client, bot_user_id, &p).await,
                         Err(e) => {
                             make_error(req_id, -1, &format!("Invalid react params: {}", e))
                         }
@@ -1529,9 +1536,13 @@ async fn handle_delete(
 async fn handle_react(
     id: u64,
     client: &MattermostClient,
-    bot_user_id: &str,
+    bot_user_id: Option<&str>,
     params: &ReactParams,
 ) -> PluginResponse {
+    let bot_user_id = match bot_user_id {
+        Some(id) => id,
+        None => return make_error(id, -1, "Cannot react: no authenticated Mattermost user (run setup first)"),
+    };
     let emoji = params.emoji.trim_matches(':').to_string();
     match client.create_reaction(&params.external_id, bot_user_id, &emoji).await {
         Ok(_) => make_success(id, serde_json::json!({"reacted": true})),

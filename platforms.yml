@@ -9,6 +9,7 @@ platforms:
       setup_team: $env:MM_TEAM
       setup_channel: $env:MM_CHANNEL
       bot_user: $env:MM_BOT_USERNAME
+      bot_password: $env:MM_BOT_PASSWORD
       admin_user: $env:MM_USERNAME
       admin_password: $env:MM_USER_PASSWORD
       test_user: $env:MM_TEST_USERNAME

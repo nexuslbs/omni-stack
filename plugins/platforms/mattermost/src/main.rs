@@ -650,16 +650,8 @@ impl MattermostClient {
     /// Create a bot account and obtain/refresh a personal access token.
     /// Returns the token string.
     async fn setup_bot_token(&self, bot_user_id: &str) -> Result<String> {
-        // Check existing tokens first
-        let tokens = self.get_user_tokens(bot_user_id).await?;
-        for tok in &tokens {
-            if tok["is_active"].as_bool().unwrap_or(false) {
-                if let Some(token_val) = tok["token"].as_str() {
-                    return Ok(token_val.to_string());
-                }
-            }
-        }
-        // Create a new token
+        // Always create a new token. The Mattermost GET tokens API returns only
+        // token IDs (not values), so we cannot meaningfully reuse existing tokens.
         self.create_user_token(bot_user_id, "OmniAgent bot access token").await
     }
 }
@@ -834,7 +826,7 @@ struct PluginConfig {
     access_token: Option<String>,
     #[serde(default = "default_connection_mode")]
     connection_mode: String,
-    #[serde(default = "default_polling_interval")]
+    #[serde(default = "default_polling_interval", deserialize_with = "deserialize_u64_from_string_or_number")]
     polling_interval: u64,
 }
 
@@ -844,6 +836,30 @@ fn default_connection_mode() -> String {
 
 fn default_polling_interval() -> u64 {
     15
+}
+
+/// Deserialize a u64 that may be a number, a string, or empty (use default).
+fn deserialize_u64_from_string_or_number<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+    struct U64OrString;
+    impl<'de> de::Visitor<'de> for U64OrString {
+        type Value = u64;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a u64, string, or empty value")
+        }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<u64, E> { Ok(v) }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<u64, E> {
+            if v.is_empty() {
+                Ok(default_polling_interval())
+            } else {
+                v.parse::<u64>().map_err(de::Error::custom)
+            }
+        }
+    }
+    deserializer.deserialize_any(U64OrString)
 }
 
 // ---------------------------------------------------------------------------
@@ -1766,33 +1782,17 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                 let admin_client = login_admin_client(server_url, &params.admin_user, &params.admin_password).await;
                 match admin_client {
                     Some(adm) => {
-                        // Check existing tokens
-                        let tokens = adm.get_user_tokens(&uid).await.unwrap_or_default();
-                        let mut found = None;
-                        for tok in &tokens {
-                            if tok["is_active"].as_bool().unwrap_or(false) {
-                                if let Some(t) = tok["token"].as_str() {
-                                    found = Some(t.to_string());
-                                    break;
-                                }
-                            }
-                        }
-                        match found {
-                            Some(t) => {
-                                tracing::info!("Using existing token for bot user");
+                        // Always create a new token. The Mattermost GET tokens API
+                        // returns only token IDs (not values), so we cannot
+                        // meaningfully reuse existing tokens.
+                        match adm.create_user_token(&uid, "OmniAgent bot access token").await {
+                            Ok(t) => {
+                                tracing::info!("Created new token for bot user");
                                 t
                             }
-                            None => {
-                                match adm.create_user_token(&uid, "OmniAgent bot access token").await {
-                                    Ok(t) => {
-                                        tracing::info!("Created new token for bot user");
-                                        t
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!("Could not create token: {}. Continuing without token refresh.", e);
-                                        String::new()
-                                    }
-                                }
+                            Err(e) => {
+                                tracing::warn!("Could not create token: {}. Continuing without token refresh.", e);
+                                String::new()
                             }
                         }
                     }

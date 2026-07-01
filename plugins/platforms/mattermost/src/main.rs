@@ -45,6 +45,16 @@ impl MattermostClient {
         }
     }
 
+    /// Create a client from a session token (from login).
+    fn from_session(server_url: &str, session_token: &str) -> Self {
+        let api_base = server_url.trim_end_matches('/').to_string();
+        Self {
+            http_client: reqwest::Client::new(),
+            api_base,
+            auth_header: format!("Bearer {}", session_token),
+        }
+    }
+
     /// Create a new post in a channel.
     /// If `root_id` is Some, the post is a reply in that thread.
     async fn create_post(
@@ -354,6 +364,297 @@ impl MattermostClient {
 }
 
 // ---------------------------------------------------------------------------
+// MattermostClient — Setup API methods
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// MattermostClient — Setup API methods
+// ---------------------------------------------------------------------------
+
+impl MattermostClient {
+    /// Create a new user account.
+    async fn create_user(&self, username: &str, password: &str, email: &str) -> Result<Value> {
+        let body = serde_json::json!({
+            "username": username,
+            "password": password,
+            "email": email,
+        });
+        let resp = self
+            .http_client
+            .post(format!("{}/api/v4/users", self.api_base))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() || status.as_u16() == 409 {
+            Ok(serde_json::from_str(&text).unwrap_or(serde_json::json!({})))
+        } else {
+            Err(anyhow::anyhow!("Mattermost createUser failed ({}): {}", status, text))
+        }
+    }
+
+    /// Create a new team.
+    async fn create_team(&self, name: &str, display_name: &str) -> Result<Value> {
+        let body = serde_json::json!({
+            "name": name,
+            "display_name": display_name,
+            "type": "O",
+        });
+        let resp = self
+            .http_client
+            .post(format!("{}/api/v4/teams", self.api_base))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() || status.as_u16() == 409 {
+            Ok(serde_json::from_str(&text).unwrap_or(serde_json::json!({})))
+        } else {
+            Err(anyhow::anyhow!("Mattermost createTeam failed ({}): {}", status, text))
+        }
+    }
+
+    /// Get all teams (for finding existing teams).
+    async fn get_teams_all(&self) -> Result<Vec<Value>> {
+        let resp = self
+            .http_client
+            .get(format!("{}/api/v4/teams", self.api_base))
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() {
+            Ok(serde_json::from_str(&text).unwrap_or_default())
+        } else {
+            Err(anyhow::anyhow!("Mattermost getTeamsAll failed ({}): {}", status, text))
+        }
+    }
+
+    /// Get all users.
+    async fn get_users_all(&self) -> Result<Vec<Value>> {
+        let resp = self
+            .http_client
+            .get(format!("{}/api/v4/users", self.api_base))
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() {
+            Ok(serde_json::from_str(&text).unwrap_or_default())
+        } else {
+            Err(anyhow::anyhow!("Mattermost getUsersAll failed ({}): {}", status, text))
+        }
+    }
+
+    /// Add a user to a team.
+    async fn add_team_member(&self, team_id: &str, user_id: &str) -> Result<bool> {
+        let body = serde_json::json!({"team_id": team_id, "user_id": user_id});
+        let resp = self
+            .http_client
+            .post(format!("{}/api/v4/teams/{}/members", self.api_base, team_id))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status.is_success() || status.as_u16() == 409 {
+            Ok(true)
+        } else {
+            let text = resp.text().await.unwrap_or_default();
+            Err(anyhow::anyhow!("Mattermost addTeamMember failed ({}): {}", status, text))
+        }
+    }
+
+    /// Create a new channel in a team.
+    async fn create_channel(&self, team_id: &str, name: &str, display_name: &str) -> Result<Value> {
+        let body = serde_json::json!({
+            "team_id": team_id,
+            "name": name,
+            "display_name": display_name,
+            "type": "O",
+        });
+        let resp = self
+            .http_client
+            .post(format!("{}/api/v4/channels", self.api_base))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() || status.as_u16() == 409 {
+            Ok(serde_json::from_str(&text).unwrap_or(serde_json::json!({})))
+        } else {
+            Err(anyhow::anyhow!("Mattermost createChannel failed ({}): {}", status, text))
+        }
+    }
+
+    /// Add a user to a channel.
+    async fn add_channel_member(&self, channel_id: &str, user_id: &str) -> Result<bool> {
+        let body = serde_json::json!({"user_id": user_id});
+        let resp = self
+            .http_client
+            .post(format!("{}/api/v4/channels/{}/members", self.api_base, channel_id))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status.is_success() || status.as_u16() == 409 {
+            Ok(true)
+        } else {
+            let text = resp.text().await.unwrap_or_default();
+            Err(anyhow::anyhow!("Mattermost addChannelMember failed ({}): {}", status, text))
+        }
+    }
+
+    /// Create a bot account from an existing user.
+    async fn create_bot(&self, user_id: &str, display_name: &str, description: &str) -> Result<Value> {
+        let body = serde_json::json!({
+            "user_id": user_id,
+            "display_name": display_name,
+            "description": description,
+        });
+        let resp = self
+            .http_client
+            .post(format!("{}/api/v4/bots", self.api_base))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() || status.as_u16() == 409 {
+            Ok(serde_json::from_str(&text).unwrap_or(serde_json::json!({})))
+        } else {
+            Err(anyhow::anyhow!("Mattermost createBot failed ({}): {}", status, text))
+        }
+    }
+
+    /// Create a personal access token for a user.
+    async fn create_user_token(&self, user_id: &str, description: &str) -> Result<String> {
+        let body = serde_json::json!({"description": description});
+        let resp = self
+            .http_client
+            .post(format!("{}/api/v4/users/{}/tokens", self.api_base, user_id))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() {
+            let val: Value = serde_json::from_str(&text)?;
+            val["token"]
+                .as_str()
+                .map(|s| s.to_string())
+                .ok_or_else(|| anyhow::anyhow!("Mattermost createUserToken response missing token field"))
+        } else {
+            Err(anyhow::anyhow!("Mattermost createUserToken failed ({}): {}", status, text))
+        }
+    }
+
+    /// List existing tokens for a user.
+    async fn get_user_tokens(&self, user_id: &str) -> Result<Vec<Value>> {
+        let resp = self
+            .http_client
+            .get(format!("{}/api/v4/users/{}/tokens", self.api_base, user_id))
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() {
+            Ok(serde_json::from_str(&text).unwrap_or_default())
+        } else {
+            Err(anyhow::anyhow!("Mattermost getUserTokens failed ({}): {}", status, text))
+        }
+    }
+
+    /// Update user password (admin-only).
+    async fn update_user_password(&self, user_id: &str, new_password: &str) -> Result<bool> {
+        let body = serde_json::json!({"new_password": new_password});
+        let resp = self
+            .http_client
+            .put(format!("{}/api/v4/users/{}/password", self.api_base, user_id))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status.is_success() {
+            Ok(true)
+        } else {
+            let text = resp.text().await.unwrap_or_default();
+            Err(anyhow::anyhow!("Mattermost updateUserPassword failed ({}): {}", status, text))
+        }
+    }
+
+    /// Get team members.
+    async fn get_team_members(&self, team_id: &str) -> Result<Vec<Value>> {
+        let resp = self
+            .http_client
+            .get(format!("{}/api/v4/teams/{}/members", self.api_base, team_id))
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if status.is_success() {
+            Ok(serde_json::from_str(&text).unwrap_or_default())
+        } else {
+            Err(anyhow::anyhow!("Mattermost getTeamMembers failed ({}): {}", status, text))
+        }
+    }
+
+    /// Find team by name.
+    async fn find_team_by_name(&self, name: &str) -> Result<Option<String>> {
+        let teams = self.get_teams_all().await?;
+        for t in &teams {
+            if t["name"].as_str() == Some(name) {
+                return Ok(t["id"].as_str().map(|s| s.to_string()));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Find user by username.
+    async fn find_user_by_username(&self, username: &str) -> Result<Option<(String, bool)>> {
+        let users = self.get_users_all().await?;
+        for u in &users {
+            if u["username"].as_str() == Some(username) {
+                let uid = u["id"].as_str().unwrap_or("").to_string();
+                let is_bot = u["is_bot"].as_bool().unwrap_or(false);
+                return Ok(Some((uid, is_bot)));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Create a bot account and obtain/refresh a personal access token.
+    /// Returns the token string.
+    async fn setup_bot_token(&self, bot_user_id: &str) -> Result<String> {
+        // Check existing tokens first
+        let tokens = self.get_user_tokens(bot_user_id).await?;
+        for tok in &tokens {
+            if tok["is_active"].as_bool().unwrap_or(false) {
+                if let Some(token_val) = tok["token"].as_str() {
+                    return Ok(token_val.to_string());
+                }
+            }
+        }
+        // Create a new token
+        self.create_user_token(bot_user_id, "OmniAgent bot access token").await
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Mattermost API types
 // ---------------------------------------------------------------------------
 
@@ -494,6 +795,25 @@ struct ReactParams {
     emoji: String,
 }
 
+/// Parameters for the setup method.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct SetupParams {
+    #[serde(default)]
+    setup_team: String,
+    #[serde(default)]
+    setup_channel: String,
+    #[serde(default)]
+    bot_user: String,
+    #[serde(default)]
+    admin_user: String,
+    #[serde(default)]
+    admin_password: String,
+    #[serde(default)]
+    test_user: String,
+    #[serde(default)]
+    test_password: String,
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -508,13 +828,137 @@ async fn main() -> Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
-    tracing::info!("Mattermost platform plugin starting");
+    // Check if we're in setup mode (invoked with "setup" argument)
+    let args: Vec<String> = std::env::args().collect();
+    let is_setup_mode = args.get(1).map(|s| s.as_str()) == Some("setup");
 
     let server_url = std::env::var("MATTERMOST_SERVER_URL")
         .context("MATTERMOST_SERVER_URL environment variable is required")?;
 
-    let access_token = std::env::var("MATTERMOST_ACCESS_TOKEN")
-        .context("MATTERMOST_ACCESS_TOKEN environment variable is required")?;
+    let access_token = std::env::var("MATTERMOST_ACCESS_TOKEN").ok();
+
+    if is_setup_mode {
+        // ── Setup mode: read params from stdin, run setup, output result, exit ──
+        let stdin = tokio::io::stdin();
+        let reader = BufReader::new(stdin);
+        let mut lines = reader.lines();
+        let first_line = lines.next_line().await?.unwrap_or_default();
+        let request: PluginRequest = match serde_json::from_str(&first_line) {
+            Ok(r) => r,
+            Err(e) => {
+                let err_resp = serde_json::json!({
+                    "id": 1,
+                    "error": { "code": -1, "message": format!("Invalid setup request: {}", e) }
+                });
+                let mut stdout = tokio::io::stdout();
+                stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+                stdout.write_all(b"\n").await?;
+                return Ok(());
+            }
+        };
+
+        let params: SetupParams = match request.params
+            .map(|p| serde_json::from_value(p))
+            .transpose()
+        {
+            Ok(Some(p)) => p,
+            Ok(None) => SetupParams::default(),
+            Err(e) => {
+                tracing::error!("Invalid setup params: {}", e);
+                let err_resp = serde_json::json!({
+                    "id": request.id.unwrap_or(1),
+                    "error": { "code": -1, "message": format!("Invalid setup params: {}", e) }
+                });
+                let mut stdout = tokio::io::stdout();
+                stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+                stdout.write_all(b"\n").await?;
+                return Ok(());
+            }
+        };
+
+        let id = request.id.unwrap_or(1);
+
+        // Determine which client to use for setup.
+        // Labeled block with break-value pattern.
+        let client: MattermostClient = 'client: {
+            // Try access token first (may exist from previous setup but be stale)
+            if let Some(token) = &access_token {
+                let test_client = MattermostClient::new(&server_url, token);
+                match test_client.get_me().await {
+                    Ok(_) => {
+                        tracing::info!("Access token is valid, using it for setup");
+                        break 'client test_client;
+                    }
+                    Err(_) => {
+                        tracing::warn!("Access token is stale, falling back to admin bootstrap");
+                    }
+                }
+            }
+
+            // Fall back to admin credentials (login or create first user)
+            if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
+                // Try login as admin first
+                if let Some(adm) = login_admin_client(&params.admin_user, &params.admin_password).await {
+                    tracing::info!("Logged in as admin '{}' for setup", params.admin_user);
+                    break 'client adm;
+                }
+
+                // Login failed (fresh DB) — create the first admin user (no auth needed)
+                tracing::info!("Admin login failed, creating admin user '{}' as first user", params.admin_user);
+                let pw = if params.admin_password.is_empty() { "AdminPass123!" } else { &params.admin_password };
+                match create_first_user(&server_url, &params.admin_user, pw, &format!("{}@local.host", params.admin_user)).await {
+                    Ok(_) => {
+                        tracing::info!("Created first admin user, logging in");
+                        if let Some(adm) = login_admin_client(&params.admin_user, pw).await {
+                            break 'client adm;
+                        }
+                        let err_resp = serde_json::json!({
+                            "id": id,
+                            "error": { "code": -1, "message": "Created admin user but login with those credentials failed" }
+                        });
+                        let mut stdout = tokio::io::stdout();
+                        stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+                        stdout.write_all(b"\n").await?;
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        let err_resp = serde_json::json!({
+                            "id": id,
+                            "error": { "code": -1, "message": format!("Failed to create admin user: {}", e) }
+                        });
+                        let mut stdout = tokio::io::stdout();
+                        stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+                        stdout.write_all(b"\n").await?;
+                        return Ok(());
+                    }
+                }
+            }
+
+            // Nothing worked — error
+            let err_resp = serde_json::json!({
+                "id": id,
+                "error": { "code": -1, "message": "No valid MATTERMOST_ACCESS_TOKEN and no admin_user + admin_password provided for bootstrap" }
+            });
+            let mut stdout = tokio::io::stdout();
+            stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+            stdout.write_all(b"\n").await?;
+            return Ok(());
+        };
+
+        let response = handle_setup(id, &client, &params).await;
+        let mut stdout = tokio::io::stdout();
+        stdout.write_all(serde_json::to_string(&response)?.as_bytes()).await?;
+        stdout.write_all(b"\n").await?;
+        tracing::info!("Setup mode complete");
+        return Ok(());
+    }
+
+    // Normal operation requires an access token (created during setup)
+    let access_token = access_token.context(
+        "MATTERMOST_ACCESS_TOKEN environment variable is required for normal operation. Run setup first."
+    )?;
+
+    tracing::info!("Mattermost platform plugin starting");
 
     let polling_enabled = std::env::var("MATTERMOST_POLLING_ENABLED")
         .unwrap_or_default()
@@ -812,6 +1256,7 @@ async fn handle_initialize(id: u64) -> PluginResponse {
         "capabilities": {
             "inbound": true,
             "outbound": true,
+            "setup": true,
         }
     });
     make_success(id, result)
@@ -982,6 +1427,305 @@ async fn handle_react(
     match client.create_reaction(&params.external_id, bot_user_id, &emoji).await {
         Ok(_) => make_success(id, serde_json::json!({"reacted": true})),
         Err(e) => make_error(id, -1, &format!("Failed to react: {}", e)),
+    }
+}
+
+/// Login as admin, returning a client authenticated with a session token.
+///
+/// This function is used during setup to authenticate using the admin
+/// credentials (as opposed to a bot PAT).
+async fn login_admin_client(admin_user: &str, admin_password: &str) -> Option<MattermostClient> {
+    let server_url = std::env::var("MATTERMOST_SERVER_URL").ok()?;
+    let http_client = reqwest::Client::new();
+
+    // Login
+    let login_body = serde_json::json!({
+        "login_id": admin_user,
+        "password": admin_password,
+    });
+
+    let resp = http_client
+        .post(format!("{}/api/v4/users/login", server_url))
+        .json(&login_body)
+        .send()
+        .await
+        .ok()?;
+
+    let token = resp.headers().get("Token")?.to_str().ok()?.to_string();
+    let session_auth = format!("Bearer {}", token);
+
+    Some(MattermostClient {
+        http_client,
+        api_base: server_url.trim_end_matches('/').to_string(),
+        auth_header: session_auth,
+    })
+}
+
+/// Create the first admin user on a fresh Mattermost instance.
+///
+/// Mattermost does not require authentication for creating the first user.
+/// The first user automatically becomes a system administrator.
+async fn create_first_user(server_url: &str, username: &str, password: &str, email: &str) -> Result<Value> {
+    let http_client = reqwest::Client::new();
+
+    let body = serde_json::json!({
+        "username": username,
+        "password": password,
+        "email": email,
+        "allow_marketing": false,
+    });
+
+    let resp = http_client
+        .post(format!("{}/api/v4/users", server_url.trim_end_matches('/')))
+        .json(&body)
+        .send()
+        .await
+        .context("Failed to create first admin user")?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body_text = resp.text().await.unwrap_or_default();
+        anyhow::bail!("Create first user failed ({}): {}", status, body_text);
+    }
+
+    let user: Value = resp
+        .json()
+        .await
+        .context("Failed to parse create user response")?;
+
+    tracing::info!(
+        "Created first admin user '{}' (id: {})",
+        username,
+        user["id"].as_str().unwrap_or("unknown")
+    );
+
+    Ok(user)
+}
+
+// ---------------------------------------------------------------------------
+// Setup Handler
+// ---------------------------------------------------------------------------
+
+/// Run the Mattermost setup process: create team, channel, users, bot, token.
+/// Validates required config fields, creates resources idempotently,
+/// and returns team_id, channel_id, bot_token, etc.
+async fn handle_setup(id: u64, client: &MattermostClient, params: &SetupParams) -> PluginResponse {
+    // Validate required fields
+    if params.setup_team.is_empty() {
+        return make_error(id, -1, "Missing required config: setup_team — set it in the plugin config or via $env:MM_SETUP_TEAM");
+    }
+    if params.setup_channel.is_empty() {
+        return make_error(id, -1, "Missing required config: setup_channel — set it in the plugin config or via $env:MM_SETUP_CHANNEL");
+    }
+    if params.bot_user.is_empty() {
+        return make_error(id, -1, "Missing required config: bot_user — set it in the plugin config or via $env:MM_BOT_USERNAME");
+    }
+
+    tracing::info!(
+        "Starting Mattermost setup: team={}, channel={}, bot_user={}",
+        params.setup_team, params.setup_channel, params.bot_user
+    );
+
+    // 1. Verify auth
+    let bot_me = match client.get_me().await {
+        Ok(u) => u,
+        Err(e) => {
+            return make_error(id, -1, &format!("Authentication failed — check access_token and server_url: {}", e));
+        }
+    };
+
+    // 2. Create or find team
+    let team_id = match client.find_team_by_name(&params.setup_team).await {
+        Ok(Some(tid)) => {
+            tracing::info!("Team '{}' already exists", params.setup_team);
+            tid
+        }
+        Ok(None) => {
+            match client.create_team(&params.setup_team, &params.setup_team).await {
+                Ok(t) => match t["id"].as_str().map(|s| s.to_string()) {
+                    Some(tid) => {
+                        tracing::info!("Created team '{}'", params.setup_team);
+                        tid
+                    }
+                    None => return make_error(id, -1, &format!("Team '{}' created but no id returned", params.setup_team)),
+                },
+                Err(e) => return make_error(id, -1, &format!("Failed to create team '{}': {}", params.setup_team, e)),
+            }
+        }
+        Err(e) => return make_error(id, -1, &format!("Failed to look up team '{}': {}", params.setup_team, e)),
+    };
+
+    // 3. Add bot to team
+    let _ = client.add_team_member(&team_id, &bot_me.id).await;
+
+    // 4. Create or find channel
+    let channels = client.get_user_channels(&bot_me.id, &team_id).await.unwrap_or_default();
+    let channel_id = match channels.iter().find(|c| c.name == params.setup_channel) {
+        Some(c) => c.id.clone(),
+        None => {
+            // Create channel
+            match client.create_channel(&team_id, &params.setup_channel, &params.setup_channel).await {
+                Ok(c) => c["id"].as_str().unwrap_or("").to_string(),
+                Err(_) => String::new(),
+            }
+        }
+    };
+
+    if channel_id.is_empty() {
+        return make_error(id, -1, &format!("Failed to create channel '{}'", params.setup_channel));
+    }
+    let _ = client.add_channel_member(&channel_id, &bot_me.id).await;
+
+    // 5. Admin user
+    let mut admin_id: Option<String> = None;
+    if !params.admin_user.is_empty() {
+        let pw = if params.admin_password.is_empty() { "AdminPass123!" } else { &params.admin_password };
+        match client.find_user_by_username(&params.admin_user).await {
+            Ok(Some((uid, _))) => {
+                let _ = client.update_user_password(&uid, pw).await;
+                let _ = client.add_team_member(&team_id, &uid).await;
+                let _ = client.add_channel_member(&channel_id, &uid).await;
+                admin_id = Some(uid);
+            }
+            Ok(None) => {
+                if let Ok(u) = client.create_user(&params.admin_user, pw, &format!("{}@local.host", params.admin_user)).await {
+                    if let Some(uid) = u["id"].as_str().map(|s| s.to_string()) {
+                        let _ = client.add_team_member(&team_id, &uid).await;
+                        let _ = client.add_channel_member(&channel_id, &uid).await;
+                        admin_id = Some(uid);
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+    }
+
+    // 6. Test user
+    if !params.test_user.is_empty() {
+        let pw = if params.test_password.is_empty() { "TestPass123!" } else { &params.test_password };
+        match client.find_user_by_username(&params.test_user).await {
+            Ok(Some((uid, _))) => {
+                let _ = client.update_user_password(&uid, pw).await;
+                let _ = client.add_team_member(&team_id, &uid).await;
+                let _ = client.add_channel_member(&channel_id, &uid).await;
+            }
+            Ok(None) => {
+                if let Ok(u) = client.create_user(&params.test_user, pw, &format!("{}@local.host", params.test_user)).await {
+                    if let Some(uid) = u["id"].as_str().map(|s| s.to_string()) {
+                        let _ = client.add_team_member(&team_id, &uid).await;
+                        let _ = client.add_channel_member(&channel_id, &uid).await;
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+    }
+
+    // 7. Bot account + token
+    match client.find_user_by_username(&params.bot_user).await {
+        Ok(Some((uid, _))) => {
+            // Register as bot if not already
+            let _ = client.create_bot(&uid, "OmniAgent Bot", "Bot account for OmniAgent").await;
+            let _ = client.add_team_member(&team_id, &uid).await;
+            let _ = client.add_channel_member(&channel_id, &uid).await;
+
+            // Get or create token — needs admin auth for token management
+            // Try to create an admin client if admin credentials provided
+            let bot_token = if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
+                // Login as admin to create/manage tokens
+                let admin_client = login_admin_client(&params.admin_user, &params.admin_password).await;
+                match admin_client {
+                    Some(adm) => {
+                        // Check existing tokens
+                        let tokens = adm.get_user_tokens(&uid).await.unwrap_or_default();
+                        let mut found = None;
+                        for tok in &tokens {
+                            if tok["is_active"].as_bool().unwrap_or(false) {
+                                if let Some(t) = tok["token"].as_str() {
+                                    found = Some(t.to_string());
+                                    break;
+                                }
+                            }
+                        }
+                        match found {
+                            Some(t) => {
+                                tracing::info!("Using existing token for bot user");
+                                t
+                            }
+                            None => {
+                                match adm.create_user_token(&uid, "OmniAgent bot access token").await {
+                                    Ok(t) => {
+                                        tracing::info!("Created new token for bot user");
+                                        t
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("Could not create token: {}. Continuing without token refresh.", e);
+                                        String::new()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        tracing::warn!("Could not create admin client — token management may fail");
+                        String::new()
+                    }
+                }
+            } else {
+                // No admin credentials — try using bot PAT directly
+                match client.setup_bot_token(&uid).await {
+                    Ok(t) => t,
+                    Err(e) => {
+                        tracing::warn!("Could not get bot token: {}. The bot user exists but no new token was created.", e);
+                        String::new()
+                    }
+                }
+            };
+
+            let result = serde_json::json!({
+                "success": !bot_token.is_empty(),
+                "team_id": team_id,
+                "team_name": params.setup_team,
+                "channel_id": channel_id,
+                "channel_name": params.setup_channel,
+                "bot_user_id": uid,
+                "bot_username": params.bot_user,
+                "bot_token": bot_token,
+                "admin_user_id": admin_id,
+            });
+            make_success(id, result)
+        }
+        Ok(None) => {
+            // Create bot user
+            match client.create_user(&params.bot_user, "BotPass123!", &format!("{}@local.host", params.bot_user)).await {
+                Ok(u) => {
+                    if let Some(uid) = u["id"].as_str().map(|s| s.to_string()) {
+                        let _ = client.create_bot(&uid, "OmniAgent Bot", "Bot account for OmniAgent").await;
+                        let _ = client.add_team_member(&team_id, &uid).await;
+                        let _ = client.add_channel_member(&channel_id, &uid).await;
+
+                        match client.setup_bot_token(&uid).await {
+                            Ok(token) => make_success(id, serde_json::json!({
+                                "success": true,
+                                "team_id": team_id,
+                                "team_name": params.setup_team,
+                                "channel_id": channel_id,
+                                "channel_name": params.setup_channel,
+                                "bot_user_id": uid,
+                                "bot_username": params.bot_user,
+                                "bot_token": token,
+                                "admin_user_id": admin_id,
+                            })),
+                            Err(e) => make_error(id, -1, &format!("Failed to obtain bot token: {}", e)),
+                        }
+                    } else {
+                        make_error(id, -1, &format!("Bot user '{}' created but no id returned", params.bot_user))
+                    }
+                }
+                Err(e) => make_error(id, -1, &format!("Failed to create bot user '{}': {}", params.bot_user, e)),
+            }
+        }
+        Err(e) => make_error(id, -1, &format!("Error looking up bot user '{}': {}", params.bot_user, e)),
     }
 }
 
@@ -1170,7 +1914,9 @@ async fn init_channel_cursor(
     match client.get_channel_posts(ch_id, 0, 1).await {
         Ok(posts) => {
             if let Some(latest) = posts.first() {
-                last_create_at.insert(ch_id.to_string(), latest.create_at);
+                // Subtract 1 to ensure we pick up posts that arrived at the same
+                // millisecond (cursor-based polling uses create_at > last_create_at)
+                last_create_at.insert(ch_id.to_string(), latest.create_at - 1);
             }
         }
         Err(e) => {

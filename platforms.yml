@@ -1,4 +1,14 @@
 platforms:
+  mattermost:
+    enabled: true
+    config:
+      access_token: 73k3ysqk4ida8dc5qs5iw57hio
+      bot_username: omniagent
+      channel_ids: 7hhaq5ug5bf1385abzg6ykud8o
+      connection_mode: websocket
+      polling_enabled: true
+      polling_interval: 15
+      server_url: http://mattermost:8065
   telegram:
     enabled: false
     config:

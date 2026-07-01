@@ -74,6 +74,14 @@
       "description": "Username of the bot account used during setup. Required for setup."
     },
     {
+      "key": "bot_password",
+      "label": "Bot Password",
+      "type": "secret",
+      "required": false,
+      "secret": true,
+      "description": "Password for the bot account. Required for first-time setup when the bot user does not yet exist."
+    },
+    {
       "key": "admin_user",
       "label": "Admin Username",
       "type": "string",

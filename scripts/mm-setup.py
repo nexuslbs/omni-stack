@@ -251,6 +251,10 @@ def main():
         print("ERROR: No passwords found.")
         sys.exit(1)
 
+    if main_user and not main_pass:
+        print("ERROR: Main user is set but MM_USER_PASSWORD is empty. Set MM_USER_PASSWORD in .env.")
+        sys.exit(1)
+
     print(f"Mattermost Server: {server_url}")
     print(f"Site URL:          {site_url}")
     print(f"Main User:         {main_user} {'(password set)' if main_pass else '(SKIP)'}")
@@ -278,20 +282,31 @@ def main():
     print("\n2. Authenticating...")
     session = mm.login(main_user, main_pass)
     if not session:
-        print("   Login failed. Creating first user...")
-        r = mm.create_user(main_user, main_pass, f"{main_user}@localhost.local",
-                           first_name="User", last_name="")
-        if r.get("_exists"):
-            check(True, f"User '{main_user}' exists")
-        elif r.get("id"):
-            check(True, f"User '{main_user}' created")
+        print("   Login failed with configured password.")
+        # Check if user already exists
+        existing = mm.find_user(main_user)
+        if existing:
+            print(f"   User '{main_user}' exists but password doesn't match configured value.")
+            print(f"   To reset, run:")
+            print(f"   docker exec omm-mattermost /tmp/mmctl --local user change-password {main_user} --password '<new-password>'")
+            print(f"   Then update MM_USER_PASSWORD in .env to match.")
+            sys.exit(1)
         else:
-            check(False, f"Create user failed: {json.dumps(r)[:200]}")
-            sys.exit(1)
-        session = mm.login(main_user, main_pass)
-        if not session:
-            check(False, "Login failed after creation")
-            sys.exit(1)
+            print("   Creating first admin user...")
+            r = mm.create_user(main_user, main_pass,
+                               f"{main_user}@local.host",
+                               first_name="User", last_name="")
+            if r.get("_exists"):
+                check(True, f"User '{main_user}' exists")
+            elif r.get("id"):
+                check(True, f"User '{main_user}' created")
+            else:
+                check(False, f"Create user failed: {json.dumps(r)[:200]}")
+                sys.exit(1)
+            session = mm.login(main_user, main_pass)
+            if not session:
+                check(False, "Login failed after creation")
+                sys.exit(1)
 
     raw_token = session.get("_token") or session.get("token") or session.get("id")
     mm.token = raw_token

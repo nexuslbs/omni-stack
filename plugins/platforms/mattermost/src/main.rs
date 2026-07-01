@@ -11,7 +11,7 @@
 //!   - edit_message:    Edit an existing Mattermost post
 //!   - delete_message:  Delete a Mattermost post
 //!
-//! Inbound (when MATTERMOST_POLLING_ENABLED=true):
+//! Inbound (via WebSocket or polling):
 //!   Polls channels for new posts and sends inbound_message notifications to stdout.
 
 use anyhow::{Context, Result};
@@ -615,13 +615,23 @@ impl MattermostClient {
 
     /// Find team by name.
     async fn find_team_by_name(&self, name: &str) -> Result<Option<String>> {
-        let teams = self.get_teams_all().await?;
-        for t in &teams {
-            if t["name"].as_str() == Some(name) {
-                return Ok(t["id"].as_str().map(|s| s.to_string()));
-            }
+        let resp = self
+            .http_client
+            .get(format!("{}/api/v4/teams/name/{}", self.api_base, name))
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await?;
+        let status = resp.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
         }
-        Ok(None)
+        if status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            let team: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
+            return Ok(team["id"].as_str().map(|s| s.to_string()));
+        }
+        let text = resp.text().await.unwrap_or_default();
+        Err(anyhow::anyhow!("Mattermost findTeamByName failed ({}): {}", status, text))
     }
 
     /// Find user by username.
@@ -812,6 +822,28 @@ struct SetupParams {
     test_user: String,
     #[serde(default)]
     test_password: String,
+    #[serde(default)]
+    bot_password: String,
+}
+
+/// Operational config received via configure message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PluginConfig {
+    server_url: String,
+    #[serde(default)]
+    access_token: Option<String>,
+    #[serde(default = "default_connection_mode")]
+    connection_mode: String,
+    #[serde(default = "default_polling_interval")]
+    polling_interval: u64,
+}
+
+fn default_connection_mode() -> String {
+    "websocket".to_string()
+}
+
+fn default_polling_interval() -> u64 {
+    15
 }
 
 // ---------------------------------------------------------------------------
@@ -821,10 +853,7 @@ struct SetupParams {
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
-        )
+        .with_env_filter(tracing_subscriber::EnvFilter::new("info"))
         .with_writer(std::io::stderr)
         .init();
 
@@ -832,32 +861,109 @@ async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let is_setup_mode = args.get(1).map(|s| s.as_str()) == Some("setup");
 
-    let server_url = std::env::var("MATTERMOST_SERVER_URL")
-        .context("MATTERMOST_SERVER_URL environment variable is required")?;
+    // Stdio reader/writer
+    let stdin = tokio::io::stdin();
+    let reader = BufReader::new(stdin);
+    let mut lines = reader.lines();
 
-    let access_token = std::env::var("MATTERMOST_ACCESS_TOKEN").ok();
+    let stdout = tokio::io::stdout();
+    let mut writer = tokio::io::BufWriter::new(stdout);
+
+    // ── 1. Handle initialize (first message) ──────────────────────────────
+    let first_line = lines.next_line().await?.unwrap_or_default();
+    let request: PluginRequest = serde_json::from_str(&first_line)
+        .context("Expected initialize request as first message")?;
+
+    let id = request.id.unwrap_or(1);
+    let response = match request.method.as_str() {
+        "initialize" => handle_initialize(id).await,
+        _ => {
+            let err_resp = make_error(
+                id,
+                -1,
+                &format!("Expected initialize, got: {}", request.method),
+            );
+            let response_line = serde_json::to_string(&err_resp)?;
+            writer.write_all(response_line.as_bytes()).await?;
+            writer.write_all(b"\n").await?;
+            writer.flush().await?;
+            return Ok(());
+        }
+    };
+    let response_line = serde_json::to_string(&response)?;
+    writer.write_all(response_line.as_bytes()).await?;
+    writer.write_all(b"\n").await?;
+    writer.flush().await?;
+
+    // ── 2. Handle configure (second message) ───────────────────────────────
+    let second_line = lines.next_line().await?.unwrap_or_default();
+    let request: PluginRequest = serde_json::from_str(&second_line)
+        .context("Expected configure request as second message")?;
+
+    let id = request.id.unwrap_or(2);
+    let config: PluginConfig = match request.method.as_str() {
+        "configure" => match request.params.map(|p| serde_json::from_value(p)).transpose() {
+            Ok(Some(cfg)) => cfg,
+            Ok(None) => {
+                let err_resp = make_error(id, -1, "Configure params missing");
+                let response_line = serde_json::to_string(&err_resp)?;
+                writer.write_all(response_line.as_bytes()).await?;
+                writer.write_all(b"\n").await?;
+                writer.flush().await?;
+                return Ok(());
+            }
+            Err(e) => {
+                let err_resp =
+                    make_error(id, -1, &format!("Invalid configure params: {}", e));
+                let response_line = serde_json::to_string(&err_resp)?;
+                writer.write_all(response_line.as_bytes()).await?;
+                writer.write_all(b"\n").await?;
+                writer.flush().await?;
+                return Ok(());
+            }
+        },
+        _ => {
+            let err_resp = make_error(
+                id,
+                -1,
+                &format!("Expected configure, got: {}", request.method),
+            );
+            let response_line = serde_json::to_string(&err_resp)?;
+            writer.write_all(response_line.as_bytes()).await?;
+            writer.write_all(b"\n").await?;
+            writer.flush().await?;
+            return Ok(());
+        }
+    };
+
+    // Acknowledge configure
+    let ack = make_success(id, serde_json::json!({"configured": true}));
+    let response_line = serde_json::to_string(&ack)?;
+    writer.write_all(response_line.as_bytes()).await?;
+    writer.write_all(b"\n").await?;
+    writer.flush().await?;
+
+    let server_url = config.server_url;
+    let access_token = config.access_token;
 
     if is_setup_mode {
-        // ── Setup mode: read params from stdin, run setup, output result, exit ──
-        let stdin = tokio::io::stdin();
-        let reader = BufReader::new(stdin);
-        let mut lines = reader.lines();
-        let first_line = lines.next_line().await?.unwrap_or_default();
-        let request: PluginRequest = match serde_json::from_str(&first_line) {
+        // ── Setup mode: read setup request, process, exit ──
+        let third_line = lines.next_line().await?.unwrap_or_default();
+        let request: PluginRequest = match serde_json::from_str(&third_line) {
             Ok(r) => r,
             Err(e) => {
-                let err_resp = serde_json::json!({
-                    "id": 1,
-                    "error": { "code": -1, "message": format!("Invalid setup request: {}", e) }
-                });
-                let mut stdout = tokio::io::stdout();
-                stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
-                stdout.write_all(b"\n").await?;
+                let err_resp =
+                    make_error(3, -1, &format!("Invalid setup request: {}", e));
+                let response_line = serde_json::to_string(&err_resp)?;
+                writer.write_all(response_line.as_bytes()).await?;
+                writer.write_all(b"\n").await?;
+                writer.flush().await?;
                 return Ok(());
             }
         };
 
-        let params: SetupParams = match request.params
+        let params: SetupParams = match request
+            .params
             .map(|p| serde_json::from_value(p))
             .transpose()
         {
@@ -865,13 +971,15 @@ async fn main() -> Result<()> {
             Ok(None) => SetupParams::default(),
             Err(e) => {
                 tracing::error!("Invalid setup params: {}", e);
-                let err_resp = serde_json::json!({
-                    "id": request.id.unwrap_or(1),
-                    "error": { "code": -1, "message": format!("Invalid setup params: {}", e) }
-                });
-                let mut stdout = tokio::io::stdout();
-                stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
-                stdout.write_all(b"\n").await?;
+                let err_resp = make_error(
+                    request.id.unwrap_or(1),
+                    -1,
+                    &format!("Invalid setup params: {}", e),
+                );
+                let response_line = serde_json::to_string(&err_resp)?;
+                writer.write_all(response_line.as_bytes()).await?;
+                writer.write_all(b"\n").await?;
+                writer.flush().await?;
                 return Ok(());
             }
         };
@@ -879,111 +987,136 @@ async fn main() -> Result<()> {
         let id = request.id.unwrap_or(1);
 
         // Determine which client to use for setup.
-        // Labeled block with break-value pattern.
+        // Priority: admin credentials (full admin privileges) >
+        //           default password fallback (handles password-changed scenario) >
+        //           access token / bot PAT (limited — can't update passwords) >
+        //           create first user (fresh DB only)
+        //
+        // This ordering ensures admin operations (password update, token creation,
+        // config changes) always use an admin session, not a bot PAT which lacks
+        // sufficient privileges.
         let client: MattermostClient = 'client: {
-            // Try access token first (may exist from previous setup but be stale)
+            // ── 1. Try admin login with configured credentials ──
+            if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
+                if let Some(adm) =
+                    login_admin_client(&server_url, &params.admin_user, &params.admin_password).await
+                {
+                    tracing::info!("Logged in as admin '{}' for setup", params.admin_user);
+                    break 'client adm;
+                }
+                tracing::warn!(
+                    "Admin '{}' login failed with configured password ({} chars)",
+                    params.admin_user,
+                    params.admin_password.len()
+                );
+            }
+
+            // ── 2. Try access token (bot PAT — valid auth but limited privileges) ──
             if let Some(token) = &access_token {
                 let test_client = MattermostClient::new(&server_url, token);
                 match test_client.get_me().await {
-                    Ok(_) => {
-                        tracing::info!("Access token is valid, using it for setup");
+                    Ok(me) => {
+                        tracing::warn!(
+                            "Access token is valid but '{}' is NOT an admin (role: system_user) — admin operations will fail. Setup will be limited.",
+                            me.username
+                        );
                         break 'client test_client;
                     }
                     Err(_) => {
-                        tracing::warn!("Access token is stale, falling back to admin bootstrap");
+                        tracing::warn!("Access token is also stale, trying to create first admin user");
                     }
                 }
             }
 
-            // Fall back to admin credentials (login or create first user)
-            if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
-                // Try login as admin first
-                if let Some(adm) = login_admin_client(&params.admin_user, &params.admin_password).await {
-                    tracing::info!("Logged in as admin '{}' for setup", params.admin_user);
-                    break 'client adm;
+            // ── 4. Fresh DB: create first admin user (no auth needed) ──
+            if !params.admin_user.is_empty() {
+                if params.admin_password.is_empty() {
+                    tracing::error!("admin_password is empty — must provide a password to create admin user '{}'", params.admin_user);
+                    let err_resp = serde_json::json!({
+                        "id": id,
+                        "error": { "code": -1, "message": format!(
+                            "admin_password is required to create admin user '{}'. Set MM_USER_PASSWORD in your .env file.",
+                            params.admin_user
+                        )}
+                    });
+                    let mut raw_stdout = tokio::io::stdout();
+                    raw_stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+                    raw_stdout.write_all(b"\n").await?;
+                    return Ok(());
                 }
-
-                // Login failed (fresh DB) — create the first admin user (no auth needed)
-                tracing::info!("Admin login failed, creating admin user '{}' as first user", params.admin_user);
-                let pw = if params.admin_password.is_empty() { "AdminPass123!" } else { &params.admin_password };
+                let pw = &params.admin_password;
+                tracing::info!("Attempting to create first admin user '{}' (fresh DB path)", params.admin_user);
                 match create_first_user(&server_url, &params.admin_user, pw, &format!("{}@local.host", params.admin_user)).await {
                     Ok(_) => {
                         tracing::info!("Created first admin user, logging in");
-                        if let Some(adm) = login_admin_client(&params.admin_user, pw).await {
+                        if let Some(adm) = login_admin_client(&server_url, &params.admin_user, pw).await {
                             break 'client adm;
                         }
                         let err_resp = serde_json::json!({
                             "id": id,
                             "error": { "code": -1, "message": "Created admin user but login with those credentials failed" }
                         });
-                        let mut stdout = tokio::io::stdout();
-                        stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
-                        stdout.write_all(b"\n").await?;
+                        let mut raw_stdout = tokio::io::stdout();
+                        raw_stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+                        raw_stdout.write_all(b"\n").await?;
                         return Ok(());
                     }
                     Err(e) => {
+                        // create_first_user failed — users already exist and all auth methods exhausted
+                        tracing::error!("All authentication methods exhausted: admin login, default password, access token, and create_first_user all failed. Users likely exist with an unknown password.");
                         let err_resp = serde_json::json!({
                             "id": id,
-                            "error": { "code": -1, "message": format!("Failed to create admin user: {}", e) }
+                            "error": {
+                                "code": -1,
+                                "message": format!(
+                                    "Cannot authenticate to Mattermost as admin. The admin user '{}' exists but none of the tried passwords match. \
+                                    To fix: run the following command in the omniagent container (or any container with mmctl):\n\
+                                    docker exec omm-mattermost /tmp/mmctl --local user change-password {} --password '<new-password>'\n\
+                                    Then update MM_USER_PASSWORD in .env to match and run setup again.\n\
+                                    Underlying error: {}",
+                                    params.admin_user, params.admin_user, e
+                                )
+                            }
                         });
-                        let mut stdout = tokio::io::stdout();
-                        stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
-                        stdout.write_all(b"\n").await?;
+                        let mut raw_stdout = tokio::io::stdout();
+                        raw_stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+                        raw_stdout.write_all(b"\n").await?;
                         return Ok(());
                     }
                 }
             }
 
-            // Nothing worked — error
+            // ── 5. Nothing worked — error ──
             let err_resp = serde_json::json!({
                 "id": id,
-                "error": { "code": -1, "message": "No valid MATTERMOST_ACCESS_TOKEN and no admin_user + admin_password provided for bootstrap" }
+                "error": { "code": -1, "message": "No valid access_token and no admin_user + admin_password provided for bootstrap" }
             });
-            let mut stdout = tokio::io::stdout();
-            stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
-            stdout.write_all(b"\n").await?;
+            let mut raw_stdout = tokio::io::stdout();
+            raw_stdout.write_all(serde_json::to_string(&err_resp)?.as_bytes()).await?;
+            raw_stdout.write_all(b"\n").await?;
             return Ok(());
         };
 
-        let response = handle_setup(id, &client, &params).await;
-        let mut stdout = tokio::io::stdout();
-        stdout.write_all(serde_json::to_string(&response)?.as_bytes()).await?;
-        stdout.write_all(b"\n").await?;
+        let response = handle_setup(id, &client, &server_url, &params).await;
+        let response_line = serde_json::to_string(&response)?;
+        writer.write_all(response_line.as_bytes()).await?;
+        writer.write_all(b"\n").await?;
+        writer.flush().await?;
         tracing::info!("Setup mode complete");
         return Ok(());
     }
 
     // Normal operation requires an access token (created during setup)
     let access_token = access_token.context(
-        "MATTERMOST_ACCESS_TOKEN environment variable is required for normal operation. Run setup first."
+        "access_token is required for normal operation. Run setup first."
     )?;
 
     tracing::info!("Mattermost platform plugin starting");
 
-    let polling_enabled = std::env::var("MATTERMOST_POLLING_ENABLED")
-        .unwrap_or_default()
-        .to_lowercase()
-        == "true";
+    let connection_mode = config.connection_mode.to_lowercase();
+    let polling_enabled = connection_mode == "polling";
 
-    let connection_mode = std::env::var("MATTERMOST_CONNECTION_MODE")
-        .unwrap_or_default()
-        .to_lowercase();
-
-    let polling_interval_secs: u64 = std::env::var("MATTERMOST_POLLING_INTERVAL")
-        .unwrap_or_else(|_| "15".to_string())
-        .parse()
-        .unwrap_or(15);
-
-    let _bot_username = std::env::var("MATTERMOST_BOT_USERNAME")
-        .unwrap_or_else(|_| "omniagent".to_string());
-
-    // Optional manual channel overrides (merged with auto-discovered channels)
-    let manual_channel_ids: Vec<String> = std::env::var("MATTERMOST_CHANNEL_IDS")
-        .unwrap_or_default()
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect();
+    let polling_interval_secs = config.polling_interval;
 
     let client = MattermostClient::new(&server_url, &access_token);
 
@@ -1004,14 +1137,7 @@ async fn main() -> Result<()> {
     };
 
     // Auto-discover channels the bot is a member of
-    let initial_channels = discover_channels(&client, &bot_user.id).await;
-    let mut channel_ids: Vec<String> = initial_channels;
-    // Merge manual overrides
-    for ch_id in &manual_channel_ids {
-        if !channel_ids.contains(ch_id) {
-            channel_ids.push(ch_id.clone());
-        }
-    }
+    let mut channel_ids: Vec<String> = discover_channels(&client, &bot_user.id).await;
 
     if !channel_ids.is_empty() {
         tracing::info!(
@@ -1020,14 +1146,6 @@ async fn main() -> Result<()> {
             channel_ids.join(", ")
         );
     }
-
-    // Stdin/stdout for the protocol
-    let stdin = tokio::io::stdin();
-    let reader = BufReader::new(stdin);
-    let mut lines = reader.lines();
-
-    let stdout = tokio::io::stdout();
-    let mut writer = tokio::io::BufWriter::new(stdout);
 
     // ── Inbound (polling or WebSocket) ──────────────────────────────────
     let use_websocket = connection_mode == "websocket";
@@ -1046,9 +1164,6 @@ async fn main() -> Result<()> {
     } else if polling_enabled {
         let client = MattermostClient::new(&server_url, &access_token);
         let bot_id = bot_user.id.clone();
-
-        // Manual override channels for periodic re-merge
-        let manual_ids = manual_channel_ids;
 
         Some(tokio::spawn(async move {
             // Shared state: the channel list, periodically refreshed
@@ -1081,13 +1196,7 @@ async fn main() -> Result<()> {
                     // Discover channels the bot is currently a member of
                     let discovered = discover_channels(&client, &bot_id).await;
 
-                    // Merge with manual overrides
                     let mut merged = discovered.clone();
-                    for ch_id in &manual_ids {
-                        if !merged.contains(ch_id) {
-                            merged.push(ch_id.clone());
-                        }
-                    }
 
                     // Detect new channels since last refresh
                     for ch_id in &merged {
@@ -1104,7 +1213,7 @@ async fn main() -> Result<()> {
 
                     // Detect removed channels
                     for ch_id in &last_discovery {
-                        if !merged.contains(ch_id) && !manual_ids.contains(ch_id) {
+                        if !merged.contains(ch_id) {
                             tracing::info!("Channel {} no longer accessible, removing", ch_id);
                             last_create_at.remove(ch_id.as_str());
                         }
@@ -1434,8 +1543,7 @@ async fn handle_react(
 ///
 /// This function is used during setup to authenticate using the admin
 /// credentials (as opposed to a bot PAT).
-async fn login_admin_client(admin_user: &str, admin_password: &str) -> Option<MattermostClient> {
-    let server_url = std::env::var("MATTERMOST_SERVER_URL").ok()?;
+async fn login_admin_client(server_url: &str, admin_user: &str, admin_password: &str) -> Option<MattermostClient> {
     let http_client = reqwest::Client::new();
 
     // Login
@@ -1509,7 +1617,7 @@ async fn create_first_user(server_url: &str, username: &str, password: &str, ema
 /// Run the Mattermost setup process: create team, channel, users, bot, token.
 /// Validates required config fields, creates resources idempotently,
 /// and returns team_id, channel_id, bot_token, etc.
-async fn handle_setup(id: u64, client: &MattermostClient, params: &SetupParams) -> PluginResponse {
+async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, params: &SetupParams) -> PluginResponse {
     // Validate required fields
     if params.setup_team.is_empty() {
         return make_error(id, -1, "Missing required config: setup_team — set it in the plugin config or via $env:MM_SETUP_TEAM");
@@ -1576,13 +1684,22 @@ async fn handle_setup(id: u64, client: &MattermostClient, params: &SetupParams) 
     }
     let _ = client.add_channel_member(&channel_id, &bot_me.id).await;
 
-    // 5. Admin user
+    // 5. Admin user — password update needs admin privileges
+    //    If the client is a bot PAT (not admin), this will fail and be logged
     let mut admin_id: Option<String> = None;
-    if !params.admin_user.is_empty() {
-        let pw = if params.admin_password.is_empty() { "AdminPass123!" } else { &params.admin_password };
+    if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
+        let pw = &params.admin_password;
         match client.find_user_by_username(&params.admin_user).await {
             Ok(Some((uid, _))) => {
-                let _ = client.update_user_password(&uid, pw).await;
+                match client.update_user_password(&uid, pw).await {
+                    Ok(_) => tracing::info!("Updated password for admin user '{}'", params.admin_user),
+                    Err(e) => tracing::warn!(
+                        "Could not update password for admin user '{}': {}. \
+                         This is expected when the client is a bot PAT without admin privileges. \
+                         The password will remain as previously set.",
+                        params.admin_user, e
+                    ),
+                }
                 let _ = client.add_team_member(&team_id, &uid).await;
                 let _ = client.add_channel_member(&channel_id, &uid).await;
                 admin_id = Some(uid);
@@ -1596,13 +1713,15 @@ async fn handle_setup(id: u64, client: &MattermostClient, params: &SetupParams) 
                     }
                 }
             }
-            Err(_) => {}
+            Err(e) => {
+                tracing::warn!("Failed to look up admin user '{}': {}", params.admin_user, e);
+            }
         }
     }
 
-    // 6. Test user
-    if !params.test_user.is_empty() {
-        let pw = if params.test_password.is_empty() { "TestPass123!" } else { &params.test_password };
+    // 6. Test user — skip if no password provided
+    if !params.test_user.is_empty() && !params.test_password.is_empty() {
+        let pw = &params.test_password;
         match client.find_user_by_username(&params.test_user).await {
             Ok(Some((uid, _))) => {
                 let _ = client.update_user_password(&uid, pw).await;
@@ -1633,7 +1752,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, params: &SetupParams) 
             // Try to create an admin client if admin credentials provided
             let bot_token = if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
                 // Login as admin to create/manage tokens
-                let admin_client = login_admin_client(&params.admin_user, &params.admin_password).await;
+                let admin_client = login_admin_client(server_url, &params.admin_user, &params.admin_password).await;
                 match admin_client {
                     Some(adm) => {
                         // Check existing tokens
@@ -1696,8 +1815,16 @@ async fn handle_setup(id: u64, client: &MattermostClient, params: &SetupParams) 
             make_success(id, result)
         }
         Ok(None) => {
-            // Create bot user
-            match client.create_user(&params.bot_user, "BotPass123!", &format!("{}@local.host", params.bot_user)).await {
+            // Create bot user — requires bot_password
+            if params.bot_password.is_empty() {
+                return make_error(id, -1, &format!(
+                    "bot_password is required to create bot user '{}'. Set MM_BOT_PASSWORD in your .env file.",
+                    params.bot_user
+                ));
+            }
+            match client.create_user(&params.bot_user,
+                &params.bot_password,
+                &format!("{}@local.host", params.bot_user)).await {
                 Ok(u) => {
                     if let Some(uid) = u["id"].as_str().map(|s| s.to_string()) {
                         let _ = client.create_bot(&uid, "OmniAgent Bot", "Bot account for OmniAgent").await;

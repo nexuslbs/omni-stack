@@ -1,11 +1,9 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    env_file:
-      - .env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-omniagent}
-      POSTGRES_USER: ${POSTGRES_USER:-omniagent}
+      POSTGRES_DB: omniagent
+      POSTGRES_USER: omniagent
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -39,12 +37,13 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD}@postgres:5432/omniagent
+      POSTGRES_DB: omniagent
+      POSTGRES_USER: omniagent
       QDRANT_URL: http://qdrant:6333
       HOST: 0.0.0.0
       PORT: 8080
       WORKSPACE_DIR: /opt/workspace
       HINDSIGHT_URL: http://hindsight:8888
-      SQLX_OFFLINE: "false"
     volumes:
       - ./:/opt/data:rw
       - /opt/workspace/omniagent:/app:rw

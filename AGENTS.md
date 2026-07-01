@@ -182,3 +182,73 @@ compose(project_dir="<verified-host-path>", command="up", args="-d")
 ### ⚠️ No infrastructure upgrades during deployment tasks
 
 When a task says "deploy X", do NOT upgrade X's infrastructure (e.g., changing from Python HTTP to nginx, adding features, restructuring the compose file). Deploy what exists. Infrastructure improvements belong in their own task.
+
+## Plugin Configuration Architecture
+
+All plugins receive their configuration via **environment variables** passed to the subprocess. This is the standard Unix mechanism — configuration is available from process start, no protocol handshake needed.
+
+**How it works:**
+1. `platforms.yml` (or `tools.yml`/`providers.yml`) defines config values per plugin, using `$env:VAR` references for secrets
+2. `plugins_yaml.rs` resolves `$env:` references against the omniagent process environment
+3. `merge_yaml_config_into_env()` derives environment variable names from config keys: `{PLUGINNAME}_{KEY_UPPERCASE}` (e.g., `server_url` → `MATTERMOST_SERVER_URL`)
+4. The plugin subprocess receives these as environment variables at spawn time
+5. The plugin reads its config via `std::env::var()` — available immediately, no wait required
+
+**The `env` block in `plugin.json`:**
+- Defines additional environment variables for the subprocess
+- Supports `${VAR}` substitution against the omniagent process environment
+- Should only contain vars the plugin actually reads (e.g., `RUST_LOG`)
+- Config-derived vars (from `merge_yaml_config_into_env`) do NOT need env block entries — they're automatically derived from config keys
+
+**Key principles:**
+- Plugins MUST have access to their config from the beginning — this is why env vars are the right mechanism
+- Protocol-based config delivery ("configure" messages) is unnecessary and violates the principle of config-at-start
+- If a plugin needs a config value, it reads it from an env var — that env var is set by the omniagent framework automatically from the YAML config
+- The config schema in `plugin.json` documents which env vars the plugin uses; the `env` block resolves their values at manifest load time
+
+## Mattermost Setup Flow
+
+The Mattermost platform setup is triggered via `POST /api/plugins/mattermost/setup` and is fully self-contained — no omniagent restart needed, no manual steps.
+
+### What the setup does (in order):
+
+1. **Authenticate** — Uses existing `MATTERMOST_ACCESS_TOKEN` env var if valid; otherwise falls back to admin credentials for bootstrap (creates first admin user on fresh Mattermost).
+
+2. **Create or find team** — Creates team from `$env:MM_TEAM` config value. Uses direct API lookup (`GET /api/v4/teams/name/{name}`) to find existing teams (not filtered by membership). If team exists, uses it; otherwise creates it.
+
+3. **Add bot to team** — After team resolution, adds the bot user as a team member.
+
+4. **Create or find channel** — Creates channel from `$env:MM_CHANNEL` config value under the team.
+
+5. **Create 3 users** (if they don't exist):
+   - Admin user (`$env:MM_USERNAME`) — created as system admin
+   - Test user (`$env:MM_TEST_USERNAME`) — regular user
+   - Bot user (`$env:MM_BOT_USERNAME`) — created as user then converted to bot account
+   Each user is added to the team and channel as a member.
+
+6. **Generate bot access token** — Uses admin credentials (or bot PAT as fallback) to create a new personal access token for the bot user.
+
+7. **Save bot token to .env** — Writes `MATTERMOST_ACCESS_TOKEN=<token>` to the .env file on disk (same pattern as provider api_key saving in update_config_handler). Refreshes the process environment via `std::env::set_var()` so the new token is immediately available for `$env:` resolution.
+
+8. **Hot-reload the Mattermost plugin** — Calls `reload_platform_plugin()` which refreshes the process env from .env (picks up the new token), then signals the running platform client to respawn. The respawned subprocess reads `platforms.yml` with `access_token: "$env:MATTERMOST_ACCESS_TOKEN"`, resolves it from the refreshed env, and authenticates with the new token.
+
+9. **Create omniagent channel** — Creates (or updates) an omniagent channel record:
+   - `name: mm-{MM_CHANNEL}` (e.g., `mm-setup`)
+   - `platform: mattermost`
+   - `resource_identifier: <mattermost_channel_id>`
+   - `external_id: <mattermost_channel_id>`
+   - `cause: "setup"`
+
+### Idempotency
+
+Existing teams, channels, and users are detected and reused. A new bot token is generated each time. The omniagent channel is updated via `ON CONFLICT DO UPDATE`.
+
+### Key design decisions
+
+- **`$env:` in platforms.yml** — Secrets never appear in YAML config files. The access_token, admin_password, test_password, etc. use `"$env:VAR_NAME"` references resolved at runtime.
+
+- **Token saved to .env not platforms.yml** — Writing to .env (then refreshing process env) keeps the config file environment-agnostic and ensures the token is available to all `$env:` resolvers.
+
+- **No omniagent restart required** — The hot-reload mechanism refreshes the process env from .env and signals the platform client to respawn. No container restart needed.
+
+- **Plugin uses direct team lookup** — `find_team_by_name` uses `GET /api/v4/teams/name/{name}` instead of listing all teams (which filters by membership). This ensures the bot can find the team before being added as a member.

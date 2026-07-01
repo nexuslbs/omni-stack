@@ -2,13 +2,17 @@ platforms:
   mattermost:
     enabled: true
     config:
-      access_token: 73k3ysqk4ida8dc5qs5iw57hio
-      bot_username: omniagent
-      channel_ids: 7hhaq5ug5bf1385abzg6ykud8o
+      server_url: $env:MATTERMOST_SERVER_URL
+      access_token: $env:MATTERMOST_ACCESS_TOKEN
       connection_mode: websocket
-      polling_enabled: true
       polling_interval: 15
-      server_url: http://mattermost:8065
+      setup_team: $env:MM_TEAM
+      setup_channel: $env:MM_CHANNEL
+      bot_user: $env:MM_BOT_USERNAME
+      admin_user: $env:MM_USERNAME
+      admin_password: $env:MM_USER_PASSWORD
+      test_user: $env:MM_TEST_USERNAME
+      test_password: $env:MM_TEST_PASSWORD
   telegram:
     enabled: false
     config:

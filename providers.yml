@@ -2,16 +2,20 @@ providers:
   anthropic:
     enabled: false
     config:
+      api_key: "$env:ANTHROPIC_API_KEY"
       default_model: claude-sonnet-4
   deepseek:
     enabled: true
     config:
+      api_key: "$env:DEEPSEEK_API_KEY"
       default_model: deepseek-v4-flash
   openai:
     enabled: false
     config:
+      api_key: "$env:OPENAI_API_KEY"
       default_model: gpt-4o
   opencode-go:
     enabled: true
     config:
+      api_key: "$env:OPENCODE_GO_API_KEY"
       default_model: deepseek-v4-flash

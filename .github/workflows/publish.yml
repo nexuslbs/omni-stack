@@ -156,8 +156,20 @@ jobs:
       packages: write
 
     steps:
-      - name: Download all artifacts
+      - name: Download omniagent image
         uses: actions/download-artifact@v4
+        with:
+          name: omniagent-image
+
+      - name: Download omni-dashboard image
+        uses: actions/download-artifact@v4
+        with:
+          name: omni-dashboard-image
+
+      - name: Download omni-stack-toolbox image
+        uses: actions/download-artifact@v4
+        with:
+          name: omni-stack-toolbox-image
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

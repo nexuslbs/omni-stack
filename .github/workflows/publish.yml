@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nexuslbs/omniagent
-          token: ${{ secrets.GH_PAT }}
+          # Public repos — no special token needed
 
       - name: Docker metadata
         id: meta
@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nexuslbs/omni-dashboard
-          token: ${{ secrets.GH_PAT }}
+          # Public repos — no special token needed
 
       - name: Docker metadata
         id: meta
@@ -100,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nexuslbs/omni-stack
-          token: ${{ secrets.GH_PAT }}
+          # Public repos — no special token needed
 
       - name: Docker metadata
         id: meta

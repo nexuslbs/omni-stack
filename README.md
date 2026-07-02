@@ -102,10 +102,17 @@ omni-stack/
    - `OMNIAGENT_IMAGE` — set to `ghcr.io/nexuslbs/omniagent:latest` (or `omniagent:local` for local builds)
    - `POSTGRES_PASSWORD` — secure password for PostgreSQL
 
-3. **Start the stack**:
+3. **Start the stack** (production):
    ```bash
    docker compose up -d
    ```
+
+   For **development** (overrides the project name to `omnidev`):
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name omnidev up -d
+   ```
+
+The docker-compose file has `name: omni` at the top level, so production containers/volumes/networks are prefixed with `omni_` (e.g., `omni_omniagent_1`, `omni_postgres_data`). In dev mode `--project-name omnidev` overrides this to `omnidev_`, keeping dev and prod resources separate.
 
 This starts:
 
@@ -154,7 +161,7 @@ Plugins are configured via YAML files (`platforms.yml`, `providers.yml`, `tools.
 ### Using docker-compose.dev.yml
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name omnidev up -d
 ```
 
 The dev compose adds:

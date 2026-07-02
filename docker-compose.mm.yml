@@ -1,7 +1,6 @@
 services:
   mattermost-db:
     image: postgres:16.14
-    container_name: omm-mm-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${MM_POSTGRES_USER:-mmuser}
@@ -9,8 +8,6 @@ services:
       POSTGRES_DB: mattermost
     volumes:
       - omm-mm-db:/var/lib/postgresql/data:rw
-    networks:
-      - omniagent_default
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mmuser -d mattermost"]
       interval: 10s
@@ -19,7 +16,6 @@ services:
 
   mattermost:
     image: mattermost/mattermost-team-edition:10.11.20
-    container_name: omm-mattermost
     restart: unless-stopped
     depends_on:
       mattermost-db:
@@ -30,7 +26,7 @@ services:
       - "12340:8065"
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
-      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mmuser-pass@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:***@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
       MM_SERVICESETTINGS_SITEURL: https://hermes-app-5.nexuslbs.org
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: true
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: true
@@ -39,8 +35,6 @@ services:
       - omm-mm-data:/mattermost/data:rw
       - omm-mm-logs:/mattermost/logs:rw
       - omm-mm-plugins:/mattermost/plugins:rw
-    networks:
-      - omniagent_default
 
 volumes:
   omm-mm-db:
@@ -48,7 +42,3 @@ volumes:
   omm-mm-data:
   omm-mm-logs:
   omm-mm-plugins:
-
-networks:
-  omniagent_default:
-    external: true

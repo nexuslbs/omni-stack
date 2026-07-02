@@ -831,8 +831,7 @@ struct PluginConfig {
     polling_enabled: bool,
     #[serde(default = "default_polling_interval", deserialize_with = "deserialize_u64_from_string_or_number")]
     polling_interval: u64,
-    #[serde(default)]
-    channel_ids: String,
+    // channel_ids removed — plugin auto-discovers channels from omniagent channel records
     #[serde(default)]
     setup_team: String,
     #[serde(default = "default_setup_channel")]
@@ -1299,15 +1298,6 @@ async fn main() -> Result<()> {
         Vec::new()
     };
 
-    // Merge channel IDs from config (comma-separated list)
-    if !config.channel_ids.is_empty() {
-        for ch_id in config.channel_ids.split(',') {
-            let trimmed = ch_id.trim().to_string();
-            if !trimmed.is_empty() && !channel_ids.contains(&trimmed) {
-                channel_ids.push(trimmed);
-            }
-        }
-    }
 
     // ── Inbound (polling or WebSocket) ──────────────────────────────────
     let use_websocket = connection_mode == "websocket";

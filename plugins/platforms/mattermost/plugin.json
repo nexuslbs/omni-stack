@@ -49,14 +49,6 @@
       "description": "How often to poll for new messages (only used in polling mode)"
     },
     {
-      "key": "channel_ids",
-      "label": "Channel IDs to watch",
-      "type": "string",
-      "required": false,
-      "default": "",
-      "description": "Comma-separated list of channel IDs to watch for inbound messages (overrides auto-discovery)"
-    },
-    {
       "key": "bot_username",
       "label": "Bot Username",
       "type": "string",
@@ -145,7 +137,6 @@
     "connection_mode": "$env:MATTERMOST_CONNECTION_MODE",
     "polling_enabled": "$env:MATTERMOST_POLLING_ENABLED",
     "polling_interval": "$env:MATTERMOST_POLLING_INTERVAL",
-    "channel_ids": "$env:MATTERMOST_CHANNEL_IDS",
     "bot_username": "$env:MM_BOT_USERNAME"
   }
 }

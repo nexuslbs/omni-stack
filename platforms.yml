@@ -22,7 +22,5 @@ platforms:
     enabled: false
     config: {}
   test-rust:
-    enabled: false
+    enabled: true
     config: {}
-tools: null
-providers: null

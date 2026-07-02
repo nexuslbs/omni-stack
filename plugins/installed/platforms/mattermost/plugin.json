@@ -1,0 +1,54 @@
+{
+  "name": "mattermost",
+  "version": "2.0.0",
+  "type": "platform",
+  "description": "Mattermost platform — send and receive messages via Mattermost REST API",
+  "entrypoint": {
+    "command": "/opt/omni/plugins/platforms/mattermost/target/release/mattermost-platform",
+    "args": [],
+    "transport": "stdio"
+  },
+  "capabilities": {
+    "inbound": true,
+    "outbound": true,
+    "setup": true
+  },
+  "config_schema": [
+    {
+      "key": "server_url",
+      "label": "Mattermost Server URL",
+      "type": "string",
+      "required": false,
+      "default": "http://mattermost:8065",
+      "description": "Base URL of the Mattermost server."
+    },
+    {
+      "key": "access_token",
+      "label": "Personal Access Token",
+      "type": "secret",
+      "required": false,
+      "secret": true,
+      "description": "Mattermost personal access token for the bot account."
+    },
+    {
+      "key": "connection_mode",
+      "label": "Connection Mode",
+      "type": "enum",
+      "required": false,
+      "default": "websocket",
+      "allowed_values": ["polling", "websocket"],
+      "description": "How to detect new messages: 'polling' or 'websocket' (real-time)"
+    },
+    {
+      "key": "bot_username",
+      "label": "Bot Username",
+      "type": "string",
+      "required": false,
+      "default": "omniagent",
+      "description": "Username of the Mattermost bot account"
+    }
+  ],
+  "env": {
+    "RUST_LOG": "mattermost_platform=debug"
+  }
+}

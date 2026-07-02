@@ -131,11 +131,6 @@
     }
   ],
   "env": {
-    "RUST_LOG": "mattermost_platform=debug",
-    "server_url": "http://mattermost:8065",
-    "connection_mode": "websocket",
-    "polling_enabled": "true",
-    "polling_interval": "15",
-    "bot_username": "omniagent"
+    "RUST_LOG": "mattermost_platform=debug"
   }
 }

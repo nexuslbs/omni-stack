@@ -534,13 +534,14 @@ python3 scripts/mm-setup.py
 This script:
 1. Waits for Mattermost to become ready
 2. Logs in as the admin user (creates one if the system is fresh)
-3. Enables bot account creation and user access tokens
-4. Creates the test user (if not exists)
-5. Creates the bot user account (if not exists)
-6. Registers the bot account and generates a personal access token
-7. Saves the token to `MATTERMOST_ACCESS_TOKEN` in `.env`
-8. Creates a `test-team` with a `test` channel
-9. Adds all 3 users to the channel
+3. **If the admin user already exists but the password in `.env` (`MM_USER_PASSWORD`) doesn't match**, the script auto-resets it using `mmctl --local user change-password` to match the configured value
+4. Enables bot account creation and user access tokens
+5. Creates the test user (if not exists)
+6. Creates the bot user account (if not exists)
+7. Registers the bot account and generates a personal access token
+8. Saves the token to `MATTERMOST_ACCESS_TOKEN` in `.env`
+9. Creates a `test-team` with a `test` channel
+10. Adds all 3 users to the channel
 #### Running on a Fresh Mattermost
 
 On first run, Mattermost has no users. The setup script creates the first user (which becomes a system admin automatically). Run the script again if any steps fail on first attempt.

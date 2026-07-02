@@ -10,8 +10,8 @@
         "*"
       ],
       "env": {
-        "DATABASE_URL": "${DATABASE_URL}",
-        "HINDSIGHT_URL": "${HINDSIGHT_URL}",
+        "DATABASE_URL": "",
+        "HINDSIGHT_URL": "",
         "RUST_LOG": "info"
       }
     }

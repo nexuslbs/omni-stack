@@ -212,7 +212,7 @@ The Mattermost platform setup is triggered via `POST /api/plugins/mattermost/set
 
 ### What the setup does (in order):
 
-1. **Authenticate** — Uses existing `MATTERMOST_ACCESS_TOKEN` env var if valid; otherwise falls back to admin credentials for bootstrap (creates first admin user on fresh Mattermost).
+1. **Authenticate** — Uses existing `MATTERMOST_ACCESS_TOKEN` env var if valid; otherwise falls back to admin credentials for bootstrap (creates first admin user on fresh Mattermost). **If the admin user already exists but the password in `.env` (`MM_USER_PASSWORD`) doesn't match**, the script auto-resets it using `mmctl --local user change-password` to match the configured value — no manual intervention needed.
 
 2. **Create or find team** — Creates team from `$env:MM_TEAM` config value. Uses direct API lookup (`GET /api/v4/teams/name/{name}`) to find existing teams (not filtered by membership). If team exists, uses it; otherwise creates it.
 

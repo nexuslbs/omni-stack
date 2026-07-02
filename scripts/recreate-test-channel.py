@@ -85,35 +85,7 @@ pg = subprocess.run(
 )
 print(f"DB update: {pg.stdout} {pg.stderr[:200] if pg.stderr else ''}")
 
-# 4. Update the .env to include the new channel ID
-with open("/opt/data/.env") as f:
-    env_content = f.read()
-
-old_ids_line = None
-for line in env_content.split("\n"):
-    if line.startswith("MATTERMOST_CHANNEL_IDS="):
-        old_ids_line = line
-        break
-
-if old_ids_line:
-    current_ids = old_ids_line.split("=", 1)[1]
-    ids = [x.strip() for x in current_ids.split(",") if x.strip()]
-    if new_channel_id not in ids:
-        ids.append(new_channel_id)
-    # Remove old channel ID if present
-    ids = [x for x in ids if x != old_channel_id]
-    new_ids = ",".join(ids)
-    new_line = f"MATTERMOST_CHANNEL_IDS={new_ids}"
-    env_content = env_content.replace(old_ids_line, new_line)
-    with open("/opt/data/.env", "w") as f:
-        f.write(env_content)
-    print(f"Updated MATTERMOST_CHANNEL_IDS (added {new_channel_id}, removed {old_channel_id})")
-else:
-    # Append new line
-    env_content += f"\nMATTERMOST_CHANNEL_IDS={new_channel_id}\n"
-    with open("/opt/data/.env", "a") as f:
-        f.write(f"\nMATTERMOST_CHANNEL_IDS={new_channel_id}\n")
-    print(f"Added MATTERMOST_CHANNEL_IDS={new_channel_id}")
+# MATTERMOST_CHANNEL_IDS removed - channel discovery is auto-discovery via API
 
 print(f"\n=== NEW CHANNEL INFO ===")
 print(f"Channel:  test (id: {new_channel_id})")

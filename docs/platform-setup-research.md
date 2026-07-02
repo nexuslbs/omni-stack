@@ -79,7 +79,7 @@ Standalone Python script that:
 6. Creates channel
 7. Adds members to channel
 8. Creates bot account + personal access token
-9. Updates `.env` with `MATTERMOST_ACCESS_TOKEN` and `MATTERMOST_CHANNEL_IDS`
+9. Updates `.env` with `MATTERMOST_ACCESS_TOKEN`
 
 ## Proposed Architecture
 

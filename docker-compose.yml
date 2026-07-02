@@ -61,6 +61,7 @@ services:
       - default
       - omniagent_default
 
+  # ── Noop provider (test provider — fake HTTP API) ──────────────────
   dashboard:
     image: node:22-alpine
     working_dir: /app
@@ -69,8 +70,8 @@ services:
       - "12346:3001"
     environment:
       PORT: "3001"
-      PGPASSWORD: ${PGPASSWORD}
-      PGUSER: ${POSTGRES_USER:-omniagent}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGUSER: omniagent
       PGHOST: postgres
     volumes:
       - /opt/workspace/omni-stack/:/opt/data/:ro
@@ -90,7 +91,7 @@ services:
       PGHOST: postgres
       PGPORT: "5432"
       PGUSER: ${POSTGRES_USER:-omniagent}
-      PGPASSWORD: ${PGPASSWORD}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB:-omniagent}
     volumes:
       - ./:/opt/data:rw

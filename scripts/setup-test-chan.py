@@ -63,24 +63,7 @@ r = subprocess.run(
 )
 print(f"  DB: {r.stdout.strip() or r.stderr[:200]}")
 
-# 4. Update .env
-print("=== Updating .env ===")
-with open("/opt/data/.env") as f:
-    content = f.read()
-
-for line in content.split("\n"):
-    if line.startswith("MATTERMOST_CHANNEL_IDS="):
-        current = line.split("=", 1)[1]
-        ids = [x for x in current.split(",") if x.strip() and x != OLD_CHAN]
-        if NEW_CHAN not in ids:
-            ids.append(NEW_CHAN)
-        new_val = ",".join(ids)
-        content = content.replace(line, f"MATTERMOST_CHANNEL_IDS={new_val}")
-        break
-
-with open("/opt/data/.env", "w") as f:
-    f.write(content)
-print(f"  Updated MATTERMOST_CHANNEL_IDS")
+# MATTERMOST_CHANNEL_IDS removed - channel discovery is auto-discovery via API
 
 # Verify
 print(f"\n=== VERIFIED ===")

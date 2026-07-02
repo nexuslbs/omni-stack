@@ -8,8 +8,7 @@ fixed = []
 for line in lines:
     if line.startswith('MATTERMOST_ACCESS_TOKEN'):
         fixed.append('MATTERMOST_ACCESS_TOKEN=')
-    elif line.startswith('MATTERMOST_CHANNEL_IDS'):
-        fixed.append('MATTERMOST_CHANNEL_IDS=')
+    # MATTERMOST_CHANNEL_IDS removed - channel discovery is auto-discovery via API
     else:
         fixed.append(line)
 

@@ -21,6 +21,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Duration;
+use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
@@ -826,8 +827,32 @@ struct PluginConfig {
     access_token: Option<String>,
     #[serde(default = "default_connection_mode")]
     connection_mode: String,
+    #[serde(default = "default_polling_enabled")]
+    polling_enabled: bool,
     #[serde(default = "default_polling_interval", deserialize_with = "deserialize_u64_from_string_or_number")]
     polling_interval: u64,
+    #[serde(default)]
+    channel_ids: String,
+    #[serde(default)]
+    setup_team: String,
+    #[serde(default = "default_setup_channel")]
+    setup_channel: String,
+    #[serde(default = "default_bot_user")]
+    bot_user: String,
+    #[serde(default)]
+    bot_password: Option<String>,
+    #[serde(default)]
+    admin_user: Option<String>,
+    #[serde(default)]
+    admin_password: Option<String>,
+    #[serde(default = "default_bot_username")]
+    bot_username: String,
+    #[serde(default)]
+    test_user: String,
+    #[serde(default)]
+    test_password: Option<String>,
+    #[serde(default = "default_env_path")]
+    env_path: String,
 }
 
 fn default_connection_mode() -> String {
@@ -836,6 +861,26 @@ fn default_connection_mode() -> String {
 
 fn default_polling_interval() -> u64 {
     15
+}
+
+fn default_bot_username() -> String {
+    "omniagent".to_string()
+}
+
+fn default_env_path() -> String {
+    "/opt/data/.env".to_string()
+}
+
+fn default_polling_enabled() -> bool {
+    true
+}
+
+fn default_setup_channel() -> String {
+    "setup".to_string()
+}
+
+fn default_bot_user() -> String {
+    "omniagent".to_string()
 }
 
 /// Deserialize a u64 that may be a number, a string, or empty (use default).
@@ -1125,17 +1170,18 @@ async fn main() -> Result<()> {
     tracing::info!("Mattermost platform plugin starting");
 
     let connection_mode = config.connection_mode.to_lowercase();
-    let polling_enabled = connection_mode == "polling";
+    let polling_enabled = connection_mode == "polling" && config.polling_enabled;
 
     let polling_interval_secs = config.polling_interval;
 
     // Always create a client (it's just a wrapper around reqwest + auth header).
     // With a missing or invalid token, API calls will 401 — they already have
     // proper error handling. The plugin stays alive regardless.
-    let owned_access_token = access_token.unwrap_or_default();
-    let client = MattermostClient::new(&server_url, &owned_access_token);
+    let mut owned_access_token = access_token.unwrap_or_default();
+    let mut client = MattermostClient::new(&server_url, &owned_access_token);
 
-    // Verify token by fetching bot user info
+    // Verify token by fetching bot user info.
+    // If the token is invalid/expired, attempt auto-recovery using admin credentials.
     let bot_user: Option<MattermostUser> = if !owned_access_token.is_empty() {
         match client.get_me().await {
             Ok(u) => {
@@ -1148,11 +1194,86 @@ async fn main() -> Result<()> {
             }
             Err(e) => {
                 tracing::warn!(
-                    "Failed to authenticate with Mattermost: {:?}. \
-                     Plugin will run without inbound capability until a valid token is provided.",
+                    "Failed to authenticate with Mattermost: {:?}. Attempting auto-recovery...",
                     e
                 );
-                None
+                // ── Auto-recovery: create a new PAT using admin credentials ──
+                let recovered: Option<(MattermostClient, String, MattermostUser)> = 'recover: {
+                    let admin_user = match config.admin_user {
+                        Some(ref u) if !u.is_empty() => u.clone(),
+                        _ => break 'recover None,
+                    };
+                    let admin_password = match config.admin_password {
+                        Some(ref p) if !p.is_empty() => p.clone(),
+                        _ => break 'recover None,
+                    };
+                    tracing::info!("Auto-recovery: logging in as admin '{}'", admin_user);
+                    let admin_client = match login_admin_client(&server_url, &admin_user, &admin_password).await {
+                        Some(c) => c,
+                        None => {
+                            tracing::warn!("Auto-recovery: admin login failed");
+                            break 'recover None;
+                        }
+                    };
+                    let bot_username = &config.bot_username;
+                    tracing::info!("Auto-recovery: finding bot user '{}'", bot_username);
+                    let (bot_user_id, _) = match admin_client.find_user_by_username(bot_username).await {
+                        Ok(Some(result)) => result,
+                        Ok(None) => {
+                            tracing::warn!("Auto-recovery: bot user '{}' not found", bot_username);
+                            break 'recover None;
+                        }
+                        Err(e) => {
+                            tracing::warn!("Auto-recovery: failed to find bot user '{}': {:?}", bot_username, e);
+                            break 'recover None;
+                        }
+                    };
+                    tracing::info!("Auto-recovery: found bot user '{}' (id: {})", bot_username, bot_user_id);
+                    let new_token = match admin_client.create_user_token(&bot_user_id, "OmniAgent bot access token (auto-recovered)").await {
+                        Ok(t) => t,
+                        Err(e) => {
+                            tracing::warn!("Auto-recovery: failed to create new token: {:?}", e);
+                            break 'recover None;
+                        }
+                    };
+                    tracing::info!("Auto-recovery: created new access token for '{}'", bot_username);
+                    // Write the new token to .env file
+                    let env_path = &config.env_path;
+                    let existing = fs::read_to_string(env_path).await.unwrap_or_default();
+                    let updated = update_env_var(&existing, "MATTERMOST_ACCESS_TOKEN", &new_token);
+                    match fs::write(env_path, &updated).await {
+                        Ok(_) => tracing::info!("Auto-recovery: updated {} with new access token", env_path),
+                        Err(we) => tracing::warn!("Auto-recovery: failed to write .env file '{}': {}", env_path, we),
+                    }
+                    // Create a new client with the recovered token and verify it
+                    let new_client = MattermostClient::new(&server_url, &new_token);
+                    match new_client.get_me().await {
+                        Ok(bot) => {
+                            tracing::info!(
+                                "Auto-recovery successful: authenticated as {} ({})",
+                                bot.username, bot.id
+                            );
+                            Some((new_client, new_token, bot))
+                        }
+                        Err(e2) => {
+                            tracing::warn!("Auto-recovery: new token also failed authentication: {:?}", e2);
+                            None
+                        }
+                    }
+                };
+                match recovered {
+                    Some((new_client, new_token, bot)) => {
+                        client = new_client;
+                        owned_access_token = new_token;
+                        Some(bot)
+                    }
+                    None => {
+                        tracing::warn!(
+                            "Auto-recovery failed. Plugin will run without inbound capability."
+                        );
+                        None
+                    }
+                }
             }
         }
     } else {
@@ -1177,6 +1298,16 @@ async fn main() -> Result<()> {
     } else {
         Vec::new()
     };
+
+    // Merge channel IDs from config (comma-separated list)
+    if !config.channel_ids.is_empty() {
+        for ch_id in config.channel_ids.split(',') {
+            let trimmed = ch_id.trim().to_string();
+            if !trimmed.is_empty() && !channel_ids.contains(&trimmed) {
+                channel_ids.push(trimmed);
+            }
+        }
+    }
 
     // ── Inbound (polling or WebSocket) ──────────────────────────────────
     let use_websocket = connection_mode == "websocket";
@@ -1566,6 +1697,30 @@ async fn handle_react(
     }
 }
 
+/// Update or add a variable in a .env-style file.
+/// If the key already exists (e.g. `MATTERMOST_ACCESS_TOKEN=...`), its value is
+/// replaced. Otherwise the new entry is appended with a trailing newline.
+fn update_env_var(content: &str, key: &str, value: &str) -> String {
+    let prefix = format!("{}=", key);
+    let mut found = false;
+    let mut lines: Vec<String> = content
+        .lines()
+        .map(|line| {
+            if line.starts_with(&prefix) {
+                found = true;
+                format!("{}={}", key, value)
+            } else {
+                line.to_string()
+            }
+        })
+        .collect();
+    if !found {
+        lines.push(format!("{}={}", key, value));
+    }
+    lines.push(String::new()); // trailing newline
+    lines.join("\n")
+}
+
 /// Login as admin, returning a client authenticated with a session token.
 ///
 /// This function is used during setup to authenticate using the admin
@@ -1647,13 +1802,13 @@ async fn create_first_user(server_url: &str, username: &str, password: &str, ema
 async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, params: &SetupParams) -> PluginResponse {
     // Validate required fields
     if params.setup_team.is_empty() {
-        return make_error(id, -1, "Missing required config: setup_team — set it in the plugin config or via $env:MM_SETUP_TEAM");
+        return make_error(id, -1, "Missing required config: setup_team — set it in the plugin config");
     }
     if params.setup_channel.is_empty() {
-        return make_error(id, -1, "Missing required config: setup_channel — set it in the plugin config or via $env:MM_SETUP_CHANNEL");
+        return make_error(id, -1, "Missing required config: setup_channel — set it in the plugin config");
     }
     if params.bot_user.is_empty() {
-        return make_error(id, -1, "Missing required config: bot_user — set it in the plugin config or via $env:MM_BOT_USERNAME");
+        return make_error(id, -1, "Missing required config: bot_user — set it in the plugin config");
     }
 
     tracing::info!(

@@ -25,9 +25,6 @@ services:
 
   omniagent:
     image: ${OMNIAGENT_IMAGE:-ghcr.io/nexuslbs/omniagent:latest}
-    build:
-      context: /opt/workspace/omniagent
-      dockerfile: Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,7 +33,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD}@postgres:5432/omniagent
+      DATABASE_URL: postgres://omniagent:***@postgres:5432/omniagent
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
       QDRANT_URL: http://qdrant:6333
@@ -47,7 +44,6 @@ services:
       OMNI_DIR: /opt/omni
     volumes:
       - ./:/opt/omni:rw
-      - /opt/workspace/omniagent:/app:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /opt/workspace:/opt/workspace:rw
       - /opt/data/credentials:/opt/omni/credentials:ro
@@ -62,11 +58,8 @@ services:
       - default
       - omniagent_default
 
-  # ── Noop provider (test provider — fake HTTP API) ──────────────────
   dashboard:
-    image: node:22-alpine
-    working_dir: /app
-    command: ["node", "/app/server/index.js"]
+    image: ${DASHBOARD_IMAGE:-ghcr.io/nexuslbs/omni-dashboard:latest}
     ports:
       - "12346:3001"
     environment:
@@ -79,15 +72,17 @@ services:
       - /opt/workspace/omni-stack/:/opt/omni/:ro
       - /opt/workspace/omni-stack/user/:/opt/omni/user:rw
       - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
-      - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
-      - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
-      - /opt/workspace/omni-dashboard/repo/node_modules:/app/node_modules:ro
 
-  backup:
+  # ── Toolbox — always-running utility with backup/cron + dev tools ───
+  toolbox:
+    image: ${TOOLBOX_IMAGE:-ghcr.io/nexuslbs/omni-stack-toolbox:latest}
     build:
-      context: ./backup
+      context: ./toolbox
       dockerfile: Dockerfile
+    container_name: omni-toolbox
+    restart: unless-stopped
     env_file:
+      - .env
       - backup.env
     environment:
       PGHOST: postgres
@@ -96,7 +91,12 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB:-omniagent}
     volumes:
-      - ./:/opt/omni:rw
+      - ./:/opt/omni-stack:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - omni-toolbox-cron:/var/log
+    networks:
+      - default
+      - omniagent_default
 
   # ── Mattermost ──────────────────────────────────────────────────────
   mattermost-db:
@@ -131,7 +131,7 @@ services:
       - "12349:8065"
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
-      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${MM_POSTGRES_PASSWORD}@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:***@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
       MM_SERVICESETTINGS_SITEURL: https://hermes-app-5.nexuslbs.org
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: true
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: true
@@ -140,22 +140,6 @@ services:
       - omm-mm-data:/mattermost/data:rw
       - omm-mm-logs:/mattermost/logs:rw
       - omm-mm-plugins:/mattermost/plugins:rw
-    networks:
-      - default
-      - omniagent_default
-
-  # ── Toolbox (on-demand utility container) ────────────────────────────
-  toolbox:
-    image: python:3-alpine
-    profiles:
-      - manual
-    container_name: omni-toolbox
-    entrypoint: ["sh", "-c", "apk add --no-cache curl; exec tail -f /dev/null"]
-    env_file:
-      - .env
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./:/opt/omni-stack:rw
     networks:
       - default
       - omniagent_default
@@ -184,6 +168,7 @@ volumes:
   omm-mm-data:
   omm-mm-logs:
   omm-mm-plugins:
+  omni-toolbox-cron:
 
 networks:
   omniagent_default:

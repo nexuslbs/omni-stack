@@ -1,0 +1,18 @@
+# Dev overlay — add build contexts and source mounts for local development.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+services:
+  omniagent:
+    build:
+      context: /opt/workspace/omniagent
+      dockerfile: Dockerfile
+    volumes:
+      - /opt/workspace/omniagent:/app:rw
+
+  dashboard:
+    build:
+      context: /opt/workspace/omni-dashboard/repo
+      dockerfile: Dockerfile
+    volumes:
+      - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
+      - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
+      - /opt/workspace/omni-dashboard/repo/node_modules:/app/node_modules:ro

@@ -45,11 +45,11 @@ services:
       WORKSPACE_DIR: /opt/workspace
       HINDSIGHT_URL: http://hindsight:8888
     volumes:
-      - ./:/opt/data:rw
+      - ./:/opt/omni:rw
       - /opt/workspace/omniagent:/app:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /opt/workspace:/opt/workspace:rw
-      - /opt/data/credentials:/opt/data/credentials:ro
+      - /opt/data/credentials:/opt/omni/credentials:ro
     expose:
       - "8080"
     ports:
@@ -74,9 +74,9 @@ services:
       PGUSER: omniagent
       PGHOST: postgres
     volumes:
-      - /opt/workspace/omni-stack/:/opt/data/:ro
-      - /opt/workspace/omni-stack/user/:/opt/data/user:rw
-      - /opt/workspace/omni-stack/profiles/:/opt/data/profiles:rw
+      - /opt/workspace/omni-stack/:/opt/omni/:ro
+      - /opt/workspace/omni-stack/user/:/opt/omni/user:rw
+      - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
       - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
       - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
       - /opt/workspace/omni-dashboard/repo/node_modules:/app/node_modules:ro
@@ -94,7 +94,7 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB:-omniagent}
     volumes:
-      - ./:/opt/data:rw
+      - ./:/opt/omni:rw
 
   # ── Mattermost ──────────────────────────────────────────────────────
   mattermost-db:

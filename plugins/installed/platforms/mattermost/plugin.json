@@ -4,7 +4,7 @@
   "type": "platform",
   "description": "Mattermost platform — send and receive messages via Mattermost REST API",
   "entrypoint": {
-    "command": "/opt/data/plugins/platforms/mattermost/target/release/mattermost-platform",
+    "command": "/opt/omni/plugins/platforms/mattermost/target/release/mattermost-platform",
     "args": [],
     "transport": "stdio"
   },

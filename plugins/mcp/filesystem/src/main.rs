@@ -238,7 +238,8 @@ fn handle_info(args: Value, data_dir: &str, workspace_dir: &str) -> Result<(Stri
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let data_dir = std::env::var("OMNI_DIR").unwrap_or_else(|_| "/opt/data".to_string());
+    let data_dir = std::env::var("OMNI_DIR")
+        .unwrap_or_else(|_| "/opt/omni".to_string());
     let workspace_dir = std::env::var("WORKSPACE_DIR").unwrap_or_else(|_| "/opt/workspace".to_string());
 
     let d1 = data_dir.clone();

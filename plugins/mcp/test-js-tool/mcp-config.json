@@ -5,7 +5,7 @@
       "transport": "stdio",
       "command": "nodejs",
       "args": [
-        "/opt/data/plugins/mcp/test-js-tool/server.js"
+        "/opt/omni/plugins/mcp/test-js-tool/server.js"
       ],
       "env": {
         "GREETING_NAME": "Omni"

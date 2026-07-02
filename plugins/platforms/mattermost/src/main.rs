@@ -872,7 +872,8 @@ fn default_server_url() -> String {
 }
 
 fn default_env_path() -> String {
-    "/opt/omni/.env".to_string()
+    std::env::var("OMNI_DIR").map(|d| format!("{}/.env", d))
+        .unwrap_or_else(|_| { eprintln!("FATAL: OMNI_DIR must be set"); std::process::exit(1); })
 }
 
 fn default_polling_enabled() -> bool {

@@ -17,8 +17,22 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const PRIVATE_KEY_PATH: &str = "/opt/omni/credentials/nexuslbs-app.2026-06-04.private-key.pem";
-const DOT_ENV_PATH: &str = "/opt/omni/.env";
+fn private_key_path() -> String {
+    let data_dir = std::env::var("OMNI_DIR").unwrap_or_else(|_| {
+        eprintln!("FATAL: OMNI_DIR must be set");
+        std::process::exit(1);
+    });
+    format!("{}/credentials/nexuslbs-app.2026-06-04.private-key.pem", data_dir)
+}
+
+fn dot_env_path() -> String {
+    let data_dir = std::env::var("OMNI_DIR").unwrap_or_else(|_| {
+        eprintln!("FATAL: OMNI_DIR must be set");
+        std::process::exit(1);
+    });
+    format!("{}/.env", data_dir)
+}
+
 const GITHUB_ORG: &str = "nexuslbs";
 const GITHUB_API: &str = "https://api.github.com";
 const USER_AGENT: &str = "mcp-server-git";
@@ -75,8 +89,8 @@ fn load_github_creds() -> Result<(String, String)> {
     let mut found_app_id = app_id;
     let mut found_inst_id = inst_id;
 
-    if Path::new(DOT_ENV_PATH).exists() {
-        let content = std::fs::read_to_string(DOT_ENV_PATH)
+    if Path::new(&dot_env_path()).exists() {
+        let content = std::fs::read_to_string(&dot_env_path())
             .context("Failed to read .env file")?;
         for line in content.lines() {
             let line = line.trim();
@@ -98,7 +112,7 @@ fn load_github_creds() -> Result<(String, String)> {
         (Some(a), Some(i)) => Ok((a, i)),
         _ => anyhow::bail!(
             "GITHUB_APP_ID and GITHUB_INSTALLATION_ID must be set in environment or {}",
-            DOT_ENV_PATH
+            dot_env_path()
         ),
     }
 }
@@ -122,7 +136,7 @@ fn create_jwt(app_id: &str) -> Result<String> {
     let signing_input = format!("{}.{}", header, payload);
 
     let mut child = Command::new("openssl")
-        .args(["dgst", "-sha256", "-sign", PRIVATE_KEY_PATH])
+        .args(["dgst", "-sha256", "-sign", &private_key_path()])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

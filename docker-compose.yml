@@ -102,7 +102,7 @@ services:
       POSTGRES_PASSWORD: ${MM_POSTGRES_PASSWORD}
       POSTGRES_DB: mattermost
     volumes:
-      - omm-mm-db:/var/lib/postgresql/data:rw
+      - omni-mm-db:/var/lib/postgresql/data:rw
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mmuser -d mattermost"]
       interval: 10s
@@ -126,10 +126,10 @@ services:
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: true
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: true
     volumes:
-      - omm-mm-config:/mattermost/config:rw
-      - omm-mm-data:/mattermost/data:rw
-      - omm-mm-logs:/mattermost/logs:rw
-      - omm-mm-plugins:/mattermost/plugins:rw
+      - omni-mm-config:/mattermost/config:rw
+      - omni-mm-data:/mattermost/data:rw
+      - omni-mm-logs:/mattermost/logs:rw
+      - omni-mm-plugins:/mattermost/plugins:rw
 
   # hindsight — persistent memory provider
   hindsight:
@@ -150,9 +150,9 @@ volumes:
   postgres_data:
   qdrant_data:
   hindsight-data:
-  omm-mm-db:
-  omm-mm-config:
-  omm-mm-data:
-  omm-mm-logs:
-  omm-mm-plugins:
+  omni-mm-db:
+  omni-mm-config:
+  omni-mm-data:
+  omni-mm-logs:
+  omni-mm-plugins:
   omni-toolbox-cron:

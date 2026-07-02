@@ -208,29 +208,29 @@ All plugins receive their configuration via **environment variables** passed to 
 
 ## Mattermost Setup Flow
 
-The Mattermost platform setup is triggered via `POST /api/plugins/mattermost/setup` and is fully self-contained — no omniagent restart needed, no manual steps.
+The Mattermost platform setup is triggered via `POST /api/plugins/mattermost/setup` and is fully self-contained — the setup logic runs inside the Rust plugin binary itself, no external scripts needed.
 
 ### What the setup does (in order):
 
-1. **Authenticate** — Uses existing `MATTERMOST_ACCESS_TOKEN` env var if valid; otherwise falls back to admin credentials for bootstrap (creates first admin user on fresh Mattermost). **If the admin user already exists but the password in `.env` (`MM_USER_PASSWORD`) doesn't match**, the script auto-resets it using `mmctl --local user change-password` to match the configured value — no manual intervention needed.
+1. **Authenticate** — Uses the `access_token` from config if valid; otherwise falls back to admin credentials (`admin_user`/`admin_password`) for bootstrap (creates first admin user on fresh Mattermost). The plugin's Rust code handles all authentication fallbacks — admin login, token-based auth, and fresh-DB user creation — without external scripts.
 
-2. **Create or find team** — Creates team from `$env:MM_TEAM` config value. Uses direct API lookup (`GET /api/v4/teams/name/{name}`) to find existing teams (not filtered by membership). If team exists, uses it; otherwise creates it.
+2. **Create or find team** — Creates team from `setup_team` config value (resolved from `$env:MM_TEAM`). Uses direct API lookup (`GET /api/v4/teams/name/{name}`) to find existing teams. If team exists, uses it; otherwise creates it.
 
 3. **Add bot to team** — After team resolution, adds the bot user as a team member.
 
-4. **Create or find channel** — Creates channel from `$env:MM_CHANNEL` config value under the team.
+4. **Create or find channel** — Creates channel from `setup_channel` config value under the team.
 
 5. **Create 3 users** (if they don't exist):
-   - Admin user (`$env:MM_USERNAME`) — created as system admin
-   - Test user (`$env:MM_TEST_USERNAME`) — regular user
-   - Bot user (`$env:MM_BOT_USERNAME`) — created as user then converted to bot account
+   - Admin user (`admin_user`) — created as system admin
+   - Test user (`test_user`) — regular user
+   - Bot user (`bot_user`) — created as user then converted to bot account
    Each user is added to the team and channel as a member.
 
 6. **Generate bot access token** — Uses admin credentials (or bot PAT as fallback) to create a new personal access token for the bot user.
 
-7. **Save bot token to .env** — Writes `MATTERMOST_ACCESS_TOKEN=<token>` to the .env file on disk (same pattern as provider api_key saving in update_config_handler). Refreshes the process environment via `std::env::set_var()` so the new token is immediately available for `$env:` resolution.
+7. **Save bot token to .env** — Writes `MATTERMOST_ACCESS_TOKEN=<token>` to the .env file on disk. Refreshes the process environment via `std::env::set_var()` so the new token is immediately available for `$env:` resolution.
 
-8. **Hot-reload the Mattermost plugin** — Calls `reload_platform_plugin()` which refreshes the process env from .env (picks up the new token), then signals the running platform client to respawn. The respawned subprocess reads `platforms.yml` with `access_token: "$env:MATTERMOST_ACCESS_TOKEN"`, resolves it from the refreshed env, and authenticates with the new token.
+8. **Hot-reload the Mattermost plugin** — Calls `reload_platform_plugin()` which refreshes the process env from .env, then signals the running platform client to respawn. The respawned subprocess reads `platforms.yml` with `access_token: "$env:MATTERMOST_ACCESS_TOKEN"`, resolves it from the refreshed env, and authenticates with the new token.
 
 9. **Create omniagent channel** — Creates (or updates) an omniagent channel record:
    - `name: mm-{MM_CHANNEL}` (e.g., `mm-setup`)
@@ -246,6 +246,10 @@ Existing teams, channels, and users are detected and reused. A new bot token is 
 ### Key design decisions
 
 - **`$env:` in platforms.yml** — Secrets never appear in YAML config files. The access_token, admin_password, test_password, etc. use `"$env:VAR_NAME"` references resolved at runtime.
+
+- **Plugins are env-var agnostic** — The plugin binary receives config values via the `configure` JSON-RPC message with original field names (e.g. `access_token`, `server_url`). It never reads `MATTERMOST_ACCESS_TOKEN` or similar env vars. The `$env:` indirection is omniagent's concern, not the plugin's.
+
+- **Setup runs entirely in Rust** — No Python scripts. The plugin binary is invoked with the `setup` argument, runs the full setup flow (authenticate, create users, team, channel, generate token), and exits. The legacy `mm-setup.py` has been removed.
 
 - **Token saved to .env not platforms.yml** — Writing to .env (then refreshing process env) keeps the config file environment-agnostic and ensures the token is available to all `$env:` resolvers.
 

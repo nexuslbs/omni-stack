@@ -524,27 +524,28 @@ The **test user** is a regular human user for testing.
 
 ### Initial Setup
 
-Run the setup script to create all 3 users, register the bot, generate its access token, and create a default team/channel:
+Setup is handled by the Rust Mattermost platform plugin itself — no external scripts needed. It creates 3 users, registers the bot, generates its access token, and creates a default team/channel.
+
+The setup is triggered via the omniagent API:
 
 ```bash
-# From the omni-stack root directory
-python3 scripts/mm-setup.py
+curl -X POST http://localhost:8080/api/plugins/mattermost/setup
 ```
 
-This script:
-1. Waits for Mattermost to become ready
-2. Logs in as the admin user (creates one if the system is fresh)
-3. **If the admin user already exists but the password in `.env` (`MM_USER_PASSWORD`) doesn't match**, the script auto-resets it using `mmctl --local user change-password` to match the configured value
-4. Enables bot account creation and user access tokens
-5. Creates the test user (if not exists)
-6. Creates the bot user account (if not exists)
-7. Registers the bot account and generates a personal access token
-8. Saves the token to `MATTERMOST_ACCESS_TOKEN` in `.env`
-9. Creates a `test-team` with a `test` channel
-10. Adds all 3 users to the channel
-#### Running on a Fresh Mattermost
+This triggers the plugin binary in setup mode, which:
 
-On first run, Mattermost has no users. The setup script creates the first user (which becomes a system admin automatically). Run the script again if any steps fail on first attempt.
+1. Authenticates as the admin user (creates one on fresh Mattermost)
+2. Enables bot account creation and user access tokens
+3. Creates/finds the team from `setup_team` config
+4. Creates/finds the channel from `setup_channel` config
+5. Creates or verifies the admin, test, and bot users
+6. Registers the bot account and generates a personal access token
+7. Saves the token to `MATTERMOST_ACCESS_TOKEN` in`.env`
+8. Adds all users to the team and channel
+
+If the admin user exists but the password doesn't match `.env`, the plugin attempts a password update. If that fails (bot PAT lacks admin privileges), the password is left as-is and setup continues.
+
+> **Note:** The legacy Python setup script has been removed. All setup logic is now in the Rust plugin binary at `/opt/data/plugins/platforms/mattermost/target/release/mattermost-platform`.
 
 ### platforms.yml Configuration
 

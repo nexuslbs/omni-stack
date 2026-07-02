@@ -481,7 +481,7 @@
    481|### Location
    482|
    483|```
-   484|$OMNI_DATA_DIR/profiles/<name>/memories/
+   484|$OMNI_DIR/profiles/<name>/memories/
    485|  MEMORY.md      # Core memory file
    486|  SOUL.md        # Identity/persona file
    487|```

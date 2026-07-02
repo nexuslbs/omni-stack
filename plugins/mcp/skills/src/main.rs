@@ -14,7 +14,7 @@ use std::path::Path;
 // ---------------------------------------------------------------------------
 
 fn handle_create_skill(args: Value) -> Result<(String, bool)> {
-    let data_dir = std::env::var("OMNI_DATA_DIR")
+    let data_dir = std::env::var("OMNI_DIR")
         .unwrap_or_else(|_| "/opt/data".to_string());
 
     let name = args["name"]

@@ -8,19 +8,21 @@ on:
       - 'v*'
 
 jobs:
-  publish-omniagent:
-    name: Publish omniagent
+  build-omniagent:
+    name: Build omniagent
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
 
     steps:
       - name: Checkout omniagent
         uses: actions/checkout@v4
         with:
           repository: nexuslbs/omniagent
-          # Public repos — no special token needed
 
       - name: Docker metadata
         id: meta
@@ -33,34 +35,40 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
+      - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  publish-omni-dashboard:
-    name: Publish omni-dashboard
+      - name: Save image
+        run: docker save $(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ') | gzip > /tmp/omniagent.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omniagent-image
+          path: /tmp/omniagent.tar.gz
+          retention-days: 1
+
+  build-omni-dashboard:
+    name: Build omni-dashboard
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
 
     steps:
       - name: Checkout omni-dashboard
         uses: actions/checkout@v4
         with:
           repository: nexuslbs/omni-dashboard
-          # Public repos — no special token needed
 
       - name: Docker metadata
         id: meta
@@ -73,34 +81,40 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
+      - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  publish-omni-stack-toolbox:
-    name: Publish omni-stack-toolbox
+      - name: Save image
+        run: docker save $(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ') | gzip > /tmp/omni-dashboard.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omni-dashboard-image
+          path: /tmp/omni-dashboard.tar.gz
+          retention-days: 1
+
+  build-omni-stack-toolbox:
+    name: Build omni-stack-toolbox
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
 
     steps:
       - name: Checkout omni-stack
         uses: actions/checkout@v4
         with:
           repository: nexuslbs/omni-stack
-          # Public repos — no special token needed
 
       - name: Docker metadata
         id: meta
@@ -113,6 +127,38 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./toolbox
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Save image
+        run: docker save $(echo "${{ steps.meta.outputs.tags }}" | tr '\n' ' ') | gzip > /tmp/omni-stack-toolbox.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omni-stack-toolbox-image
+          path: /tmp/omni-stack-toolbox.tar.gz
+          retention-days: 1
+
+  publish:
+    name: Publish all images
+    runs-on: ubuntu-latest
+    needs: [build-omniagent, build-omni-dashboard, build-omni-stack-toolbox]
+    if: success()
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -120,10 +166,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./toolbox
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Load and push omniagent
+        run: |
+          gunzip -c omniagent-image/omniagent.tar.gz | docker load
+          for tag in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep 'ghcr.io/nexuslbs/omniagent'); do
+            docker push "$tag"
+          done
+
+      - name: Load and push omni-dashboard
+        run: |
+          gunzip -c omni-dashboard-image/omni-dashboard.tar.gz | docker load
+          for tag in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep 'ghcr.io/nexuslbs/omni-dashboard'); do
+            docker push "$tag"
+          done
+
+      - name: Load and push omni-stack-toolbox
+        run: |
+          gunzip -c omni-stack-toolbox-image/omni-stack-toolbox.tar.gz | docker load
+          for tag in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep 'ghcr.io/nexuslbs/omni-stack-toolbox'); do
+            docker push "$tag"
+          done

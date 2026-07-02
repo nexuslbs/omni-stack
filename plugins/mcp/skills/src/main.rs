@@ -15,7 +15,7 @@ use std::path::Path;
 
 fn handle_create_skill(args: Value) -> Result<(String, bool)> {
     let data_dir = std::env::var("OMNI_DIR")
-        .unwrap_or_else(|_| "/opt/omni".to_string());
+        .unwrap_or_else(|_| { eprintln!("FATAL: OMNI_DIR must be set"); std::process::exit(1); });
 
     let name = args["name"]
         .as_str()

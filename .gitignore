@@ -9,8 +9,16 @@ dist/
 # ── Environment / secrets ──
 .env
 .env.backup
+.env.bak
 .env.*.local
+backup.env
 credentials/
+
+# ── Temporary / generated files ──
+COMMIT_MSG.txt
+create-wiki-task.json
+ready-wiki-task.json
+*.bak
 
 # ── OS files ──
 .DS_Store

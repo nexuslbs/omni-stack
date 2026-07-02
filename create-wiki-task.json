@@ -1,7 +1,0 @@
-{
-  "title": "Create wiki site in playground",
-  "body": "Build a wiki site in the /opt/workspace/ playground using docker-compose. Deploy any wiki platform (Wiki.js, DokuWiki, MediaWiki, or similar static wiki generator like mdwiki/dokuwiki).\n\nRequirements:\n1. Create a docker-compose.yml in /opt/workspace/wiki/\n2. Make it accessible on a unique port (e.g., 12350)\n3. Use auto-setup with sqlite or postgres backend\n4. Include at least 3 initial pages: Home, About, Getting Started\n5. Verify it's running with curl after deployment\n\nUse compose MCP tool to deploy. Write config files and setup scripts to /opt/workspace/wiki/.",
-  "status": "todo",
-  "priority": 1,
-  "planning_mode": "auto_subtasks"
-}

@@ -872,7 +872,7 @@ fn default_server_url() -> String {
 }
 
 fn default_env_path() -> String {
-    "/opt/data/.env".to_string()
+    "/opt/omni/.env".to_string()
 }
 
 fn default_polling_enabled() -> bool {

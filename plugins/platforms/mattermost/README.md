@@ -66,7 +66,7 @@ All fields are optional in `plugin.json` and have sensible defaults via `serde(d
 | `admin_password` | string (secret) | — | Admin password for auto-recovery |
 | `test_user` | string | `""` | Test user to create during setup |
 | `test_password` | string (secret) | — | Test user password for setup |
-| `env_path` | string | `"/opt/data/.env"` | Path to `.env` file for token persistence |
+| `env_path` | string | `"/opt/omni/.env"` | Path to `.env` file for token persistence |
 
 ## Inbound Message Detection
 

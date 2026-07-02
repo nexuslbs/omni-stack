@@ -17,8 +17,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const PRIVATE_KEY_PATH: &str = "/opt/data/credentials/nexuslbs-app.2026-06-04.private-key.pem";
-const DOT_ENV_PATH: &str = "/opt/data/.env";
+const PRIVATE_KEY_PATH: &str = "/opt/omni/credentials/nexuslbs-app.2026-06-04.private-key.pem";
+const DOT_ENV_PATH: &str = "/opt/omni/.env";
 const GITHUB_ORG: &str = "nexuslbs";
 const GITHUB_API: &str = "https://api.github.com";
 const USER_AGENT: &str = "mcp-server-git";

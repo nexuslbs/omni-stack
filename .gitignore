@@ -29,3 +29,5 @@ hindsight_watermark.json
 plugins/assets/
 plugins/favicon.svg
 plugins/index.html
+
+vectorizer-state.json

@@ -155,7 +155,7 @@ The `filesystem` and `compose` tools operate in different path namespaces due to
 ```
 Host path                       Container path
 /opt/workspace/omni-workspace   /opt/workspace   ← filesystem writes go here
-/opt/workspace/omni-stack       /opt/data        ← AGENTS.md, wiki, skills
+/opt/workspace/omni-stack       /opt/omni        ← AGENTS.md, wiki, skills
 ```
 
 **Critical effect:** Writing to `/opt/workspace/playground/...` via `filesystem_write` places bytes at `/opt/workspace/omni-workspace/playground/...` on the HOST. But `compose(project_dir="/opt/workspace/playground/...")` uses the actual host path — which does NOT contain those files.

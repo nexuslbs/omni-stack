@@ -545,7 +545,7 @@ This triggers the plugin binary in setup mode, which:
 
 If the admin user exists but the password doesn't match `.env`, the plugin attempts a password update. If that fails (bot PAT lacks admin privileges), the password is left as-is and setup continues.
 
-> **Note:** The legacy Python setup script has been removed. All setup logic is now in the Rust plugin binary at `/opt/data/plugins/platforms/mattermost/target/release/mattermost-platform`.
+> **Note:** The legacy Python setup script has been removed. All setup logic is now in the Rust plugin binary at `/opt/omni/plugins/platforms/mattermost/target/release/mattermost-platform`.
 
 ### platforms.yml Configuration
 

@@ -31,6 +31,14 @@
       "description": "Mattermost personal access token for the bot account."
     },
     {
+      "key": "polling_enabled",
+      "label": "Enable inbound polling",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Enable polling for incoming messages (only relevant in polling mode)."
+    },
+    {
       "key": "polling_interval",
       "label": "Polling interval (seconds)",
       "type": "integer",
@@ -39,6 +47,22 @@
       "min": 5,
       "max": 300,
       "description": "How often to poll for new messages (only used in polling mode)"
+    },
+    {
+      "key": "channel_ids",
+      "label": "Channel IDs to watch",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "Comma-separated list of channel IDs to watch for inbound messages (overrides auto-discovery)"
+    },
+    {
+      "key": "bot_username",
+      "label": "Bot Username",
+      "type": "string",
+      "required": false,
+      "default": "omniagent",
+      "description": "Username of the Mattermost bot account"
     },
     {
       "key": "connection_mode",
@@ -67,7 +91,7 @@
     },
     {
       "key": "bot_user",
-      "label": "Bot Username",
+      "label": "Bot Username (Setup)",
       "type": "string",
       "required": false,
       "default": "omniagent",
@@ -119,7 +143,9 @@
     "server_url": "$env:MATTERMOST_SERVER_URL",
     "access_token": "$env:MATTERMOST_ACCESS_TOKEN",
     "connection_mode": "$env:MATTERMOST_CONNECTION_MODE",
+    "polling_enabled": "$env:MATTERMOST_POLLING_ENABLED",
     "polling_interval": "$env:MATTERMOST_POLLING_INTERVAL",
+    "channel_ids": "$env:MATTERMOST_CHANNEL_IDS",
     "bot_username": "$env:MM_BOT_USERNAME"
   }
 }

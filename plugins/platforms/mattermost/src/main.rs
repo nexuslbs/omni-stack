@@ -822,6 +822,7 @@ struct SetupParams {
 /// Operational config received via configure message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PluginConfig {
+    #[serde(default = "default_server_url")]
     server_url: String,
     #[serde(default)]
     access_token: Option<String>,
@@ -864,6 +865,10 @@ fn default_polling_interval() -> u64 {
 
 fn default_bot_username() -> String {
     "omniagent".to_string()
+}
+
+fn default_server_url() -> String {
+    "http://mattermost:8065".to_string()
 }
 
 fn default_env_path() -> String {

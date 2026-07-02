@@ -10,8 +10,8 @@
         "*"
       ],
       "env": {
-        "DATABASE_URL": "${DATABASE_URL}",
-        "OMNI_DIR": "${OMNI_DIR:-/opt/data}",
+        "DATABASE_URL": "",
+        "OMNI_DIR": "",
         "RUST_LOG": "info"
       }
     }

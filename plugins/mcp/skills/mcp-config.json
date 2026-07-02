@@ -10,7 +10,7 @@
         "*"
       ],
       "env": {
-        "OMNI_DIR": "${OMNI_DIR:-/opt/data}",
+        "OMNI_DIR": "",
         "RUST_LOG": "info"
       }
     }

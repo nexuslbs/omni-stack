@@ -10,8 +10,8 @@
         "*"
       ],
       "env": {
-        "OMNI_DIR": "${OMNI_DIR:-/opt/data}",
-        "WORKSPACE_DIR": "${WORKSPACE_DIR:-/opt/workspace}",
+        "OMNI_DIR": "",
+        "WORKSPACE_DIR": "",
         "RUST_LOG": "info"
       }
     }

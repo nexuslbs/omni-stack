@@ -287,10 +287,26 @@ def main():
         existing = mm.find_user(main_user)
         if existing:
             print(f"   User '{main_user}' exists but password doesn't match configured value.")
-            print(f"   To reset, run:")
-            print(f"   docker exec omm-mattermost /tmp/mmctl --local user change-password {main_user} --password '<new-password>'")
-            print(f"   Then update MM_USER_PASSWORD in .env to match.")
-            sys.exit(1)
+            print(f"   Resetting password to match MM_USER_PASSWORD in .env...")
+            try:
+                reset = subprocess.run(
+                    ["docker", "exec", "omm-mattermost", "mmctl", "--local",
+                     "user", "change-password", main_user, "--password", main_pass],
+                    capture_output=True, text=True, timeout=15
+                )
+                if reset.returncode == 0 and "successfully" in reset.stdout:
+                    check(True, f"Password reset for '{main_user}'")
+                else:
+                    check(False, f"Password reset failed: {reset.stderr or reset.stdout[:200]}")
+            except subprocess.TimeoutExpired:
+                check(False, "mmctl timed out")
+                sys.exit(1)
+
+            # Retry login
+            session = mm.login(main_user, main_pass)
+            if not session:
+                check(False, "Login still fails after password reset")
+                sys.exit(1)
         else:
             print("   Creating first admin user...")
             r = mm.create_user(main_user, main_pass,

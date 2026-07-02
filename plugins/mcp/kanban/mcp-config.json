@@ -10,7 +10,7 @@
         "*"
       ],
       "env": {
-        "DATABASE_URL": "${DATABASE_URL}",
+        "DATABASE_URL": "",
         "RUST_LOG": "info"
       }
     }

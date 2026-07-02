@@ -19,6 +19,9 @@ COMMIT_MSG.txt
 create-wiki-task.json
 ready-wiki-task.json
 *.bak
+scripts/
+docs/
+notes/
 
 # ── OS files ──
 .DS_Store

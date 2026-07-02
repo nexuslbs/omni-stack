@@ -15,7 +15,6 @@ This repository contains everything needed to run the OmniAgent stack in product
 omni-stack/
 ├── docker-compose.yml         # Production stack
 ├── docker-compose.dev.yml     # Development overrides
-├── docker-compose.mm.yml      # Mattermost service
 ├── .env.example               # Environment template
 ├── .github/workflows/         # CI/CD
 │   └── publish.yml            # Build & push images to GHCR
@@ -62,11 +61,6 @@ omni-stack/
 │
 ├── backup/                    # Backup container
 ├── toolbox/                   # Toolbox container (maintenance scripts)
-├── scripts/                   # Utility scripts
-│   ├── startup.sh             #   Container entrypoint
-│   ├── cron-hourly-msg-count.sh
-│   ├── eval-runner.py
-│   └── fix_env.py
 │
 ├── platforms.yml              # Platform plugin config
 ├── providers.yml              # Provider plugin config
@@ -168,14 +162,6 @@ The dev compose adds:
 - Local image builds instead of pulling from GHCR
 - Mounted source directories for live development
 - Additional debug ports or logging
-
-### Mattermost
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.mm.yml up -d
-```
-
-See the [Mattermost Platform docs](plugins/platforms/mattermost/README.md) for setup details.
 
 ---
 

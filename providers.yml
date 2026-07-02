@@ -14,6 +14,10 @@ providers:
     config:
       api_key: "$env:OPENAI_API_KEY"
       default_model: gpt-4o
+  noop:
+    enabled: true
+    config:
+      default_model: test-model-1
   opencode-go:
     enabled: true
     config:

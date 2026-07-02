@@ -109,6 +109,9 @@
   "env": {
     "RUST_LOG": "mattermost_platform=debug",
     "server_url": "$env:MATTERMOST_SERVER_URL",
-    "access_token": "$env:MATTERMOST_ACCESS_TOKEN"
+    "access_token": "$env:MATTERMOST_ACCESS_TOKEN",
+    "connection_mode": "$env:MATTERMOST_CONNECTION_MODE",
+    "polling_interval": "$env:MATTERMOST_POLLING_INTERVAL",
+    "bot_username": "$env:MM_BOT_USERNAME"
   }
 }

@@ -453,12 +453,7 @@ def main():
                         ok = bot_client.add_channel_member(channel_id, uid)
                         check(ok, f"Added '{label}'")
 
-                cur = get_env_file("MATTERMOST_CHANNEL_IDS") or ""
-                ids = [c.strip() for c in cur.split(",") if c.strip()]
-                if channel_id not in ids:
-                    ids.append(channel_id)
-                    set_env_val("MATTERMOST_CHANNEL_IDS", ",".join(ids))
-                    check(True, "Updated MATTERMOST_CHANNEL_IDS")
+                # Channel IDs are now auto-discovered via the Mattermost API
     else:
         print("\n6. Skipping team/channel (set MM_TEAM to enable)")
 

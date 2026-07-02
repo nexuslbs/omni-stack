@@ -69,15 +69,7 @@ psql "$DATABASE_URL" -c "
   WHERE external_id = '$OLD_CHANNEL_ID'
 " 2>&1
 
-# Update .env
-echo "Updating MATTERMOST_CHANNEL_IDS..."
-CURRENT_IDS=*** "^MATTERMOST_CHANNEL_IDS=*** /opt/data/.env | cut -d= -f2)
-NEW_IDS=*** $CURRENT_IDS,$NEW_CHANNEL_ID"
-# Remove old channel ID  
-NEW_IDS=***/ //g")
-# Remove duplicates
-NEW_IDS=***$'\n' | sort -u | tr '\n' ',' | sed 's/,$//')
-sed -i "s/MATTERMOST_CHANNEL_IDS=.*/MATTERMOST_CHANNEL_IDS=$NEW_IDS/" /opt/data/.env
+# MATTERMOST_CHANNEL_IDS removed - channel discovery is auto-discovery via API
 
 echo ""
 echo "=== DONE ==="

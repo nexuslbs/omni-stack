@@ -59,7 +59,6 @@ omni-stack/
 │       ├── templates/         #   Prompt templates (blog, knowledge pipeline, etc.)
 │       └── wiki/              #   Wiki content (reference docs, research)
 │
-├── backup/                    # Backup container
 ├── toolbox/                   # Toolbox container (maintenance scripts)
 │
 ├── platforms.yml              # Platform plugin config

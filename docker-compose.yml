@@ -1,3 +1,5 @@
+name: omni
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -54,9 +56,6 @@ services:
     user: root
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    networks:
-      - default
-      - omniagent_default
 
   dashboard:
     image: ${DASHBOARD_IMAGE:-ghcr.io/nexuslbs/omni-dashboard:latest}
@@ -79,7 +78,6 @@ services:
     build:
       context: ./toolbox
       dockerfile: Dockerfile
-    container_name: omni-toolbox
     restart: unless-stopped
     env_file:
       - .env
@@ -94,14 +92,10 @@ services:
       - ./:/opt/omni-stack:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - omni-toolbox-cron:/var/log
-    networks:
-      - default
-      - omniagent_default
 
   # ── Mattermost ──────────────────────────────────────────────────────
   mattermost-db:
     image: postgres:16.14
-    container_name: omm-mm-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${MM_POSTGRES_USER:-mmuser}
@@ -109,9 +103,6 @@ services:
       POSTGRES_DB: mattermost
     volumes:
       - omm-mm-db:/var/lib/postgresql/data:rw
-    networks:
-      - default
-      - omniagent_default
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mmuser -d mattermost"]
       interval: 10s
@@ -120,7 +111,6 @@ services:
 
   mattermost:
     image: mattermost/mattermost-team-edition:10.11.20
-    container_name: omm-mattermost
     restart: unless-stopped
     depends_on:
       mattermost-db:
@@ -140,9 +130,6 @@ services:
       - omm-mm-data:/mattermost/data:rw
       - omm-mm-logs:/mattermost/logs:rw
       - omm-mm-plugins:/mattermost/plugins:rw
-    networks:
-      - default
-      - omniagent_default
 
   # hindsight — persistent memory provider
   hindsight:
@@ -169,7 +156,3 @@ volumes:
   omm-mm-logs:
   omm-mm-plugins:
   omni-toolbox-cron:
-
-networks:
-  omniagent_default:
-    external: true

@@ -108,7 +108,7 @@
   ],
   "env": {
     "RUST_LOG": "mattermost_platform=debug",
-    "server_url": "http://omm-mattermost:8065",
+    "server_url": "$env:MATTERMOST_SERVER_URL",
     "access_token": "$env:MATTERMOST_ACCESS_TOKEN"
   }
 }

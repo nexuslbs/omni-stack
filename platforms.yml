@@ -18,9 +18,3 @@ platforms:
     enabled: false
     config:
       bot_token: ''
-  test-python:
-    enabled: false
-    config: {}
-  test-rust:
-    enabled: true
-    config: {}

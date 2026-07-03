@@ -1,4 +1,3 @@
-platforms: null
 tools:
   actions:
     enabled: true
@@ -59,16 +58,3 @@ tools:
     enabled: true
     builtin: true
     config: {}
-  test-js-tool:
-    enabled: true
-    builtin: true
-    config: {}
-  test-python-tool:
-    enabled: true
-    builtin: true
-    config: {}
-  test-rust-tool:
-    enabled: true
-    builtin: true
-    config: {}
-providers: null

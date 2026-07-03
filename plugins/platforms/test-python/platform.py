@@ -53,6 +53,20 @@ def main():
             sys.stdout.flush()
             log.info("Initialized: test-python")
 
+        elif method == "configure":
+            params = request.get("params", {})
+            config = params.get("config", {})
+            log.info("Configured with: %s", config)
+
+            response = {
+                "id": req_id,
+                "result": {
+                    "configured": True,
+                },
+            }
+            sys.stdout.write(json.dumps(response) + "\n")
+            sys.stdout.flush()
+
         elif method == "deliver":
             message_counter += 1
             params = request.get("params", {})

@@ -47,6 +47,7 @@ impl MattermostClient {
     }
 
     /// Create a client from a session token (from login).
+    #[allow(dead_code)]
     fn from_session(server_url: &str, session_token: &str) -> Self {
         let api_base = server_url.trim_end_matches('/').to_string();
         Self {
@@ -368,6 +369,33 @@ impl MattermostClient {
         Ok(info)
     }
 
+    /// Download the actual content of a file.
+    /// Returns the raw bytes — caller should check MIME type and size.
+    async fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>> {
+        let resp = self
+            .http_client
+            .get(format!(
+                "{}/api/v4/files/{}/download",
+                self.api_base, file_id
+            ))
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            return Err(anyhow::anyhow!(
+                "Mattermost getFileContent failed ({}): {}",
+                status,
+                text
+            ));
+        }
+
+        let bytes = resp.bytes().await?;
+        Ok(bytes.to_vec())
+    }
+
     /// Extract the post ID from a Mattermost API response.
     async fn extract_post_id(resp: reqwest::Response, context: &str) -> Result<String> {
         let status = resp.status();
@@ -453,6 +481,7 @@ impl MattermostClient {
     }
 
     /// Get all teams (for finding existing teams).
+    #[allow(dead_code)]
     async fn get_teams_all(&self) -> Result<Vec<Value>> {
         let resp = self
             .http_client
@@ -595,6 +624,7 @@ impl MattermostClient {
     }
 
     /// List existing tokens for a user.
+    #[allow(dead_code)]
     async fn get_user_tokens(&self, user_id: &str) -> Result<Vec<Value>> {
         let resp = self
             .http_client
@@ -631,6 +661,7 @@ impl MattermostClient {
     }
 
     /// Get team members.
+    #[allow(dead_code)]
     async fn get_team_members(&self, team_id: &str) -> Result<Vec<Value>> {
         let resp = self
             .http_client
@@ -1348,7 +1379,7 @@ async fn main() -> Result<()> {
     };
 
     // Auto-discover channels the bot is a member of
-    let mut channel_ids: Vec<String> = if let Some(ref bot) = bot_user {
+    let channel_ids: Vec<String> = if let Some(ref bot) = bot_user {
         let ids = discover_channels(&client, &bot.id).await;
         if !ids.is_empty() {
             tracing::info!(
@@ -1404,7 +1435,7 @@ async fn main() -> Result<()> {
                         refresh_counter = 0;
 
                         let discovered = discover_channels(&poll_client, &bot_id).await;
-                        let mut merged = discovered.clone();
+                        let merged = discovered.clone();
 
                         for ch_id in &merged {
                             if !last_discovery.contains(ch_id) {
@@ -2140,10 +2171,65 @@ async fn send_inbound_notification(
                     } else {
                         info.name
                     };
-                    file_lines.push(format!(
-                        "- {} ({} {})",
-                        name, size_str, info.mime_type
-                    ));
+
+                    // For text-based files under 100 KB, download and include content
+                    let is_text = info.mime_type.starts_with("text/")
+                        || info.mime_type == "application/json"
+                        || info.mime_type == "application/yaml"
+                        || info.mime_type == "application/xml"
+                        || info.mime_type == "application/x-yaml"
+                        || info.mime_type == "application/javascript"
+                        || info.extension == "txt"
+                        || info.extension == "md"
+                        || info.extension == "json"
+                        || info.extension == "yaml"
+                        || info.extension == "yml"
+                        || info.extension == "xml"
+                        || info.extension == "toml"
+                        || info.extension == "csv"
+                        || info.extension == "env"
+                        || info.extension == "cfg"
+                        || info.extension == "conf"
+                        || info.extension == "log"
+                        || info.extension == "sh"
+                        || info.extension == "py"
+                        || info.extension == "rs"
+                        || info.extension == "js"
+                        || info.extension == "ts"
+                        || info.extension == "sql";
+                    if is_text && info.size < 100_000 {
+                        match client.get_file_content(file_id).await {
+                            Ok(bytes) => {
+                                if let Ok(content_str) = String::from_utf8(bytes) {
+                                    file_lines.push(format!(
+                                        "- {} ({} {}):\n```\n{}\n```",
+                                        name, size_str, info.mime_type, content_str
+                                    ));
+                                } else {
+                                    file_lines.push(format!(
+                                        "- {} ({} {}) [binary content, not displayed]",
+                                        name, size_str, info.mime_type
+                                    ));
+                                }
+                            }
+                            Err(e) => {
+                                tracing::debug!(
+                                    "Failed to download file {}: {:?}",
+                                    file_id,
+                                    e
+                                );
+                                file_lines.push(format!(
+                                    "- {} ({} {})",
+                                    name, size_str, info.mime_type
+                                ));
+                            }
+                        }
+                    } else {
+                        file_lines.push(format!(
+                            "- {} ({} {})",
+                            name, size_str, info.mime_type
+                        ));
+                    }
                 }
                 Err(e) => {
                     tracing::debug!(

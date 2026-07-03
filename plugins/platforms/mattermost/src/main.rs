@@ -375,7 +375,7 @@ impl MattermostClient {
         let resp = self
             .http_client
             .get(format!(
-                "{}/api/v4/files/{}/download",
+                "{}/api/v4/files/{}",
                 self.api_base, file_id
             ))
             .header("Authorization", &self.auth_header)
@@ -2137,6 +2137,17 @@ async fn is_bot_user(
     }
 }
 
+/// Maximum file size (in bytes) for inline file content in inbound messages.
+/// Files larger than this are listed as metadata only (name, size, type).
+/// Controlled by the MAX_INLINE_FILE_KB setting (default 100 KB).
+fn max_inline_file_bytes() -> i64 {
+    std::env::var("MAX_INLINE_FILE_KB")
+        .ok()
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(100)
+        * 1024
+}
+
 /// Send an inbound_message notification to stdout (shared by polling and WS).
 async fn send_inbound_notification(
     client: &MattermostClient,
@@ -2197,7 +2208,7 @@ async fn send_inbound_notification(
                         || info.extension == "js"
                         || info.extension == "ts"
                         || info.extension == "sql";
-                    if is_text && info.size < 100_000 {
+                    if is_text && info.size < max_inline_file_bytes() {
                         match client.get_file_content(file_id).await {
                             Ok(bytes) => {
                                 if let Ok(content_str) = String::from_utf8(bytes) {

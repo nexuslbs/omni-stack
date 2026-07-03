@@ -131,6 +131,7 @@
     }
   ],
   "env": {
-    "RUST_LOG": "mattermost_platform=debug"
+    "RUST_LOG": "mattermost_platform=debug",
+    "MAX_INLINE_FILE_KB": "$env:MAX_INLINE_FILE_KB"
   }
 }

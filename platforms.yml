@@ -1,20 +1,16 @@
 platforms:
   mattermost:
     enabled: true
+    builtin: false
     config:
-      bot_username: omniagent
-      access_token: "$env:MATTERMOST_ACCESS_TOKEN"
-      connection_mode: "$env:MATTERMOST_CONNECTION_MODE"
-      polling_interval: "$env:MATTERMOST_POLLING_INTERVAL"
-      setup_team: "$env:MM_TEAM"
-      setup_channel: "$env:MM_CHANNEL"
-      bot_user: "$env:MM_BOT_USERNAME"
-      bot_password: "$env:MM_BOT_PASSWORD"
-      admin_user: "$env:MM_USERNAME"
-      admin_password: "$env:MM_USER_PASSWORD"
-      test_user: "$env:MM_TEST_USERNAME"
-      test_password: "$env:MM_TEST_PASSWORD"
+      access_token: $env:MATTERMOST_ACCESS_TOKEN
+      bot_username: $env:MATTERMOST_BOT_USERNAME
+      connection_mode: $env:MATTERMOST_CONNECTION_MODE
+      polling_interval: $env:MATTERMOST_POLLING_INTERVAL
+      server_url: $env:MATTERMOST_SERVER_URL
   telegram:
     enabled: false
     config:
       bot_token: ''
+tools: null
+providers: null

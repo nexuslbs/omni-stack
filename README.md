@@ -40,16 +40,13 @@ omni-stack/
 │   │
 │   ├── platforms/             # Platform plugins (communication backends)
 │   │   ├── mattermost/        #   Mattermost (Rust, full setup + websocket)
-│   │   ├── telegram/          #   Telegram plugin config
-│   │   ├── test-python/       #   Test platform (Python)
-│   │   └── test-rust/         #   Test platform (Rust)
+│   │   └── telegram/          #   Telegram plugin config
 │   │
 │   └── providers/             # LLM provider plugins
 │       ├── opencode-go/       #   OpenCode Go provider
 │       ├── deepseek/          #   DeepSeek provider
 │       ├── openai/            #   OpenAI provider
-│       ├── anthropic/         #   Anthropic provider
-│       └── noop/              #   No-operation (testing)
+│       └── anthropic/         #   Anthropic provider
 │
 ├── profiles/
 │   └── default/               # Default profile (config, memories, skills, wiki)

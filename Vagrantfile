@@ -19,9 +19,6 @@ Vagrant.configure("2") do |config|
     config.vm.disk :disk, size: VM_DISK, primary: true
   end
 
-  # ── Sync omni-stack repo (for scripts, .env access on VM) ──────────
-  config.vm.synced_folder ".", "/opt/omni-stack", type: "rsync"
-
   # ── No Host File Sharing (security) ─────────────────────────────────
   config.vm.synced_folder ".", "/vagrant", disabled: true
 

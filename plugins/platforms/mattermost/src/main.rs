@@ -341,7 +341,7 @@ impl MattermostClient {
         let resp = self
             .http_client
             .get(format!(
-                "{}/api/v4/files/{}",
+                "{}/api/v4/files/{}/info",
                 self.api_base, file_id
             ))
             .header("Authorization", &self.auth_header)
@@ -1008,7 +1008,8 @@ where
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::new("info"))
+        .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")))
         .with_writer(std::io::stderr)
         .init();
 
@@ -2224,7 +2225,7 @@ async fn send_inbound_notification(
                                 }
                             }
                             Err(e) => {
-                                tracing::debug!(
+                                tracing::warn!(
                                     "Failed to download file {}: {:?}",
                                     file_id,
                                     e
@@ -2243,7 +2244,7 @@ async fn send_inbound_notification(
                     }
                 }
                 Err(e) => {
-                    tracing::debug!(
+                    tracing::warn!(
                         "Failed to get file info for {}: {:?}",
                         file_id,
                         e

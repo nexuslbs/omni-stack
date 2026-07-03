@@ -335,6 +335,39 @@ impl MattermostClient {
         Ok(posts)
     }
 
+    /// Get file info (metadata) for a file ID.
+    async fn get_file_info(&self, file_id: &str) -> Result<MattermostFileInfo> {
+        let resp = self
+            .http_client
+            .get(format!(
+                "{}/api/v4/files/{}",
+                self.api_base, file_id
+            ))
+            .header("Authorization", &self.auth_header)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let body: Value = resp
+            .json()
+            .await
+            .context("Failed to parse file info response")?;
+
+        if !status.is_success() {
+            let msg = body["message"].as_str().unwrap_or("unknown error");
+            return Err(anyhow::anyhow!(
+                "Mattermost getFileInfo failed ({}): {}",
+                status,
+                msg
+            ));
+        }
+
+        let info: MattermostFileInfo = serde_json::from_value(body)
+            .context("Failed to parse Mattermost file info")?;
+
+        Ok(info)
+    }
+
     /// Extract the post ID from a Mattermost API response.
     async fn extract_post_id(resp: reqwest::Response, context: &str) -> Result<String> {
         let status = resp.status();
@@ -714,6 +747,31 @@ struct MattermostPost {
     #[serde(rename = "type")]
     #[serde(default)]
     post_type: String,
+    /// File attachments on this post.
+    #[serde(default)]
+    file_ids: Vec<String>,
+}
+
+/// File metadata returned by Mattermost file info API.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MattermostFileInfo {
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    extension: String,
+    #[serde(default)]
+    size: i64,
+    #[serde(default)]
+    mime_type: String,
+    #[serde(default)]
+    user_id: String,
+    #[serde(default)]
+    post_id: String,
+    #[serde(default)]
+    create_at: i64,
+    #[serde(default)]
+    has_preview_image: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -2049,7 +2107,11 @@ async fn is_bot_user(
 }
 
 /// Send an inbound_message notification to stdout (shared by polling and WS).
-async fn send_inbound_notification(post: &MattermostPost, ch_id: &str) {
+async fn send_inbound_notification(
+    client: &MattermostClient,
+    post: &MattermostPost,
+    ch_id: &str,
+) {
     let root_id = if post.root_id.is_empty() {
         None
     } else {
@@ -2058,23 +2120,65 @@ async fn send_inbound_notification(post: &MattermostPost, ch_id: &str) {
 
     let thread_id = root_id.unwrap_or(&post.id);
 
+    // Build message text with file attachments appended
+    let mut full_text = post.message.clone();
+
+    if !post.file_ids.is_empty() {
+        let mut file_lines: Vec<String> = Vec::new();
+        for file_id in &post.file_ids {
+            match client.get_file_info(file_id).await {
+                Ok(info) => {
+                    let size_str = if info.size > 1_000_000 {
+                        format!("{:.1} MB", info.size as f64 / 1_000_000.0)
+                    } else if info.size > 1_000 {
+                        format!("{:.1} KB", info.size as f64 / 1_000.0)
+                    } else {
+                        format!("{} B", info.size)
+                    };
+                    let name = if info.name.is_empty() {
+                        format!("file.{}", info.extension)
+                    } else {
+                        info.name
+                    };
+                    file_lines.push(format!(
+                        "- {} ({} {})",
+                        name, size_str, info.mime_type
+                    ));
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        "Failed to get file info for {}: {:?}",
+                        file_id,
+                        e
+                    );
+                }
+            }
+        }
+        if !file_lines.is_empty() {
+            full_text.push_str("\n\n--- Attachments ---\n");
+            full_text.push_str(&file_lines.join("\n"));
+        }
+    }
+
     tracing::info!(
-        "Inbound message from channel {}: {}",
+        "Inbound message from channel {}: {} ({} file attachments)",
         ch_id,
-        post.message.chars().take(50).collect::<String>()
+        post.message.chars().take(50).collect::<String>(),
+        post.file_ids.len()
     );
 
     let notification = PluginNotification {
         method: "inbound_message".to_string(),
         params: Some(serde_json::json!({
             "resource_identifier": ch_id,
-            "text": post.message,
+            "text": full_text,
             "external_id": post.id,
             "metadata": {
                 "root_id": root_id,
                 "thread_id": thread_id,
                 "user_id": post.user_id,
                 "channel_id": ch_id,
+                "file_ids": post.file_ids,
             },
         })),
     };
@@ -2093,6 +2197,23 @@ async fn send_delete_notification(ch_id: &str, post_id: &str) {
         params: Some(serde_json::json!({
             "resource_identifier": ch_id,
             "external_id": post_id,
+        })),
+    };
+    let line = serde_json::to_string(&notification).unwrap_or_default();
+    let mut out = tokio::io::stdout();
+    let _ = out.write_all(line.as_bytes()).await;
+    let _ = out.write_all(b"\n").await;
+    let _ = out.flush().await;
+}
+
+/// Send a message_edited notification to stdout.
+async fn send_edit_notification(ch_id: &str, post_id: &str, new_message: &str) {
+    let notification = PluginNotification {
+        method: "message_edited".to_string(),
+        params: Some(serde_json::json!({
+            "resource_identifier": ch_id,
+            "external_id": post_id,
+            "text": new_message,
         })),
     };
     let line = serde_json::to_string(&notification).unwrap_or_default();
@@ -2171,7 +2292,7 @@ async fn poll_channel(
                 }
 
                 // This is a new post from a human user
-                send_inbound_notification(&post, ch_id).await;
+                send_inbound_notification(client, &post, ch_id).await;
                 known.insert(post.id.clone());
                 count += 1;
             }
@@ -2530,6 +2651,63 @@ async fn ws_event_loop(
                                     } else {
                                         tracing::debug!(
                                             "post_deleted event missing post id in channel {}",
+                                            ch_id
+                                        );
+                                    }
+                                }
+                                "post_edited" => {
+                                    // A post was edited. Extract the post_id, channel_id, and new
+                                    // message text, then send a message_edited notification to
+                                    // the omniagent so it can update the message content if the
+                                    // thread is still pending.
+                                    let ch_id = match event
+                                        .pointer("/broadcast/channel_id")
+                                        .and_then(|v| v.as_str())
+                                    {
+                                        Some(c) => c.to_string(),
+                                        None => {
+                                            tracing::debug!("post_edited event missing broadcast channel_id");
+                                            continue;
+                                        }
+                                    };
+
+                                    // Skip channels we don't watch
+                                    if !watch_all && !channel_set.contains(&ch_id) {
+                                        continue;
+                                    }
+
+                                    // The post field is a JSON-ENCODED STRING containing the
+                                    // updated post, including the new "message" field.
+                                    let edit_info: Option<(String, String)> = event
+                                        .pointer("/data/post")
+                                        .and_then(|v| {
+                                            if let Some(s) = v.as_str() {
+                                                if let Ok(post_obj) = serde_json::from_str::<Value>(s) {
+                                                    let pid = post_obj.get("id")
+                                                        .and_then(|i| i.as_str())
+                                                        .map(|s| s.to_string());
+                                                    let msg = post_obj.get("message")
+                                                        .and_then(|m| m.as_str())
+                                                        .map(|s| s.to_string());
+                                                    pid.zip(msg)
+                                                } else {
+                                                    None
+                                                }
+                                            } else {
+                                                None
+                                            }
+                                        });
+
+                                    if let Some((pid, new_message)) = edit_info {
+                                        tracing::info!(
+                                            "Post edited in channel {}: post_id={}, new message preview: {}",
+                                            ch_id, pid,
+                                            new_message.chars().take(50).collect::<String>()
+                                        );
+                                        send_edit_notification(&ch_id, &pid, &new_message).await;
+                                    } else {
+                                        tracing::debug!(
+                                            "post_edited event missing post id or message in channel {}",
                                             ch_id
                                         );
                                     }

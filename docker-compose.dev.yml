@@ -7,10 +7,11 @@ services:
       context: /opt/workspace/omniagent
       dockerfile: Dockerfile.dev
     image: omniagent-dev:latest
+    env_file: []
     environment:
       CARGO_TARGET_DIR: /target
-      # Only what cargo needs at compile time (sql_forge! verification)
-      DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD}@postgres:5432/omniagent
+      # Resolved from .env — cargo needs this for sql_forge! compile-time verification
+      DATABASE_URL: ${DATABASE_URL}
     volumes:
       - /opt/workspace/omniagent:/app:rw
       - cargo-registry:/usr/local/cargo/registry

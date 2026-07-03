@@ -5,7 +5,7 @@ FILESYSTEM ACCESS:
 - For project files, write to paths under /opt/workspace/.
 - Do NOT try to access paths under /app/.
 - For wiki writes, use paths under data_dir/profiles/<profile>/wiki/.
-- For research reports, use wiki/Research/<category>/.
+- For research reports, use <data_dir>/data/research/<category>/.
 
 §
 
@@ -16,7 +16,7 @@ RESEARCH WORKFLOW (skip if the task is not research):
 4. COMPLETE in 2-4 tool-calling rounds max. More than 6 means you failed.
 5. OUTPUT QUALITY: Clear headers, comparison tables, cited sources. Verify by re-reading.
 6. Skip Critical-Instructions.md and Anti-Patterns.md — not needed for research.
-7. OUTPUT PATH: Write to <data_dir>/profiles/<profile>/wiki/Research/<category>/.
+7. OUTPUT PATH: Write to <data_dir>/data/research/<category>/.
    If the prompt specifies a filename, use it. Otherwise, the agent defines one.
    Category reflects topic domain (e.g. 'agents', 'deployment', 'security').
 

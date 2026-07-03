@@ -44,11 +44,11 @@ services:
       WORKSPACE_DIR: /opt/workspace
       HINDSIGHT_URL: http://hindsight:8888
       OMNI_DIR: /opt/omni
+      DEFAULT_PROFILE: omni
     volumes:
       - ./:/opt/omni:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /opt/workspace:/opt/workspace:rw
-      - /opt/data/credentials:/opt/omni/credentials:ro
     expose:
       - "8080"
     ports:
@@ -121,7 +121,7 @@ services:
       - "12349:8065"
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
-      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:***@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${MM_POSTGRES_PASSWORD}@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
       MM_SERVICESETTINGS_SITEURL: https://hermes-app-5.nexuslbs.org
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: true
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: true

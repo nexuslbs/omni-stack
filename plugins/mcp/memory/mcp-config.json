@@ -8,12 +8,7 @@
       "max_retries": 2,
       "allowed_tools": [
         "*"
-      ],
-      "env": {
-        "DATABASE_URL": "",
-        "OMNI_DIR": "",
-        "RUST_LOG": "info"
-      }
+      ]
     }
   ]
 }

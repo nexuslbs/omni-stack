@@ -8,9 +8,4 @@ platforms:
       connection_mode: $env:MATTERMOST_CONNECTION_MODE
       polling_interval: $env:MATTERMOST_POLLING_INTERVAL
       server_url: $env:MATTERMOST_SERVER_URL
-  telegram:
-    enabled: false
-    config:
-      bot_token: ''
-tools: null
-providers: null
+      max_download_bytes: 500

@@ -4,8 +4,4 @@ platforms:
     builtin: false
     config:
       access_token: $env:MATTERMOST_ACCESS_TOKEN
-      bot_username: $env:MATTERMOST_BOT_USERNAME
-      connection_mode: $env:MATTERMOST_CONNECTION_MODE
-      polling_interval: $env:MATTERMOST_POLLING_INTERVAL
-      server_url: $env:MATTERMOST_SERVER_URL
       max_download_bytes: 500

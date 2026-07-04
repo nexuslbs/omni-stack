@@ -783,6 +783,16 @@ struct MattermostPost {
     file_ids: Vec<String>,
 }
 
+/// Structured file attachment to pass to omniagent (instead of inline formatting).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FileAttachment {
+    name: String,
+    size: i64,
+    mime_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    content: Option<String>,  // base64-encoded raw bytes
+}
+
 /// File metadata returned by Mattermost file info API.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MattermostFileInfo {
@@ -2138,15 +2148,11 @@ async fn is_bot_user(
     }
 }
 
-/// Maximum file size (in bytes) for inline file content in inbound messages.
-/// Files larger than this are listed as metadata only (name, size, type).
-/// Controlled by the MAX_INLINE_FILE_KB setting (default 100 KB).
-fn max_inline_file_bytes() -> i64 {
-    std::env::var("MAX_INLINE_FILE_KB")
-        .ok()
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(100)
-        * 1024
+/// Base64-encode raw bytes for transport in structured file attachments.
+fn base64_encode(bytes: &[u8]) -> String {
+    use base64::engine::general_purpose;
+    use base64::Engine;
+    general_purpose::STANDARD.encode(bytes)
 }
 
 /// Send an inbound_message notification to stdout (shared by polling and WS).
@@ -2163,98 +2169,41 @@ async fn send_inbound_notification(
 
     let thread_id = root_id.unwrap_or(&post.id);
 
-    // Build message text with file attachments appended
-    let mut full_text = post.message.clone();
+    // Build structured file attachments list
+    let mut file_attachments: Vec<FileAttachment> = Vec::new();
+    const MAX_DOWNLOAD_BYTES: i64 = 10 * 1024 * 1024; // 10 MB
 
-    if !post.file_ids.is_empty() {
-        let mut file_lines: Vec<String> = Vec::new();
-        for file_id in &post.file_ids {
-            match client.get_file_info(file_id).await {
-                Ok(info) => {
-                    let size_str = if info.size > 1_000_000 {
-                        format!("{:.1} MB", info.size as f64 / 1_000_000.0)
-                    } else if info.size > 1_000 {
-                        format!("{:.1} KB", info.size as f64 / 1_000.0)
-                    } else {
-                        format!("{} B", info.size)
-                    };
-                    let name = if info.name.is_empty() {
-                        format!("file.{}", info.extension)
-                    } else {
-                        info.name
-                    };
-
-                    // For text-based files under 100 KB, download and include content
-                    let is_text = info.mime_type.starts_with("text/")
-                        || info.mime_type == "application/json"
-                        || info.mime_type == "application/yaml"
-                        || info.mime_type == "application/xml"
-                        || info.mime_type == "application/x-yaml"
-                        || info.mime_type == "application/javascript"
-                        || info.extension == "txt"
-                        || info.extension == "md"
-                        || info.extension == "json"
-                        || info.extension == "yaml"
-                        || info.extension == "yml"
-                        || info.extension == "xml"
-                        || info.extension == "toml"
-                        || info.extension == "csv"
-                        || info.extension == "env"
-                        || info.extension == "cfg"
-                        || info.extension == "conf"
-                        || info.extension == "log"
-                        || info.extension == "sh"
-                        || info.extension == "py"
-                        || info.extension == "rs"
-                        || info.extension == "js"
-                        || info.extension == "ts"
-                        || info.extension == "sql";
-                    if is_text && info.size < max_inline_file_bytes() {
-                        match client.get_file_content(file_id).await {
-                            Ok(bytes) => {
-                                if let Ok(content_str) = String::from_utf8(bytes) {
-                                    file_lines.push(format!(
-                                        "- {} ({} {}):\n```\n{}\n```",
-                                        name, size_str, info.mime_type, content_str
-                                    ));
-                                } else {
-                                    file_lines.push(format!(
-                                        "- {} ({} {}) [binary content, not displayed]",
-                                        name, size_str, info.mime_type
-                                    ));
-                                }
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "Failed to download file {}: {:?}",
-                                    file_id,
-                                    e
-                                );
-                                file_lines.push(format!(
-                                    "- {} ({} {})",
-                                    name, size_str, info.mime_type
-                                ));
-                            }
+    for file_id in &post.file_ids {
+        match client.get_file_info(file_id).await {
+            Ok(info) => {
+                let file_content = if info.size > 0 && info.size <= MAX_DOWNLOAD_BYTES {
+                    match client.get_file_content(file_id).await {
+                        Ok(bytes) => Some(base64_encode(&bytes)),
+                        Err(e) => {
+                            tracing::warn!("Failed to download file {}: {:?}", file_id, e);
+                            None
                         }
-                    } else {
-                        file_lines.push(format!(
-                            "- {} ({} {})",
-                            name, size_str, info.mime_type
-                        ));
                     }
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to get file info for {}: {:?}",
-                        file_id,
-                        e
-                    );
-                }
+                } else {
+                    None
+                };
+
+                let name = if info.name.is_empty() {
+                    format!("file.{}", info.extension)
+                } else {
+                    info.name
+                };
+
+                file_attachments.push(FileAttachment {
+                    name,
+                    size: info.size,
+                    mime_type: info.mime_type,
+                    content: file_content,
+                });
             }
-        }
-        if !file_lines.is_empty() {
-            full_text.push_str("\n\n--- Attachments ---\n");
-            full_text.push_str(&file_lines.join("\n"));
+            Err(e) => {
+                tracing::warn!("Failed to get file info for {}: {:?}", file_id, e);
+            }
         }
     }
 
@@ -2269,8 +2218,9 @@ async fn send_inbound_notification(
         method: "inbound_message".to_string(),
         params: Some(serde_json::json!({
             "resource_identifier": ch_id,
-            "text": full_text,
+            "text": post.message,
             "external_id": post.id,
+            "files": file_attachments,
             "metadata": {
                 "root_id": root_id,
                 "thread_id": thread_id,

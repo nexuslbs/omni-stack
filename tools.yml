@@ -1,3 +1,4 @@
+platforms: null
 tools:
   actions:
     enabled: true
@@ -24,10 +25,11 @@ tools:
     builtin: true
     config: {}
   hindsight:
-    enabled: true
+    enabled: false
+    builtin: false
     config: {}
   kanban:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   memory:
@@ -58,3 +60,4 @@ tools:
     enabled: true
     builtin: true
     config: {}
+providers: null

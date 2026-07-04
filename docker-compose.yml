@@ -27,7 +27,10 @@ services:
       - "6333"
 
   omniagent:
-    image: ${OMNIAGENT_IMAGE:-ghcr.io/nexuslbs/omniagent:latest}
+    image: omniagent-dev:latest
+    build:
+      dockerfile: Dockerfile.dev
+      context: /opt/workspace/omniagent
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,9 +47,10 @@ services:
       HINDSIGHT_URL: http://hindsight:8888
       OMNI_DIR: /opt/omni
       DEFAULT_PROFILE: omni
-      SQLX_OFFLINE: true
     volumes:
-      - ./:/opt/omni:rw
+      - /opt/workspace/omniagent:/app:rw
+      - omniagent-target:/app/target
+      - /opt/workspace/omni-stack:/opt/omni:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /opt/workspace:/opt/workspace:rw
     expose:
@@ -145,6 +149,7 @@ volumes:
   postgres_data:
   qdrant_data:
   hindsight-data:
+  omniagent-target:
   mm-db:
   mm-config:
   mm-data:

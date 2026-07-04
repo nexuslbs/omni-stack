@@ -128,6 +128,16 @@
       "required": false,
       "secret": true,
       "description": "Password for the test user (optional, only used if test_user is set)."
+    },
+    {
+      "key": "max_download_bytes",
+      "label": "Max File Download Size (bytes)",
+      "type": "integer",
+      "required": false,
+      "default": 10485760,
+      "min": 1024,
+      "max": 1073741824,
+      "description": "Maximum file size in bytes to download from the platform API. Files larger than this are not downloaded; only metadata and a file URL reference are included. Default: 10 MB (10485760)."
     }
   ],
   "env": {

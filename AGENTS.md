@@ -255,4 +255,22 @@ Existing teams, channels, and users are detected and reused. A new bot token is 
 
 - **No omniagent restart required** — The hot-reload mechanism refreshes the process env from .env and signals the platform client to respawn. No container restart needed.
 
+### Mattermost Plugin: `max_download_bytes` Parameter
+
+The Mattermost plugin now has a configurable `max_download_bytes` parameter controlling file attachment size thresholds:
+
+- **Config field:** Added to `PluginConfig` struct at `plugins/platforms/mattermost/src/main.rs:955`
+  - `#[serde(default = "default_max_download_bytes", deserialize_with = "deserialize_u64_from_string_or_number")]`
+  - Default: 10 MB (`10 * 1024 * 1024`)
+- **plugin.json** (`config_schema`): Integer field, min 1 KB, max 1 GB, default 10 MB
+- **Behavior change:** Files under the threshold are downloaded and base64-encoded inline (as before). Files exceeding the threshold have `content: None` — the omniagent can fetch them on demand via the `read_attached_file` MCP tool
+
+**Call path propagation:** `server_url` and `max_download_bytes` are now threaded through all inbound paths:
+- `send_inbound_notification(client, post, ch_id, server_url, max_download_bytes)` — constructs file attachments with size check
+- `poll_channel(... server_url, max_download_bytes)` — polling mode
+- `process_channel_event(... server_url, max_download_bytes)` — WebSocket debounced processing
+- `ws_event_loop(... max_download_bytes)` — WebSocket main loop
+
+All four `poll_channel` call sites and the `process_channel_event` call site in the WS event handler were updated to pass through these parameters. The `server_url` is also included in the notification metadata so the omniagent can construct file fetch URLs without re-parsing the plugin config.
+
 - **Plugin uses direct team lookup** — `find_team_by_name` uses `GET /api/v4/teams/name/{name}` instead of listing all teams (which filters by membership). This ensures the bot can find the team before being added as a member.

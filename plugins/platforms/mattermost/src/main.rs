@@ -952,6 +952,8 @@ struct PluginConfig {
     test_password: Option<String>,
     #[serde(default = "default_env_path")]
     env_path: String,
+    #[serde(default = "default_max_download_bytes", deserialize_with = "deserialize_u64_from_string_or_number")]
+    max_download_bytes: u64,
 }
 
 fn default_connection_mode() -> String {
@@ -973,6 +975,10 @@ fn default_server_url() -> String {
 fn default_env_path() -> String {
     std::env::var("OMNI_DIR").map(|d| format!("{}/.env", d))
         .unwrap_or_else(|_| { eprintln!("FATAL: OMNI_DIR must be set"); std::process::exit(1); })
+}
+
+fn default_max_download_bytes() -> u64 {
+    10 * 1024 * 1024 // 10 MB
 }
 
 fn default_polling_enabled() -> bool {
@@ -1278,6 +1284,7 @@ async fn main() -> Result<()> {
     let polling_enabled = connection_mode == "polling" && config.polling_enabled;
 
     let polling_interval_secs = config.polling_interval;
+    let max_download_bytes = config.max_download_bytes;
 
     // Always create a client (it's just a wrapper around reqwest + auth header).
     // With a missing or invalid token, API calls will 401 — they already have
@@ -1416,12 +1423,14 @@ async fn main() -> Result<()> {
                     owned_access_token.clone(),
                     vec![],
                     bot_id,
+                    max_download_bytes,
                 ).await;
             }))
         }
         Some(bot) if polling_enabled => {
             let poll_client = MattermostClient::new(&server_url, &owned_access_token);
             let bot_id = bot.id.clone();
+            let server_url_poll = server_url.clone();
 
             Some(tokio::spawn(async move {
                 let mut current_ids: Vec<String> = channel_ids;
@@ -1476,6 +1485,7 @@ async fn main() -> Result<()> {
                             &poll_client, ch_id, &bot_id,
                             &mut last_create_at, &mut bot_cache,
                             &mut processed_posts,
+                            &server_url_poll, max_download_bytes,
                         ).await;
                         if count > 0 {
                             tracing::debug!(
@@ -2160,6 +2170,8 @@ async fn send_inbound_notification(
     client: &MattermostClient,
     post: &MattermostPost,
     ch_id: &str,
+    server_url: &str,
+    max_download_bytes: u64,
 ) {
     let root_id = if post.root_id.is_empty() {
         None
@@ -2171,12 +2183,11 @@ async fn send_inbound_notification(
 
     // Build structured file attachments list
     let mut file_attachments: Vec<FileAttachment> = Vec::new();
-    const MAX_DOWNLOAD_BYTES: i64 = 10 * 1024 * 1024; // 10 MB
 
     for file_id in &post.file_ids {
         match client.get_file_info(file_id).await {
             Ok(info) => {
-                let file_content = if info.size > 0 && info.size <= MAX_DOWNLOAD_BYTES {
+                let file_content = if info.size > 0 && info.size <= max_download_bytes as i64 {
                     match client.get_file_content(file_id).await {
                         Ok(bytes) => Some(base64_encode(&bytes)),
                         Err(e) => {
@@ -2227,6 +2238,7 @@ async fn send_inbound_notification(
                 "user_id": post.user_id,
                 "channel_id": ch_id,
                 "file_ids": post.file_ids,
+                "server_url": server_url,
             },
         })),
     };
@@ -2280,6 +2292,8 @@ async fn poll_channel(
     last_create_at: &mut HashMap<String, i64>,
     bot_cache: &mut HashMap<String, bool>,
     processed_posts: &mut HashMap<String, std::collections::HashSet<String>>,
+    server_url: &str,
+    max_download_bytes: u64,
 ) -> u32 {
     let mut count = 0u32;
     let last_ts = last_create_at.get(ch_id).copied().unwrap_or(0);
@@ -2340,7 +2354,7 @@ async fn poll_channel(
                 }
 
                 // This is a new post from a human user
-                send_inbound_notification(client, &post, ch_id).await;
+                send_inbound_notification(client, &post, ch_id, server_url, max_download_bytes).await;
                 known.insert(post.id.clone());
                 count += 1;
             }
@@ -2466,6 +2480,8 @@ async fn process_channel_event(
     bot_cache: &mut HashMap<String, bool>,
     debounce: &mut HashMap<String, ChannelDebounce>,
     processed_posts: &mut HashMap<String, HashSet<String>>,
+    server_url: &str,
+    max_download_bytes: u64,
 ) {
     let state = debounce
         .entry(ch_id.to_string())
@@ -2484,7 +2500,7 @@ async fn process_channel_event(
     loop {
         state.pending = false;
 
-        let count = poll_channel(client, ch_id, bot_id, last_create_at, bot_cache, processed_posts).await;
+        let count = poll_channel(client, ch_id, bot_id, last_create_at, bot_cache, processed_posts, server_url, max_download_bytes).await;
         if count > 0 {
             tracing::info!("WS event: processed {} new post(s) in channel {}", count, ch_id);
         }
@@ -2516,6 +2532,7 @@ async fn ws_event_loop(
     access_token: String,
     channel_ids: Vec<String>,
     bot_id: String,
+    max_download_bytes: u64,
 ) {
     let mut last_create_at: HashMap<String, i64> = HashMap::new();
     let mut bot_cache: HashMap<String, bool> = HashMap::new();
@@ -2560,6 +2577,7 @@ async fn ws_event_loop(
                         &client, ch_id, &bot_id,
                         &mut last_create_at, &mut bot_cache,
                         &mut processed_posts,
+                        &server_url, max_download_bytes,
                     ).await;
                     if count > 0 {
                         tracing::info!(
@@ -2645,6 +2663,7 @@ async fn ws_event_loop(
                                         &client, &ch_id, &bot_id,
                                         &mut last_create_at, &mut bot_cache,
                                         &mut debounce, &mut processed_posts,
+                                        &server_url, max_download_bytes,
                                     ).await;
                                 }
                                 "post_deleted" => {

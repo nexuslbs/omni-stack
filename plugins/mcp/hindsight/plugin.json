@@ -13,68 +13,68 @@
     {
       "key": "HINDSIGHT_URL",
       "label": "Service URL",
-      "description": "Hindsight service URL",
       "type": "string",
       "default": "http://hindsight:8888",
-      "required": false
+      "required": false,
+      "description": "Hindsight service URL"
     },
     {
       "key": "HINDSIGHT_BANK",
       "label": "Bank ID",
-      "description": "Memory bank identifier",
       "type": "string",
       "default": "omniagent",
-      "required": false
+      "required": false,
+      "description": "Memory bank identifier"
     },
     {
       "key": "HINDSIGHT_LIMIT",
       "label": "Recall limit",
-      "description": "Max results returned per recall",
       "type": "integer",
       "default": 5,
-      "required": false
+      "required": false,
+      "description": "Max results returned per recall"
     },
     {
       "key": "HINDSIGHT_BUDGET",
       "label": "Recall budget",
-      "description": "low (fastest) | mid | high (most thorough)",
       "type": "enum",
       "default": "low",
       "allowed_values": ["low", "mid", "high"],
-      "required": false
+      "required": false,
+      "description": "low (fastest) | mid | high (most thorough)"
     },
     {
       "key": "HINDSIGHT_TAGS",
       "label": "Recall tags",
-      "description": "Comma-separated tags to filter memories (e.g. from_user,message)",
       "type": "string",
       "default": "from_user",
-      "required": false
+      "required": false,
+      "description": "Comma-separated tags to filter memories (e.g. from_user,message)"
     },
     {
       "key": "HINDSIGHT_TAGS_MATCH",
       "label": "Tags match mode",
-      "description": "How to match tags: any | all | any_strict | all_strict",
       "type": "enum",
       "default": "any",
       "allowed_values": ["any", "all", "any_strict", "all_strict"],
-      "required": false
+      "required": false,
+      "description": "How to match tags: any | all | any_strict | all_strict"
     },
     {
       "key": "HINDSIGHT_TYPES",
       "label": "Recall types",
-      "description": "Comma-separated fact types (e.g. world,observation). Empty = all types.",
       "type": "string",
       "default": "world",
-      "required": false
+      "required": false,
+      "description": "Comma-separated fact types (e.g. world,observation). Empty = all types."
     },
     {
       "key": "HINDSIGHT_TIMEOUT",
       "label": "HTTP timeout (seconds)",
-      "description": "Timeout for hindsight HTTP requests",
       "type": "integer",
       "default": 15,
-      "required": false
+      "required": false,
+      "description": "Timeout for hindsight HTTP requests"
     }
   ]
 }

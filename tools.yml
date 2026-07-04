@@ -1,32 +1,32 @@
 platforms: null
 tools:
   actions:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   cron:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   docker:
     enabled: true
-    builtin: true
+    builtin: false
     config: {}
   fetch:
     enabled: true
-    builtin: true
+    builtin: false
     config: {}
   filesystem:
     enabled: true
-    builtin: true
+    builtin: false
     config: {}
   git:
     enabled: true
-    builtin: true
+    builtin: false
     config: {}
   hindsight:
     enabled: false
-    builtin: false
+    builtin: true
     config: {}
   kanban:
     enabled: false
@@ -37,27 +37,27 @@ tools:
     builtin: true
     config: {}
   metrics:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   plugin-manager:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   query:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   search:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   skills:
     enabled: true
-    builtin: true
+    builtin: false
     config: {}
   subtasks:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
 providers: null

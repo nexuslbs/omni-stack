@@ -47,6 +47,7 @@ services:
       HINDSIGHT_URL: http://hindsight:8888
       OMNI_DIR: /opt/omni
       DEFAULT_PROFILE: omni
+      SQLX_OFFLINE: "true"
     volumes:
       - /opt/workspace/omniagent:/app:rw
       - omniagent-target:/app/target

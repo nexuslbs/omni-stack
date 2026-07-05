@@ -1,8 +1,7 @@
 platforms: null
 tools:
   actions:
-    enabled: false
-    builtin: true
+    enabled: true
     config: {}
   cron:
     enabled: false
@@ -60,4 +59,11 @@ tools:
     enabled: false
     builtin: true
     config: {}
+  test-rust-tool:
+    enabled: true
+    builtin: false
+    config: {}
+    remote:
+      url: https://github.com/nexuslbs/omni-plugins.git
+      path: tools/test-rust-tool
 providers: null

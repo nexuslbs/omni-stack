@@ -1,14 +1,25 @@
 {
-  "servers": [
-    {
-      "name": "hindsight",
-      "transport": "stdio",
-      "args": [],
-      "timeout_secs": 60,
-      "max_retries": 2,
-      "allowed_tools": [
-        "*"
-      ]
-    }
-  ]
+    "servers": [
+        {
+            "name": "hindsight",
+            "transport": "stdio",
+            "args": [],
+            "timeout_secs": 60,
+            "max_retries": 2,
+            "allowed_tools": [
+                "*"
+            ],
+            "env": {
+                "HINDSIGHT_URL": "${HINDSIGHT_URL}",
+                "HINDSIGHT_BANK": "${HINDSIGHT_BANK}",
+                "HINDSIGHT_LIMIT": "${HINDSIGHT_LIMIT}",
+                "HINDSIGHT_BUDGET": "${HINDSIGHT_BUDGET}",
+                "HINDSIGHT_TAGS": "${HINDSIGHT_TAGS}",
+                "HINDSIGHT_TAGS_MATCH": "${HINDSIGHT_TAGS_MATCH}",
+                "HINDSIGHT_TYPES": "${HINDSIGHT_TYPES}",
+                "HINDSIGHT_TIMEOUT": "${HINDSIGHT_TIMEOUT}",
+                "RUST_LOG": "info"
+            }
+        }
+    ]
 }

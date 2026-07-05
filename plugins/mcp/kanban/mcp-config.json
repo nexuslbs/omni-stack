@@ -1,18 +1,18 @@
 {
-  "servers": [
-    {
-      "name": "kanban",
-      "transport": "stdio",
-      "args": [],
-      "timeout_secs": 60,
-      "max_retries": 2,
-      "allowed_tools": [
-        "*"
-      ],
-      "env": {
-        "DATABASE_URL": "",
-        "RUST_LOG": "info"
-      }
-    }
-  ]
+    "servers": [
+        {
+            "name": "kanban",
+            "transport": "stdio",
+            "args": [],
+            "timeout_secs": 60,
+            "max_retries": 2,
+            "allowed_tools": [
+                "*"
+            ],
+            "env": {
+                "DATABASE_URL": "${DATABASE_URL}",
+                "RUST_LOG": "info"
+            }
+        }
+    ]
 }

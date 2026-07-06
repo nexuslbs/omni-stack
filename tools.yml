@@ -3,10 +3,6 @@ tools:
   actions:
     enabled: true
     config: {}
-  cron:
-    enabled: false
-    builtin: true
-    config: {}
   docker:
     enabled: true
     builtin: false
@@ -24,11 +20,11 @@ tools:
     builtin: false
     config: {}
   hindsight:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
   kanban:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
   memory:
@@ -36,19 +32,19 @@ tools:
     builtin: true
     config: {}
   metrics:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
   plugin-manager:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
   query:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
   search:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
   skills:
@@ -56,7 +52,7 @@ tools:
     builtin: false
     config: {}
   subtasks:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
   test-rust-tool:

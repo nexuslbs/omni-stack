@@ -5,6 +5,26 @@ actions:
     params: {}
     description: Scan wiki files and update relevant-index.md based on recency and reference count
     is_builtin: true
+  a3:
+    enabled: true
+    tool_name: builtin_read-attached-file
+    params:
+      path: /tmp/test.txt
+    description: TestReadAttach
+  a1:
+    enabled: true
+    tool_name: fetch_fetch
+    params: {}
+  a0:
+    enabled: true
+    tool_name: read_attached_file
+    params: {}
+  builtin_kanban_dispatcher:
+    enabled: true
+    tool_name: kanban_dispatcher
+    params: {}
+    description: Pick up pending kanban tasks and create agent threads
+    is_builtin: true
   builtin_setup_knowledge_pipeline:
     enabled: false
     tool_name: setup_knowledge_pipeline
@@ -16,10 +36,4 @@ actions:
     tool_name: hindsight_populator
     params: {}
     description: Populate hindsight memory from recent messages
-    is_builtin: true
-  builtin_kanban_dispatcher:
-    enabled: true
-    tool_name: kanban_dispatcher
-    params: {}
-    description: Pick up pending kanban tasks and create agent threads
     is_builtin: true

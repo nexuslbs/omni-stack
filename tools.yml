@@ -7,10 +7,6 @@ tools:
     enabled: false
     builtin: true
     config: {}
-  cron-echo:
-    enabled: true
-    builtin: false
-    config: {}
     remote:
       url: https://github.com/nexuslbs/omni-plugins.git
       path: tools/cron-echo

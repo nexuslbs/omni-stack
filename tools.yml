@@ -4,12 +4,9 @@ tools:
     enabled: false
     config: {}
   cron:
-    enabled: false
+    enabled: true
     builtin: true
     config: {}
-    remote:
-      url: https://github.com/nexuslbs/omni-plugins.git
-      path: tools/cron-echo
   docker:
     enabled: true
     builtin: false

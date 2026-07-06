@@ -75,6 +75,8 @@ services:
       - /opt/workspace/omni-stack/:/opt/omni/:ro
       - /opt/workspace/omni-stack/user/:/opt/omni/user:rw
       - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
+      - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
+      - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
 
   # ── Toolbox — always-running utility with backup/cron + dev tools ───
   toolbox:

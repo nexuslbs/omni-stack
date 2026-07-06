@@ -1,8 +1,5 @@
 platforms: null
 tools:
-  actions:
-    enabled: true
-    config: {}
   cron:
     enabled: true
     builtin: true
@@ -52,7 +49,7 @@ tools:
     builtin: true
     config: {}
   skills:
-    enabled: true
+    enabled: false
     builtin: false
     config: {}
   subtasks:

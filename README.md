@@ -142,7 +142,29 @@ Channels represent communication endpoints (Telegram, Mattermost, API, cron). Ea
 
 ### Plugins
 
-Plugins are configured via YAML files (`platforms.yml`, `providers.yml`, `tools.yml`) and resolved as environment variables at spawn time. Each plugin directory under `plugins/` contains a `plugin.json` manifest.
+Plugins are configured via YAML files (`platforms.yml`, `providers.yml`, `tools.yml`). Each plugin directory under `plugins/` contains a `plugin.json` manifest.
+
+OmniAgent uses a **three-source** plugin system:
+
+| Source | Location | Description |
+|--------|----------|-------------|
+| **Bundled** | `plugins/{type}/{name}/` | Standalone crates — actual source code in this repo |
+| **Built-in** | `/app/plugins/{type}/{name}/` | Workspace crates inside the omniagent Docker image |
+| **Remote** | `plugins/{type}/.remote/{name}/` | Git-cloned from external repositories |
+
+**Display priority (dashboard):**
+- YAML with `remote` → primary = remote
+- YAML with `builtin: true` → primary = built-in
+- YAML entry without flags → primary = bundled
+- No YAML entry → primary = built-in
+
+**Bundled plugins** (fetch, filesystem, git, skills, actions, docker-compose, test-rust-tool) compile as standalone Rust crates. They depend on `mcp-server-util = { path = "../util" }` and external crates, never on `omniagent`.
+
+**Builtin plugins** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight) are workspace members of omniagent at `/app/plugins/mcp/<name>/`. They only have mcp-config.json, not plugin.json. They require `builtin: true` in YAML to activate and are disabled by default.
+
+**Erroneous binary-only copies** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight also exist as binary-only directories here) — these will be removed in a future cleanup. The dashboard shows them as duplicated with a yellow badge. Install/Reinstall falls back to the builtin source automatically.
+
+For detailed internal documentation, see [AGENTS.md](AGENTS.md).
 
 ---
 

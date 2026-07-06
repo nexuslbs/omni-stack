@@ -1,9 +1,19 @@
 platforms: null
 tools:
+  actions:
+    enabled: false
+    config: {}
   cron:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
+  cron-echo:
+    enabled: true
+    builtin: false
+    config: {}
+    remote:
+      url: https://github.com/nexuslbs/omni-plugins.git
+      path: tools/cron-echo
   docker:
     enabled: true
     builtin: false
@@ -17,7 +27,7 @@ tools:
     builtin: false
     config: {}
   git:
-    enabled: true
+    enabled: false
     builtin: false
     config: {}
   hindsight:
@@ -25,11 +35,11 @@ tools:
     builtin: true
     config: {}
   kanban:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   memory:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   metrics:
@@ -37,7 +47,7 @@ tools:
     builtin: true
     config: {}
   plugin-manager:
-    enabled: true
+    enabled: false
     builtin: true
     config: {}
   query:
@@ -57,7 +67,7 @@ tools:
     builtin: true
     config: {}
   test-rust-tool:
-    enabled: true
+    enabled: false
     builtin: false
     config: {}
     remote:

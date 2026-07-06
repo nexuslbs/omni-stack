@@ -3,6 +3,10 @@ tools:
   actions:
     enabled: true
     config: {}
+  cron:
+    enabled: true
+    builtin: true
+    config: {}
   docker:
     enabled: true
     builtin: false

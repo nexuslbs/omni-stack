@@ -46,3 +46,4 @@ vectorizer-state.json
 # ── Data dir (runtime-only: research, generated content) ──
 /data/
 plugins/mcp/.remote/
+plugins/.remote/

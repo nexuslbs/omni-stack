@@ -2,6 +2,12 @@ tools:
   cron:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/cron-echo
+  test-js-tool:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/test-js-tool
+  test-python-tool:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/test-python-tool
   test-rust-tool:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-rust-tool

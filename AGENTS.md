@@ -24,14 +24,14 @@ The `source` field in `plugins.yml` is **authoritative** — it determines which
 
 The dashboard `/tools`, `/platforms`, and `/providers` pages show **ALL discoverable plugins**, even those not in `plugins.yml`. Plugins without a YAML entry appear as `status: "disabled"`.
 
-The omniagent plugin API (`/api/plugins`) groups by name and assigns a **primary source**:
+The omniagent plugin API (`/api/plugins`) groups by name and assigns a **primary source** via `pick_primary_source()`:
 
-1. YAML has `remote` → primary = `remote`
-2. YAML has `builtin: true` → primary = `built-in`
-3. YAML entry exists but no remote/builtin flag → primary = `bundled`
-4. No YAML entry → primary = `built-in` (so Install/Enable buttons are available)
+1. **YAML entry** with `source: X` → source X is primary (`is_duplicated=false`). Other same-name sources get `is_duplicated=true`.
+2. **YAML entry exists** but source not on disk → fallback priority: built-in → bundled → remote.
+3. **No YAML entry + 2+ sources** same name → no primary. All get `is_duplicated=true`.
+4. **No YAML entry + single source** → `is_duplicated=false`.
 
-Non-primary sources get `is_duplicated: true` and are shown with a yellow "duplicated" badge in the dashboard.
+**Key behavior:** When no YAML entry exists, `pick_primary_source` returns `None` and `is_duplicated` = `sources.len() > 1`. This prevents a default source being implicitly designated as primary. Enabling a source via the dashboard creates a YAML entry, making it the primary.
 
 ### Builtin Plugin Rules
 

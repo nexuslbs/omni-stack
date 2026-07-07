@@ -1,4 +1,7 @@
 tools:
+  cron:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/cron-echo
   test-rust-tool:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-rust-tool

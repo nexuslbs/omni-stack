@@ -14,10 +14,6 @@ tools:
     enabled: true
     source: built-in
     config: {}
-  docker:
-    enabled: true
-    source: bundled
-    config: {}
   fetch:
     enabled: true
     source: bundled
@@ -27,7 +23,7 @@ tools:
     source: bundled
     config: {}
   git:
-    enabled: false
+    enabled: true
     source: bundled
     config: {}
   hindsight:
@@ -47,7 +43,7 @@ tools:
     source: built-in
     config: {}
   plugin-manager:
-    enabled: false
+    enabled: true
     source: built-in
     config: {}
   query:
@@ -59,7 +55,7 @@ tools:
     source: built-in
     config: {}
   skills:
-    enabled: false
+    enabled: true
     source: bundled
     config: {}
   subtasks:
@@ -95,3 +91,7 @@ providers:
     config:
       api_key: $env:OPENCODE_GO_API_KEY
       default_model: deepseek-v4-flash
+  test-rust-tool:
+    enabled: false
+    source: remote
+    config: {}

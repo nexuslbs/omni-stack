@@ -1,0 +1,97 @@
+platforms:
+  mattermost:
+    enabled: true
+    config:
+      access_token: $env:MATTERMOST_ACCESS_TOKEN
+      max_download_bytes: 500
+    source: bundled
+tools:
+  actions:
+    enabled: false
+    config: {}
+    source: bundled
+  cron:
+    enabled: true
+    config: {}
+    source: built-in
+  docker:
+    enabled: true
+    config: {}
+    source: bundled
+  fetch:
+    enabled: true
+    config: {}
+    source: bundled
+  filesystem:
+    enabled: true
+    config: {}
+    source: bundled
+  git:
+    enabled: false
+    config: {}
+    source: bundled
+  hindsight:
+    enabled: true
+    config: {}
+    source: built-in
+  kanban:
+    enabled: false
+    config: {}
+    source: built-in
+  memory:
+    enabled: false
+    config: {}
+    source: built-in
+  metrics:
+    enabled: true
+    config: {}
+    source: built-in
+  plugin-manager:
+    enabled: false
+    config: {}
+    source: built-in
+  query:
+    enabled: true
+    config: {}
+    source: built-in
+  search:
+    enabled: true
+    config: {}
+    source: built-in
+  skills:
+    enabled: false
+    config: {}
+    source: bundled
+  subtasks:
+    enabled: true
+    config: {}
+    source: built-in
+  test-rust-tool:
+    enabled: false
+    config: {}
+    source: remote
+providers:
+  anthropic:
+    enabled: false
+    config:
+      api_key: $env:ANTHROPIC_API_KEY
+      default_model: claude-sonnet-4
+    source: bundled
+  deepseek:
+    enabled: true
+    config:
+      api_key: $env:DEEPSEEK_API_KEY
+      default_model: deepseek-v4-flash
+    source: bundled
+  openai:
+    enabled: false
+    config:
+      api_key: $env:OPENAI_API_KEY
+      default_model: gpt-4o
+    source: bundled
+  opencode-go:
+    enabled: true
+    config:
+      api_key: $env:OPENCODE_GO_API_KEY
+      default_model: deepseek-v4-flash
+    source: bundled

@@ -6,15 +6,23 @@
 
 In **production** there is no `omniagent` repo — only `omni-stack`. All plugins live under `/opt/workspace/omni-stack/plugins/` and must be self-contained.
 
-### Plugin Categories
+### Plugin Categories — No Priority, No Fallback
 
-| Category | Source Location | Build Method |
-|----------|----------------|-------------|
-| **Bundled** | `plugins/{type}/{name}/` | Standalone `cargo build` from plugin's own `Cargo.toml` |
-| **Built-in** | `/app/plugins/{type}/{name}/` (omniagent workspace) | Workspace build from `/app/Cargo.toml` |
-| **Remote** | `plugins/{type}/.remote/{name}/` | Git clone then standalone build |
+A plugin's source is determined **solely by its physical location on disk**. There is no priority order between categories:
+
+| Category | Physical Location | Identified By |
+|----------|------------------|---------------|
+| **Built-in** | `/app/plugins/{type}/{name}/` | `Cargo.toml` + `plugin.json` or `mcp-config.json` in omniagent workspace |
+| **Bundled** | `plugins/{type}/{name}/` (omni-stack) | `plugin.json` at root |
+| **Remote** | `plugins/{type}/.remote/{name}/{path}/` | `plugin.json` at subpath + entry in `remote.yml` |
+
+The `source` field in `plugins.yml` is **authoritative** — it determines which source is active. Other sources for the same plugin name exist on disk but are marked `is_duplicated: true` and shown as disabled.
+
+**No function should guess or fall back between sources.** When no YAML entry exists, all sources are discovered and shown as disabled — the user chooses which to enable.
 
 ### Display Rules (Dashboard Integration)
+
+The dashboard `/tools`, `/platforms`, and `/providers` pages show **ALL discoverable plugins**, even those not in `plugins.yml`. Plugins without a YAML entry appear as `status: "disabled"`.
 
 The omniagent plugin API (`/api/plugins`) groups by name and assigns a **primary source**:
 

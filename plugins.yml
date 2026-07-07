@@ -1,97 +1,97 @@
 platforms:
   mattermost:
     enabled: true
+    source: bundled
     config:
       access_token: $env:MATTERMOST_ACCESS_TOKEN
       max_download_bytes: 500
-    source: bundled
 tools:
   actions:
     enabled: false
-    config: {}
     source: bundled
+    config: {}
   cron:
     enabled: true
-    config: {}
     source: built-in
+    config: {}
   docker:
     enabled: true
-    config: {}
     source: bundled
+    config: {}
   fetch:
     enabled: true
-    config: {}
     source: bundled
+    config: {}
   filesystem:
     enabled: true
-    config: {}
     source: bundled
+    config: {}
   git:
     enabled: false
-    config: {}
     source: bundled
+    config: {}
   hindsight:
     enabled: true
-    config: {}
     source: built-in
+    config: {}
   kanban:
-    enabled: false
-    config: {}
+    enabled: true
     source: built-in
+    config: {}
   memory:
-    enabled: false
-    config: {}
+    enabled: true
     source: built-in
+    config: {}
   metrics:
     enabled: true
-    config: {}
     source: built-in
+    config: {}
   plugin-manager:
     enabled: false
-    config: {}
     source: built-in
+    config: {}
   query:
     enabled: true
-    config: {}
     source: built-in
+    config: {}
   search:
     enabled: true
-    config: {}
     source: built-in
+    config: {}
   skills:
     enabled: false
-    config: {}
     source: bundled
+    config: {}
   subtasks:
     enabled: true
-    config: {}
     source: built-in
+    config: {}
   test-rust-tool:
     enabled: false
-    config: {}
     source: remote
+    config: {}
 providers:
   anthropic:
     enabled: false
+    source: bundled
     config:
       api_key: $env:ANTHROPIC_API_KEY
       default_model: claude-sonnet-4
-    source: bundled
   deepseek:
     enabled: true
+    source: bundled
     config:
       api_key: $env:DEEPSEEK_API_KEY
       default_model: deepseek-v4-flash
-    source: bundled
   openai:
     enabled: false
+    source: bundled
     config:
       api_key: $env:OPENAI_API_KEY
       default_model: gpt-4o
-    source: bundled
   opencode-go:
     enabled: true
+    source: bundled
     config:
       api_key: $env:OPENCODE_GO_API_KEY
       default_model: deepseek-v4-flash
-    source: bundled

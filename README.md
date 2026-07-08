@@ -209,6 +209,27 @@ Three parallel jobs build:
 
 ---
 
+## Git Plugin Cache
+
+When remote plugins are added via `install-git` or updated via Download (Update), the agent creates a **shared bare-mirror cache** at `.git-cache/<sha256(url)>/` in this repo's root directory.
+
+**How it works:**
+- The first plugin from a given git URL triggers a one-time `git clone --mirror` into `.git-cache/<sha256(url)>/`
+- Each subsequent plugin from the same URL uses `git clone --reference <cache>` — an **instant, zero-network** local clone that hardlinks objects from the cache
+- On Update, the cache is refreshed with `git remote update --prune` before the per-plugin fetch+reset
+
+**Benefits:**
+- Adding N plugins from the same repo: 1 network clone (the cache), N instant local clones
+- Per-plugin update preserves cargo `target/` (incremental rebuilds)
+- Cache lives in `.git-cache/` (gitignored), persists across container restarts
+
+**To clear the cache:**
+```bash
+rm -rf .git-cache/
+```
+
+---
+
 ## Related Repositories
 
 | Repository | Description |

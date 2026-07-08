@@ -18,6 +18,9 @@ credentials/
 COMMIT_MSG.txt
 create-wiki-task.json
 ready-wiki-task.json
+
+# ── Git plugin cache (shared bare mirrors for remote plugin clones) ──
+.git-cache/
 *.bak
 scripts/
 docs/

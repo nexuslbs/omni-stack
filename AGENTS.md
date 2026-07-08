@@ -70,7 +70,55 @@ The following omni-stack plugins compile as standalone crates (no omniagent depe
 | `skills` | `plugins/mcp/skills/Cargo.toml` | `mcp-server-util` |
 | `test-rust-tool` | `plugins/mcp/test-rust-tool/Cargo.toml` | (various) |
 
-All of these depend on `mcp-server-util = { path = "../util" }` (the shared util crate at `plugins/mcp/util/`).
+| All of these depend on `mcp-server-util = { path = "../util" }` (the shared util crate at `plugins/mcp/util/`).
+
+### Uninstall Must Stop the MCP Server
+
+When uninstalling or removing a plugin (both `DELETE /api/plugins/:name?mode=uninstall` and the default remove), the handler MUST stop the running MCP server:
+
+```rust
+crate::mcp::external::client::clear_server_pools(&name);
+crate::mcp::external::client::remove_server_config(&name);
+state.tool_registry.write().unwrap().remove_by_server(&name);
+```
+
+Without this, the MCP server process keeps running and the tools remain registered in the `/mcp/tools` endpoint even though YAML says `enabled: false`. The plugin appears "disabled" in API responses but tools still work.
+
+**Fix applied July 2026:** All three code paths in `delete_plugin_handler` (remote uninstall, non-remote uninstall, default remove) now stop the MCP server.
+
+### Download Handler Must Preserve Enabled State
+
+The `download_plugin_handler` (`POST /api/plugins/:name/download`) previously hardcoded `enabled: false` when rewriting the YAML entry after re-cloning from git. This caused every download to disable the plugin.
+
+**Fix applied July 2026:** Now reads the current `enabled` state from the existing YAML entry before writing:
+
+```rust
+let current_enabled = plugins_yaml::get_entry(data_dir, &yaml_type, &name)
+    .ok().flatten()
+    .map(|e| e.enabled)
+    .unwrap_or(true);
+```
+
+### Test Verification Requirements
+
+The integration test at `omni-stack/scripts/tests.py` MUST verify that plugin lifecycle operations actually took effect, not just that the API returned `success: true`:
+
+| Operation | Verification |
+|-----------|-------------|
+| `install_plugin` | Check API response fields (status=enabled, source=remote, needs_build=false, binary exists) AND verify MCP tool registered via `call_tool(name, "echo")` |
+| `download_plugin` | Check API success AND remote.yml preserved |
+| `uninstall_plugin` | Check API success AND `get_plugin` returns status=disabled (for remote) AND `target/` directory removed AND MCP tool NOT registered via `call_tool(name, "echo", expect_success=False)` AND `.remote/` source directory preserved |
+| `enable_plugin` | Check API success AND `plugins.yml` has `enabled: true` |
+| `remove_plugin` | Check API success AND `.remote/` directory preserved |
+
+**Run from inside the omniagent container:**
+
+```bash
+docker cp scripts/tests.py omni-omniagent-1:/tmp/tests.py
+docker exec omni-omniagent-1 python3 /tmp/tests.py
+```
+
+Running from the host (Hermes container) will produce false failures because `/opt/omni/` filesystem checks target the local Hermes data, not the omniagent container's data.
 
 ### Erroneous Plugin Copies (Binary-Only)
 

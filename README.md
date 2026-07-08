@@ -166,6 +166,30 @@ OmniAgent uses a **three-source** plugin system:
 
 For detailed internal documentation, see [AGENTS.md](AGENTS.md).
 
+### Provider Plugins
+
+Provider plugins declare which API format they use via `plugin.json`:
+
+- **`api_mode`** — the default API format for all models. One of:
+  - `"chat_completions"` — OpenAI-compatible `/v1/chat/completions` (default)
+  - `"anthropic_messages"` — Anthropic Messages API `/v1/messages`
+- **`api_modes`** (optional) — per-model overrides, keyed by the API mode with wildcard patterns as values. The first matching pattern wins.
+
+```json
+{
+  "name": "opencode-go",
+  "type": "provider",
+  "api_mode": "chat_completions",
+  "api_modes": {
+    "anthropic_messages": ["minimax-*", "claude-*-thinking"]
+  }
+}
+```
+
+Wildcards (`*`) match any sequence of characters. A pattern like `"minimax-*"` matches model IDs starting with `"minimax-"`, while a bare `"minimax"` (no `*`) only matches the exact string `"minimax"`.
+
+This replaces the old `"dynamic"` api_mode — no hardcoded model-to-mode mappings needed in omniagent.
+
 ---
 
 ## Development

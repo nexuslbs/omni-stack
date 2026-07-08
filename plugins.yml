@@ -6,6 +6,10 @@ platforms:
       access_token: $env:MATTERMOST_ACCESS_TOKEN
       max_download_bytes: 500
 tools:
+  actions:
+    enabled: true
+    source: bundled
+    config: {}
   fetch:
     enabled: true
     source: bundled

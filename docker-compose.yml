@@ -4,7 +4,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      DATABASE_URL: postgres://omniagent:***@postgres:5432/omniagent
+      DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD}@postgres:5432/omniagent
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -47,6 +47,7 @@ services:
       HINDSIGHT_URL: http://hindsight:8888
       OMNI_DIR: /opt/omni
       DEFAULT_PROFILE: omni
+      SQLX_OFFLINE: "true"
     volumes:
       - /opt/workspace/omniagent:/app:rw
       - omniagent-target:/app/target

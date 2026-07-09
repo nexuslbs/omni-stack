@@ -113,6 +113,14 @@ services:
       PGUSER: ${POSTGRES_USER:-omniagent}
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB:-omniagent}
+      OMNI_DIR: /opt/omni-stack
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_REGION: ${S3_REGION}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PATH: omni
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES}
     volumes:
       - ./:/opt/omni-stack:rw
       - /opt:/opt/:rw
@@ -170,6 +178,7 @@ services:
     image: mattermost/mattermost-team-edition:10.11.20
     profiles: ["mattermost", "all"]
     restart: unless-stopped
+    command: ["mattermost", "server"]
     depends_on:
       mattermost-db:
         condition: service_healthy
@@ -179,7 +188,7 @@ services:
       - "12349:8065"
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
-      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:***@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${MM_POSTGRES_PASSWORD}@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
       MM_SERVICESETTINGS_SITEURL: https://hermes-app-5.nexuslbs.org
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: true
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: true

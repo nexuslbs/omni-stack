@@ -1,10 +1,12 @@
 name: omni
 
 services:
+  # ── Core (always running) ─────────────────────────────────────────────
+
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD}@postgres:5432/omniagent
+      DATABASE_URL: postgres://omniagent:***@postgres:5432/omniagent
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -18,6 +20,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    logging:
+      driver: journald
 
   qdrant:
     image: qdrant/qdrant:v1.18.2
@@ -25,6 +29,8 @@ services:
       - qdrant_data:/qdrant/storage
     expose:
       - "6333"
+    logging:
+      driver: journald
 
   omniagent:
     image: omniagent-dev:latest
@@ -60,6 +66,8 @@ services:
     user: root
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    logging:
+      driver: journald
 
   dashboard:
     image: ${DASHBOARD_IMAGE:-ghcr.io/nexuslbs/omni-dashboard:latest}
@@ -77,6 +85,8 @@ services:
       - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
       - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
       - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
+    logging:
+      driver: journald
 
   # ── Toolbox — always-running utility with backup/cron + dev tools ───
   toolbox:
@@ -95,10 +105,27 @@ services:
       - ./:/opt/omni-stack:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - omni-toolbox-cron:/var/log
+    logging:
+      driver: journald
 
-  # ── Mattermost ──────────────────────────────────────────────────────
+  # ── Memory (profile: memory) ──────────────────────────────────────────
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:0.7.2
+    profiles: ["memory"]
+    restart: unless-stopped
+    expose:
+      - "8888"
+      - "9999"
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+    mem_limit: 2G
+    logging:
+      driver: journald
+
+  # ── Mattermost (profile: mattermost) ──────────────────────────────────
   mattermost-db:
     image: postgres:16.14
+    profiles: ["mattermost"]
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${MM_POSTGRES_USER:-mmuser}
@@ -111,9 +138,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: journald
 
   mattermost:
     image: mattermost/mattermost-team-edition:10.11.20
+    profiles: ["mattermost"]
     restart: unless-stopped
     depends_on:
       mattermost-db:
@@ -124,7 +154,7 @@ services:
       - "12349:8065"
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
-      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${MM_POSTGRES_PASSWORD}@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:***@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
       MM_SERVICESETTINGS_SITEURL: https://hermes-app-5.nexuslbs.org
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: true
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: true
@@ -133,17 +163,6 @@ services:
       - mm-data:/mattermost/data:rw
       - mm-logs:/mattermost/logs:rw
       - mm-plugins:/mattermost/plugins:rw
-
-  # hindsight — persistent memory provider
-  hindsight:
-    image: ghcr.io/vectorize-io/hindsight:0.7.2
-    restart: unless-stopped
-    expose:
-      - "8888"
-      - "9999"
-    volumes:
-      - hindsight-data:/home/hindsight/.pg0
-    mem_limit: 2G
     logging:
       driver: journald
 

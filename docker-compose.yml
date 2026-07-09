@@ -1,5 +1,10 @@
 name: omni
 
+networks:
+  obs-net:
+    driver: bridge
+    internal: true
+
 services:
   # ── Core (always running) ─────────────────────────────────────────────
 
@@ -81,10 +86,13 @@ services:
       PGUSER: omniagent
       PGHOST: postgres
       OMNI_DIR: /opt/omni
+      EXPLORER_DIR: ${EXPLORER_DIR:-/opt}
     volumes:
       - /opt/workspace/omni-stack/:/opt/omni/:ro
       - /opt/workspace/omni-stack/user/:/opt/omni/user:rw
       - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
+      - /opt/workspace/omni-stack/data/uploads/:/opt/omni/data/uploads:rw
+      - /opt/workspace/omni-stack/data/kanban/:/opt/omni/data/kanban:rw
       - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
       - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
       - /opt/data:/opt/data:ro
@@ -115,8 +123,6 @@ services:
     logging:
       driver: journald
 
-  # ── Memory (profile: memory) ──────────────────────────────────────────
-
   # ── Noop Provider (profile: noop) ────────────────────────────────────
   noop-provider:
     profiles: ["noop", "all"]
@@ -129,7 +135,7 @@ services:
     logging:
       driver: journald
 
-  # ── Memory — Hindsight
+  # ── Memory — Hindsight (profile: memory) ─────────────────────────────
   hindsight:
     image: ghcr.io/vectorize-io/hindsight:0.7.2
     profiles: ["memory", "all"]
@@ -187,6 +193,130 @@ services:
     logging:
       driver: journald
 
+  # ── Observability — Log Pipeline: Vector → Loki ───────────────────────
+  vector:
+    profiles: ["logs", "all"]
+    container_name: omni-vector
+    build:
+      context: services/vector
+      dockerfile: Dockerfile
+      args:
+        VECTOR_IMAGE: timberio/vector:0.55.0-debian
+    restart: unless-stopped
+    volumes:
+      - /var/log/journal:/var/log/journal:ro
+      - /run/systemd/journal:/run/systemd/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - omni-vector-vol:/var/lib/vector:rw
+    user: "0"
+    networks:
+      - obs-net
+    depends_on:
+      - loki
+    mem_limit: 500M
+    logging:
+      driver: journald
+
+  loki:
+    profiles: ["logs", "all"]
+    container_name: omni-loki
+    build:
+      context: services/loki
+      dockerfile: Dockerfile
+      args:
+        LOKI_IMAGE: grafana/loki:3.7.2
+    restart: unless-stopped
+    volumes:
+      - omni-loki-vol:/loki:rw
+    networks:
+      - obs-net
+    command: -config.file=/etc/loki/loki-config.yaml
+    user: root
+    mem_limit: 500M
+    logging:
+      driver: journald
+
+  # ── Observability — Metrics: cAdvisor → Prometheus ────────────────────
+  cadvisor:
+    profiles: ["cadvisor", "all"]
+    image: ghcr.io/google/cadvisor:v0.57.0
+    container_name: omni-cadvisor
+    restart: unless-stopped
+    privileged: true
+    command:
+      - "--docker_only"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    mem_limit: 200M
+    logging:
+      driver: journald
+
+  prometheus:
+    profiles: ["monitor", "cadvisor", "all"]
+    build:
+      context: services/prometheus
+      dockerfile: Dockerfile
+    container_name: omni-prometheus
+    restart: unless-stopped
+    user: root
+    entrypoint:
+      - '/bin/prometheus'
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.path=/prometheus'
+    volumes:
+      - omni-prometheus-vol:/prometheus:rw
+    mem_limit: 500M
+    logging:
+      driver: journald
+
+  # ── Observability — Dashboards ─────────────────────────────────────────
+  grafana:
+    profiles: ["logs", "monitor", "cadvisor", "all"]
+    container_name: omni-grafana
+    build:
+      context: services/grafana
+      dockerfile: Dockerfile
+      args:
+        GRAFANA_IMAGE: grafana/grafana:13.0.1
+    restart: unless-stopped
+    user: root
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - omni-grafana-vol:/var/lib/grafana:rw
+    networks:
+      - default
+      - obs-net
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      loki:
+        condition: service_started
+        required: false
+    mem_limit: 500M
+    logging:
+      driver: journald
+
+  # ── Observability — Cloudflare Tunnel ──────────────────────────────────
+  cloudflared:
+    profiles: ["tunnel", "all"]
+    container_name: omni-cloudflared
+    build:
+      context: services/cloudflared
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+    mem_limit: 200M
+    logging:
+      driver: journald
+
 volumes:
   postgres_data:
   qdrant_data:
@@ -198,3 +328,7 @@ volumes:
   mm-logs:
   mm-plugins:
   omni-toolbox-cron:
+  omni-loki-vol:
+  omni-grafana-vol:
+  omni-prometheus-vol:
+  omni-vector-vol:

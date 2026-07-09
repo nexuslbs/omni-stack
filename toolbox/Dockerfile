@@ -18,9 +18,11 @@ COPY scripts/backup.sh /usr/bin/backup
 COPY scripts/checkpoint.sh /usr/bin/checkpoint
 COPY scripts/restore_backup.sh /usr/bin/restore_backup
 COPY scripts/restore_checkpoint.sh /usr/bin/restore_checkpoint
+COPY scripts/checkout.sh /usr/bin/checkout
+COPY scripts/restore_checkout.sh /usr/bin/restore_checkout
 COPY scripts/entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /usr/bin/backup /usr/bin/checkpoint /usr/bin/restore_backup /usr/bin/restore_checkpoint /entrypoint.sh
+RUN chmod +x /usr/bin/backup /usr/bin/checkout /usr/bin/checkpoint /usr/bin/restore_backup /usr/bin/restore_checkout /usr/bin/restore_checkpoint /entrypoint.sh
 
 # Create cron log directory
 RUN mkdir -p /var/log

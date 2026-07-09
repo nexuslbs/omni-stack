@@ -1,18 +1,16 @@
 #!/bin/bash
-# Backup: sync OMNI_DIR/data/ + PG dumps + .env to S3
+# Checkout: sync OMNI_DIR/data/ + PG dumps + .env to S3 with date-stamped prefix
 set -euo pipefail
 
 OMNI_DIR="${OMNI_DIR:-/opt/omni-stack}"
 S3_BUCKET="hermes-nexuslbs"
-S3_PREFIX="omni/data"
+S3_PREFIX="omni/checkout/$(date +%Y%m%d)"
 S3_ENDPOINT="https://s3.us-east-005.backblazeb2.com"
 S3_REGION="us-east-005"
-TMPDIR="/tmp/omni-backup-$$"
+TMPDIR="/tmp/omni-checkout-$$"
 mkdir -p "$TMPDIR"
 
 # ── Source credentials ─────────────────────────────────────────────────────
-
-# PG creds from omni-stack .env
 if [ -f "${OMNI_DIR}/.env" ]; then
   set -a
   . "${OMNI_DIR}/.env"
@@ -20,11 +18,11 @@ if [ -f "${OMNI_DIR}/.env" ]; then
 fi
 
 if [ -z "${S3_ACCESS_KEY:-}" ] || [ -z "${S3_SECRET_KEY:-}" ]; then
-  echo "[backup] ERROR: S3_ACCESS_KEY and S3_SECRET_KEY must be set"
+  echo "[checkout] ERROR: S3_ACCESS_KEY and S3_SECRET_KEY must be set"
   exit 1
 fi
 
-# ── Build rclone config inline ─────────────────────────────────────────────
+# ── Build rclone config ────────────────────────────────────────────────────
 RCLONE_CONF=$(mktemp /tmp/rclone-conf-XXXXXX.conf)
 cat > "$RCLONE_CONF" <<EOF
 [omni-s3]
@@ -40,78 +38,57 @@ chmod 600 "$RCLONE_CONF"
 RC="rclone --config ${RCLONE_CONF}"
 DEST="omni-s3:${S3_BUCKET}/${S3_PREFIX}"
 
-echo "[backup] Starting backup to ${DEST}/"
+echo "[checkout] Starting checkout to ${DEST}/"
 
 # ─── Step 1: Copy .env to data/credentials/.env ────────────────────────────
-echo "[backup] Step 1/5: Copying .env to data/credentials/.env..."
+echo "[checkout] Step 1/5: Copying .env to data/credentials/.env..."
 mkdir -p "${OMNI_DIR}/data/credentials"
 cp "${OMNI_DIR}/.env" "${OMNI_DIR}/data/credentials/.env"
-echo "[backup] .env copied."
 
 # ─── Step 2: File data sync ───────────────────────────────────────────────
-echo "[backup] Step 2/5: Syncing file data..."
-$RC sync "${OMNI_DIR}/data/" "${DEST}/" \
+echo "[checkout] Step 2/5: Syncing file data..."
+$RC sync "${OMNI_DIR}/data/" "${DEST}/data/" \
   --create-empty-src-dirs \
   --s3-no-check-bucket \
-  --delete-excluded \
   --fast-list \
   --exclude "backup/**" \
   --verbose 2>&1 | tail -5
 
 # ─── Step 3: OmniAgent PG dump ─────────────────────────────────────────────
-echo "[backup] Step 3/5: OmniAgent PostgreSQL dump..."
-OA_USER="${POSTGRES_USER:-omniagent}"
-OA_DB="${POSTGRES_DB:-omniagent}"
-
+echo "[checkout] Step 3/5: OmniAgent PostgreSQL dump..."
 if [ -n "${POSTGRES_PASSWORD:-}" ]; then
   export PGPASSWORD="${POSTGRES_PASSWORD}"
-  pg_dump -h postgres -U "$OA_USER" -d "$OA_DB" \
+  pg_dump -h postgres -U "${POSTGRES_USER:-omniagent}" -d "${POSTGRES_DB:-omniagent}" \
     --no-owner --no-acl --clean --if-exists 2>/dev/null | gzip > "${TMPDIR}/omniagent-dump.sql.gz"
   unset PGPASSWORD
   if [ -s "${TMPDIR}/omniagent-dump.sql.gz" ]; then
     $RC copy "${TMPDIR}/omniagent-dump.sql.gz" "${DEST}/db/" --s3-no-check-bucket
-    echo "[backup] OmniAgent PG dump uploaded."
   fi
-else
-  echo "[backup] POSTGRES_PASSWORD not set -- skipping OmniAgent PG dump."
 fi
 
 # ─── Step 4: Mattermost PG dump (if profile enabled) ───────────────────────
 MM_PROFILE="${COMPOSE_PROFILES:-}"
-echo "[backup] Step 4/5: Mattermost PostgreSQL (profiles: ${MM_PROFILE})..."
-
 if echo "$MM_PROFILE" | grep -qE '(mattermost|all)'; then
-  MM_USER="${MM_POSTGRES_USER:-mmuser}"
   if [ -n "${MM_POSTGRES_PASSWORD:-}" ]; then
     export PGPASSWORD="${MM_POSTGRES_PASSWORD}"
-    pg_dump -h mattermost-db -U "$MM_USER" -d mattermost \
-      --no-owner --no-acl --clean --if-exists 2>/dev/null | gzip > "${TMPDIR}/mattermost-dump.sql.gz" || {
-      echo "[backup] Mattermost PG dump failed -- continuing."
-    }
+    pg_dump -h mattermost-db -U "${MM_POSTGRES_USER:-mmuser}" -d mattermost \
+      --no-owner --no-acl --clean --if-exists 2>/dev/null | gzip > "${TMPDIR}/mattermost-dump.sql.gz" || true
     unset PGPASSWORD
     if [ -s "${TMPDIR}/mattermost-dump.sql.gz" ]; then
       $RC copy "${TMPDIR}/mattermost-dump.sql.gz" "${DEST}/db/" --s3-no-check-bucket
-      echo "[backup] Mattermost PG dump uploaded."
     fi
-  else
-    echo "[backup] MM_POSTGRES_PASSWORD not set -- skipping Mattermost PG dump."
   fi
-else
-  echo "[backup] Mattermost profile not active -- skipping Mattermost PG dump."
 fi
 
 # ─── Step 5: Re-sync data/ ─────────────────────────────────────────────────
-echo "[backup] Step 5/5: Re-syncing data/..."
-$RC sync "${OMNI_DIR}/data/" "${DEST}/" \
+echo "[checkout] Step 5/5: Re-syncing data/..."
+$RC sync "${OMNI_DIR}/data/" "${DEST}/data/" \
   --create-empty-src-dirs \
   --s3-no-check-bucket \
-  --delete-excluded \
   --fast-list \
   --exclude "backup/**" \
   --verbose 2>&1 | tail -5
 
-# ── Cleanup ────────────────────────────────────────────────────────────────
 rm -rf "$TMPDIR" "$RCLONE_CONF"
-
 echo ""
-echo "[backup] Backup complete! (dest: ${DEST}/)"
+echo "[checkout] Checkout complete! (dest: ${DEST}/)"

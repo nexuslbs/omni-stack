@@ -88,11 +88,9 @@ services:
       OMNI_DIR: /opt/omni
       EXPLORER_DIR: ${EXPLORER_DIR:-/opt}
     volumes:
-      - /opt/workspace/omni-stack/:/opt/omni/:ro
+      - /opt/workspace/omni-stack/:/opt/omni/:rw
       - /opt/workspace/omni-stack/user/:/opt/omni/user:rw
       - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
-      - /opt/workspace/omni-stack/data/uploads/:/opt/omni/data/uploads:rw
-      - /opt/workspace/omni-stack/data/kanban/:/opt/omni/data/kanban:rw
       - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
       - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
       - /opt/data:/opt/data:ro

@@ -25,6 +25,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:v1.18.2
+    profiles: ["memory", "all"]
     volumes:
       - qdrant_data:/qdrant/storage
     expose:
@@ -42,6 +43,7 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+        required: false
     environment:
       DATABASE_URL: ${DATABASE_URL}
       POSTGRES_DB: omniagent
@@ -85,6 +87,10 @@ services:
       - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
       - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
       - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
+      - /opt/data:/opt/data:ro
+      - /opt/hermes:/opt/hermes:ro
+      - /opt/hermes-repo:/opt/hermes-repo:ro
+      - /opt/workspace:/opt/workspace:ro
     logging:
       driver: journald
 
@@ -103,15 +109,30 @@ services:
       PGDATABASE: ${POSTGRES_DB:-omniagent}
     volumes:
       - ./:/opt/omni-stack:rw
+      - /opt:/opt/:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - omni-toolbox-cron:/var/log
     logging:
       driver: journald
 
   # ── Memory (profile: memory) ──────────────────────────────────────────
+
+  # ── Noop Provider (profile: noop) ────────────────────────────────────
+  noop-provider:
+    profiles: ["noop", "all"]
+    build:
+      context: services/noop
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "9090"
+    logging:
+      driver: journald
+
+  # ── Memory — Hindsight
   hindsight:
     image: ghcr.io/vectorize-io/hindsight:0.7.2
-    profiles: ["memory"]
+    profiles: ["memory", "all"]
     restart: unless-stopped
     expose:
       - "8888"
@@ -125,7 +146,7 @@ services:
   # ── Mattermost (profile: mattermost) ──────────────────────────────────
   mattermost-db:
     image: postgres:16.14
-    profiles: ["mattermost"]
+    profiles: ["mattermost", "all"]
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${MM_POSTGRES_USER:-mmuser}
@@ -143,7 +164,7 @@ services:
 
   mattermost:
     image: mattermost/mattermost-team-edition:10.11.20
-    profiles: ["mattermost"]
+    profiles: ["mattermost", "all"]
     restart: unless-stopped
     depends_on:
       mattermost-db:

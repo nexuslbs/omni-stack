@@ -21,7 +21,7 @@ volumes:
 services:
   # ── Log Pipeline: Vector → Loki ───────────────────────────────────────
   vector:
-    profiles: ["obs"]
+    profiles: ["logs", "all"]
     container_name: omni-vector
     build:
       context: services/vector
@@ -44,7 +44,7 @@ services:
       driver: journald
 
   loki:
-    profiles: ["obs"]
+    profiles: ["logs", "all"]
     container_name: omni-loki
     build:
       context: services/loki
@@ -64,7 +64,7 @@ services:
 
   # ── Metrics Pipeline: cAdvisor → Prometheus ───────────────────────────
   cadvisor:
-    profiles: ["obs"]
+    profiles: ["cadvisor", "all"]
     image: ghcr.io/google/cadvisor:v0.57.0
     container_name: omni-cadvisor
     restart: unless-stopped
@@ -83,7 +83,7 @@ services:
       driver: journald
 
   prometheus:
-    profiles: ["obs"]
+    profiles: ["monitor", "cadvisor", "all"]
     build:
       context: services/prometheus
       dockerfile: Dockerfile
@@ -105,7 +105,7 @@ services:
 
   # ── Dashboards ─────────────────────────────────────────────────────────
   grafana:
-    profiles: ["obs"]
+    profiles: ["logs", "monitor", "cadvisor", "all"]
     container_name: omni-grafana
     build:
       context: services/grafana
@@ -125,21 +125,23 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
-      - loki
+      loki:
+        condition: service_started
+        required: false
     mem_limit: 500M
     logging:
       driver: journald
 
   # ── Cloudflare Tunnel ──────────────────────────────────────────────────
   cloudflared:
-    profiles: ["obs"]
+    profiles: ["tunnel", "all"]
     container_name: omni-cloudflared
     build:
       context: services/cloudflared
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARED_TUNNEL_TOKEN}
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     command: tunnel --no-autoupdate run
     networks:
       - default

@@ -1,0 +1,240 @@
+
+[transforms.remap_logs]
+type = "remap"
+inputs = ["raw_logs"]
+source = """
+# 1. Store the raw message for comparison and main fields
+_msg = .message || ""
+_msg = string!(_msg)
+_my_container = "unknown-container"
+_my_service = "unknown-service"
+_my_level = .level || "unknown-level"
+_stream = "unknown-stream"
+_stream_path = "unknown"
+
+del(.level)
+
+if exists(.CONTAINER_NAME) {
+    # --- journald source (docker) ---
+    _my_container = .CONTAINER_NAME
+    _service_raw = .IMAGE_NAME || ""
+    _my_level = .PRIORITY || _my_level
+
+    # Derive service name from image (strip tag, then path, then common prefix)
+    _img_raw = string(_service_raw) ?? ""
+    _img_no_tag = string!(split(_img_raw, ":")[0])
+    _img_parts = split(_img_no_tag, "/")
+    _img_base = string!(_img_parts[-1])
+
+    # Strip everything before the last "-" to get the service name
+    _my_service = string!(split(_img_base, "-")[-1])
+} else if exists(.SYSLOG_IDENTIFIER) || ._TRANSPORT == "kernel" {
+    # --- journald source (system) ---
+    _my_container = "host"
+    _my_service = .SYSLOG_IDENTIFIER || ._SYSTEMD_UNIT || ._TRANSPORT || "system-raw"
+    _my_level = .PRIORITY || "unknown-level"
+    _stream = "stdout"
+    _stream_path = "out"
+
+    parsed, err = parse_key_value(_msg)
+    if err == null {
+        _my_service = parsed.module || _my_service
+        _my_level = upcase(string(parsed.level) ?? "INFO")
+    }
+
+    if ._TRANSPORT == "kernel" {
+        _msg_low = downcase(string!(.message))
+
+        _is_oom_event = contains(_msg_low, "oom-kill") ||
+            contains(_msg_low, "out of memory") ||
+            contains(_msg_low, "killed process") ||
+            contains(_msg_low, "tasks state") ||
+            contains(_msg_low, "oom_memcg")
+
+        if _is_oom_event {
+            _my_level = "CRITICAL"
+        }
+    }
+} else {
+    # --- GELF / socket source ---
+    _my_container = ._container_name
+    _my_service = ._service_name || ."_com.docker.compose.service"
+}
+
+# Ensure _my_level is always a string for consistent processing
+_my_level = string(_my_level) ?? _my_level
+
+level_val, _err = to_int(_my_level)
+if is_null(level_val) {
+    _lvl_upper = upcase(string!(_my_level))
+
+    level_val = if contains(_lvl_upper, "CRIT") || contains(_lvl_upper, "FATAL") {
+        2
+    } else if contains(_lvl_upper, "ERR") {
+        3
+    } else if contains(_lvl_upper, "WARN") {
+        4
+    } else if contains(_lvl_upper, "INFO") {
+        6
+    } else {
+        7
+    }
+}
+_stream = if level_val <= 3 { "stderr" } else { "stdout" }
+_stream_path = if level_val <= 3 { "error" } else { "out" }
+
+# 2. Parse JSON from the message
+parsed, err = parse_json(_msg)
+_has_json_level = false
+if err == null && is_object(parsed) {
+    . = merge!(., parsed)
+    if .message != null && .message != _msg {
+        _msg = string!(.message)
+
+        parsed, err = parse_json(_msg)
+        if err == null && is_object(parsed) {
+            . = merge!(., parsed)
+            if .message != null && .message != _msg {
+                _msg = string!(.message)
+            }
+        }
+    }
+    if !is_null(.level_name) {
+        _my_level = .level_name
+        _has_json_level = true
+    } else if !is_null(.level) {
+        _my_level = .level
+        _has_json_level = true
+    }
+}
+if .client == true {
+    _my_service = "client"
+}
+_msg = strip_ansi_escape_codes(_msg)
+
+# 3. Standardize Log Level (numeric to string)
+level_val, err = int(_my_level)
+if err == null {
+    if level_val <= 3 {
+        _my_level = "ERROR"
+    } else if level_val == 4 {
+        _my_level = "WARN"
+    } else if level_val == 5 {
+        _my_level = "INFO"
+    } else {
+        _my_level = "DEBUG"
+    }
+}
+
+# 3.5. When no level was extracted from inner JSON, default to INFO
+if !_has_json_level {
+    if _my_level == "unknown-level" || _my_level == "DEBUG" {
+        _my_level = "INFO"
+    }
+}
+
+# 4. Flatten Spans
+if is_object(.span) {
+    . = merge!(., .span)
+    del(.span)
+}
+
+# 5. Extract stacktrace
+if contains(_msg, "\n") {
+    _parts = split(_msg, "\n", limit: 2)
+    _msg = _parts[0]
+    .stack_trace = _parts[1]
+}
+
+# 6. Metadata and Cleanup
+.message = _msg || "No message content"
+.container = _my_container || "unknown-container"
+.service = _my_service || "unknown-service"
+.stream = _stream || "unknown-stream"
+.stream_path = _stream_path || "unknown-stream"
+.level = _my_level || "unknown-level"
+
+# Remove journald metadata
+del(.CONTAINER_NAME)
+del(.IMAGE_NAME)
+del(.PRIORITY)
+del(.CONTAINER_ID)
+del(.CONTAINER_ID_FULL)
+del(.CONTAINER_LOG_EPOCH)
+del(.CONTAINER_LOG_ORDINAL)
+del(.CONTAINER_TAG)
+del(.SYSLOG_IDENTIFIER)
+del(.SYSLOG_TIMESTAMP)
+del(._BOOT_ID)
+del(._CAP_EFFECTIVE)
+del(._CMDLINE)
+del(._COMM)
+del(._EXE)
+del(._GID)
+del(._MACHINE_ID)
+del(._PID)
+del(._RUNTIME_SCOPE)
+del(._SELINUX_CONTEXT)
+del(._SOURCE_REALTIME_TIMESTAMP)
+del(._SYSTEMD_CGROUP)
+del(._SYSTEMD_INVOCATION_ID)
+del(._SYSTEMD_SLICE)
+del(._SYSTEMD_UNIT)
+del(._TRANSPORT)
+del(._UID)
+del(.__MONOTONIC_TIMESTAMP)
+del(.__REALTIME_TIMESTAMP)
+del(.__SEQNUM)
+del(.__SEQNUM_ID)
+del(.SYSLOG_FACILITY)
+del(._STREAM_ID)
+del(._AUDIT_FIELD_FAMILY)
+del(._AUDIT_FIELD_OP)
+del(._AUDIT_FIELD_TABLE)
+del(._AUDIT_ID)
+del(._AUDIT_TYPE)
+del(._AUDIT_TYPE_NAME)
+del(.NETFILTER_CFG)
+del(._AUDIT_FIELD_ENTRIES)
+del(._SOURCE_MONOTONIC_TIMESTAMP)
+
+# Remove GELF/Compose Metadata
+del(._container_id)
+del(._container_name)
+del(._image_id)
+del(._image_name)
+del(._service_name)
+del(._command)
+del(._created)
+del(._tag)
+del(."_com.docker.compose.service")
+
+# Remove GELF/System Metadata
+del(.short_message)
+del(.full_message)
+del(.host)
+del(.port)
+del(.source_type)
+del(.version)
+del(.facility)
+"""
+
+[transforms.vector_logs]
+type = "remap"
+inputs = ["vector_internal"]
+source = """
+# Map Vector's own internal logs to our standard schema
+.container = "omni-vector"
+.service = "vector"
+.stream = if .metadata.level == "error" || .metadata.level == "critical" || .metadata.level == "warn" {
+    "stderr"
+} else {
+    "stdout"
+}
+.stream_path = if .metadata.level == "error" || .metadata.level == "critical" || .metadata.level == "warn" {
+    "error"
+} else {
+    "out"
+}
+.level = upcase(string!(.metadata.level))
+"""

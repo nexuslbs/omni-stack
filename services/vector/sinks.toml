@@ -1,0 +1,18 @@
+[sinks.console]
+# Send processed logs to Vector's stdout for debugging
+type = "console"
+inputs = ["remap_logs"]
+encoding.codec = "json"
+
+[sinks.loki]
+type = "loki"
+inputs = ["remap_logs", "vector_logs"]
+endpoint = "http://loki:3100"
+encoding.codec = "json"
+encoding.message_key = "message"
+labels.service = "{{ service }}"
+labels.container = "{{ container }}"
+labels.stream = "{{ stream }}"
+labels.level = "{{ level }}"
+remove_label_fields = true
+healthcheck.enabled = true

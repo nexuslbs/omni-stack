@@ -1,0 +1,7 @@
+data_dir = "/var/lib/vector"
+
+[sources.raw_logs]
+type = "journald"
+
+[sources.vector_internal]
+type = "internal_logs"

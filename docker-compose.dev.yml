@@ -21,9 +21,9 @@ services:
     build:
       context: /opt/workspace/omni-dashboard/repo
       dockerfile: Dockerfile
+    command: ["node", "/opt/repo/server-dist/index.js"]
     volumes:
-      - /opt/workspace/omni-dashboard/repo/dist:/app/dist:ro
-      - /opt/workspace/omni-dashboard/repo/server-dist:/app/server:ro
+      - /opt/workspace/omni-dashboard/repo:/opt/repo:ro
       - /opt/workspace/omni-dashboard/repo/node_modules:/app/node_modules:ro
 
 networks:

@@ -2098,12 +2098,9 @@ def test_t6_disable_invalid_source():
 #
 
 def _check_mm_container():
-    """Check if mattermost container is running; skip if not."""
+    """Check if mattermost container is running; fail if not."""
     rc = sh("docker inspect omni-mattermost-1 2>/dev/null | grep -q '\"Running\": true'")
-    if rc.returncode != 0:
-        print("(Mattermost container not running -- skipping e2e test)")
-        return False
-    return True
+    assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running — cannot run e2e test"
 
 def _mm_login(base_url, username, password):
     """Login to Mattermost as a user, return auth token."""
@@ -2142,8 +2139,7 @@ def _mm_get_posts(base_url, channel_id, token, since_id="0"):
 def test_mm9_e2e():
     """Full e2e test: mattermost setup -> noop provider response."""
     import urllib.request, urllib.error
-    if not _check_mm_container():
-        return
+    _check_mm_container()
     MM = "http://mattermost:8065"
     test_pass = "Mattermost_Fresh_Start_1"
     test_user = "testuser"
@@ -2161,13 +2157,22 @@ def test_mm9_e2e():
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
 
-    # 3. Enable noop provider (already enabled? check first)
-    r = urllib.request.urlopen(f"{BASE}/api/plugins/noop", timeout=10)
-    noop_data = json.loads(r.read())
-    if noop_data.get("data", {}).get("status") != "enabled":
+    # 3. Enable noop provider (check current state)
+    noop_data = api_get("/plugins/noop")
+    noop_status = noop_data.get("data", {}).get("status") if isinstance(noop_data, dict) else None
+    if noop_status != "enabled":
         success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
-        assert success, f"enable noop failed: {resp}"
-        print("[noop provider enabled]")
+        if not success:
+            print(f"(enable noop failed: {resp} -- trying noop-full)")
+            noop_data = api_get("/plugins/noop-full")
+            noop_status = noop_data.get("data", {}).get("status") if isinstance(noop_data, dict) else None
+            if noop_status != "enabled":
+                success, resp = api_post_body("/plugins/noop-full/enable", {"source": "bundled"})
+                if not success:
+                    raise AssertionError(f"cannot enable any noop provider: {resp}")
+            print("[noop-full enabled]")
+        else:
+            print("[noop enabled]")
     else:
         print("[noop already enabled]")
 
@@ -2182,7 +2187,7 @@ def test_mm9_e2e():
     except urllib.error.HTTPError as e:
         raw = e.read().decode()
         print(f"Setup HTTP error: {raw}")
-        channels = api_get("/channels").get("data", api_get("/channels"))
+        channels = api_get("/channels")
         if isinstance(channels, list) and channels:
             channel_id = int(channels[0]["id"])
             print(f"[using existing channel_id={channel_id}]")
@@ -2211,8 +2216,7 @@ def test_mm9_e2e():
         token = _mm_login(MM, test_user, test_pass)
         print("[testuser logged in]")
     except Exception as e:
-        print(f"(Cannot login as testuser -- {e} -- skipping)")
-        return
+        raise AssertionError(f"Cannot login as testuser: {e}")
 
     # 8. Find mattermost channel ID
     req = urllib.request.Request(
@@ -2227,9 +2231,8 @@ def test_mm9_e2e():
             mm_channel_id = ch["id"]
             break
     if not mm_channel_id:
-        print("(Cannot find 'setup' channel -- skipping)")
-        return
-    print(f"[found setup channel_id={mm_channel_id}]")
+        raise AssertionError("Cannot find 'setup' channel in Mattermost")
+    print(f"[found mm channel_id={mm_channel_id}]")
 
     # 9. Send a message as testuser
     import uuid

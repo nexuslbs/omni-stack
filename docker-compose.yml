@@ -121,6 +121,8 @@ services:
       S3_BUCKET: ${S3_BUCKET}
       S3_PATH: omni
       COMPOSE_PROFILES: ${COMPOSE_PROFILES}
+      CRON_BACKUP: ${BACKUP_CRON_SCHEDULE}
+      CRON_CHECKPOINT: ${CHECKOUT_CRON_SCHEDULE}
     volumes:
       - ./:/opt/omni-stack:rw
       - /opt:/opt/:rw

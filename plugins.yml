@@ -3,32 +3,28 @@ platforms:
     enabled: true
     source: bundled
     config:
-      server_url: "$env:MATTERMOST_SERVER_URL"
-      access_token: "$env:MATTERMOST_ACCESS_TOKEN"
+      access_token: $env:MATTERMOST_ACCESS_TOKEN
+      admin_password: $env:MM_USER_PASSWORD
+      admin_user: $env:MM_USERNAME
+      bot_password: $env:MM_BOT_PASSWORD
+      bot_user: $env:MM_BOT_USERNAME
       connection_mode: websocket
-      polling_interval: 15
-      setup_team: "$env:MM_TEAM"
-      setup_channel: "$env:MM_CHANNEL"
-      bot_user: "$env:MM_BOT_USERNAME"
-      bot_password: "$env:MM_BOT_PASSWORD"
-      admin_user: "$env:MM_USERNAME"
-      admin_password: "$env:MM_USER_PASSWORD"
-      test_user: "$env:MM_TEST_USERNAME"
-      test_password: "$env:MM_TEST_PASSWORD"
       max_download_bytes: 500
+      polling_interval: 15
+      server_url: $env:MATTERMOST_SERVER_URL
+      setup_channel: $env:MM_CHANNEL
+      setup_team: $env:MM_TEAM
+      test_password: $env:MM_TEST_PASSWORD
+      test_user: $env:MM_TEST_USERNAME
   telegram:
     enabled: false
     source: bundled
     config:
-      bot_token: ""
+      bot_token: ''
 tools:
   actions:
     enabled: true
     source: bundled
-    config: {}
-  cron:
-    enabled: true
-    source: built-in
     config: {}
   docker:
     enabled: true
@@ -43,7 +39,7 @@ tools:
     source: bundled
     config: {}
   git:
-    enabled: false
+    enabled: true
     source: bundled
     config: {}
   hindsight:
@@ -64,6 +60,10 @@ tools:
     config: {}
   plugin-manager:
     enabled: false
+    source: built-in
+    config: {}
+  prompt:
+    enabled: true
     source: built-in
     config: {}
   query:
@@ -87,13 +87,13 @@ providers:
     enabled: false
     source: bundled
     config:
-      api_key: "$env:ANTHROPIC_API_KEY"
+      api_key: $env:ANTHROPIC_API_KEY
       default_model: claude-sonnet-4
   deepseek:
     enabled: true
     source: bundled
     config:
-      api_key: "$env:DEEPSEEK_API_KEY"
+      api_key: $env:DEEPSEEK_API_KEY
       default_model: deepseek-v4-flash
   noop:
     enabled: true
@@ -107,11 +107,11 @@ providers:
     enabled: false
     source: bundled
     config:
-      api_key: "$env:OPENAI_API_KEY"
+      api_key: $env:OPENAI_API_KEY
       default_model: gpt-4o
   opencode-go:
     enabled: true
     source: bundled
     config:
-      api_key: "$env:OPENCODE_GO_API_KEY"
+      api_key: $env:OPENCODE_GO_API_KEY
       default_model: deepseek-v4-flash

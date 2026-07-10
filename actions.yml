@@ -1,20 +1,19 @@
 actions:
-  builtin_relevance_indexer:
-    enabled: true
-    tool_name: relevance_indexer
-    params: {}
-    description: Scan wiki files and update relevant-index.md based on recency and reference count
-    is_builtin: true
-  a3:
-    enabled: true
-    tool_name: builtin_read-attached-file
-    params:
-      path: /tmp/test.txt
-    description: TestReadAttach
   a1:
     enabled: true
     tool_name: fetch_fetch
     params: {}
+  a2:
+    enabled: true
+    tool_name: compact_messages
+    params: {}
+    description: test-compact
+  builtin_hindsight_populator:
+    enabled: true
+    tool_name: hindsight_populator
+    params: {}
+    description: Populate hindsight memory from recent messages
+    is_builtin: true
   a0:
     enabled: true
     tool_name: read_attached_file
@@ -31,9 +30,15 @@ actions:
     params: {}
     description: Create the Knowledge Pipeline cron job (idempotent, runs every 6 hours by default)
     is_builtin: true
-  builtin_hindsight_populator:
+  a3:
     enabled: true
-    tool_name: hindsight_populator
+    tool_name: builtin_read-attached-file
+    params:
+      path: /tmp/test.txt
+    description: TestReadAttach
+  builtin_relevance_indexer:
+    enabled: true
+    tool_name: relevance_indexer
     params: {}
-    description: Populate hindsight memory from recent messages
+    description: Scan wiki files and update relevant-index.md based on recency and reference count
     is_builtin: true

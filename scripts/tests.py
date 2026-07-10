@@ -2100,10 +2100,9 @@ def test_t6_disable_invalid_source():
 def _check_mm_container():
     """Check if mattermost container is running; fail if not."""
     rc = sh("docker inspect omni-mattermost-1 2>/dev/null | grep -q '\"Running\": true'")
-    assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running — cannot run e2e test"
+    assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running -- cannot run e2e test"
 
 def _mm_login(base_url, username, password):
-    """Login to Mattermost as a user, return auth token."""
     import urllib.request
     data = json.dumps({"login_id": username, "password": password}).encode()
     req = urllib.request.Request(
@@ -2115,7 +2114,6 @@ def _mm_login(base_url, username, password):
     return token
 
 def _mm_send_message(base_url, channel_id, token, message):
-    """Send a message to a Mattermost channel."""
     import urllib.request
     data = json.dumps({"channel_id": channel_id, "message": message}).encode()
     req = urllib.request.Request(
@@ -2138,13 +2136,13 @@ def _mm_get_posts(base_url, channel_id, token, since_id="0"):
 
 def test_mm9_e2e():
     """Full e2e test: mattermost setup -> noop provider response."""
-    import urllib.request, urllib.error
+    import urllib.request, urllib.error, time
     _check_mm_container()
     MM = "http://mattermost:8065"
     test_pass = "Mattermost_Fresh_Start_1"
     test_user = "testuser"
 
-    # 1. Try to get actual password from container env
+    # 1. Try to get actual password from container env if available
     rc = sh("docker exec omni-mattermost-1 env 2>/dev/null | grep '^MM_TEST_PASSWORD=' | cut -d= -f2")
     if rc.returncode == 0 and rc.stdout.strip():
         test_pass = rc.stdout.strip()
@@ -2157,18 +2155,10 @@ def test_mm9_e2e():
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
 
-    # 3. Enable noop provider (or noop-full as fallback)
+    # 3. Enable noop provider
     success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
-    print(f"  enable noop: success={success}, resp={json.dumps(resp)[:200]}")
-    if not success:
-        print(f"(enable noop failed -- trying noop-full)")
-        success, resp = api_post_body("/plugins/noop-full/enable", {"source": "bundled"})
-        print(f"  enable noop-full: success={success}, resp={json.dumps(resp)[:200]}")
-        if not success:
-            raise AssertionError(f"cannot enable any noop provider: {resp}")
-        print("[noop-full enabled]")
-    else:
-        print("[noop enabled]")
+    assert success, f"enable noop failed: {resp}"
+    print("[noop enabled]")
 
     # 4. Run mattermost setup
     try:
@@ -2206,11 +2196,8 @@ def test_mm9_e2e():
     time.sleep(5)
 
     # 7. Login as testuser
-    try:
-        token = _mm_login(MM, test_user, test_pass)
-        print("[testuser logged in]")
-    except Exception as e:
-        raise AssertionError(f"Cannot login as testuser: {e}")
+    token = _mm_login(MM, test_user, test_pass)
+    print("[testuser logged in]")
 
     # 8. Find mattermost channel ID
     req = urllib.request.Request(
@@ -2224,8 +2211,7 @@ def test_mm9_e2e():
         if ch["name"] == "setup":
             mm_channel_id = ch["id"]
             break
-    if not mm_channel_id:
-        raise AssertionError("Cannot find 'setup' channel in Mattermost")
+    assert mm_channel_id, "Cannot find 'setup' channel in Mattermost"
     print(f"[found mm channel_id={mm_channel_id}]")
 
     # 9. Send a message as testuser
@@ -2367,6 +2353,14 @@ if __name__ == "__main__":
     print(f"\n{'=' * 60}")
 
     print(f"\n{'=' * 60}")
+    print(f"\n{'=' * 60}")
+    print("GROUP 9 -- Mattermost + Noop E2E Integration Test")
+    print(f"{'=' * 60}")
+
+    for fn in [test_mm9_e2e]:
+        test(fn)
+
+
     print("GROUP 8 — Add/Install-Git Tests")
     print(f"{'=' * 60}")
 
@@ -2376,14 +2370,6 @@ if __name__ == "__main__":
         test_t8_remove_bundled_remote_yml_unchanged,
     ]:
         test(fn)
-
-    print(f"\n{'=' * 60}")
-    print("GROUP 9 -- Mattermost + Noop E2E Integration Test")
-    print(f"{'=' * 60}")
-
-    for fn in [test_mm9_e2e]:
-        test(fn)
-
 
     print(f"Results: {tests_pass}/{tests_run} passed, {tests_fail} failed")
     print(f"{'=' * 60}")

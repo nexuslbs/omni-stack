@@ -2157,6 +2157,7 @@ def test_mm9_e2e():
 
     # 3. Enable noop provider
     success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    print(f"[enable noop result: {json.dumps(resp)[:300]}]")
     assert success, f"enable noop failed: {resp}"
     print("[noop enabled]")
 

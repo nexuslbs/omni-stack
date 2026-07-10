@@ -2160,10 +2160,15 @@ def test_mm9_e2e():
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
 
-    # 3. Enable noop provider
-    success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
-    assert success, f"enable noop provider failed: {resp}"
-    print("[noop provider enabled]")
+    # 3. Enable noop provider (already enabled? check first)
+    r = urllib.request.urlopen(f"{BASE}/api/plugins/noop", timeout=10)
+    noop_data = json.loads(r.read())
+    if noop_data.get("data", {}).get("status") != "enabled":
+        success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+        assert success, f"enable noop failed: {resp}"
+        print("[noop provider enabled]")
+    else:
+        print("[noop already enabled]")
 
     # 4. Run mattermost setup
     try:

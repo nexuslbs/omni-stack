@@ -2156,12 +2156,12 @@ def test_mm9_e2e():
         print("[using default testuser password]")
 
     # 2. Enable mattermost platform
-    success, resp = api_post_body("/plugins/platforms/mattermost/enable", {"source": "bundled"})
+    success, resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
 
     # 3. Enable noop provider
-    success, resp = api_post_body("/plugins/providers/noop/enable", {"source": "bundled"})
+    success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
     assert success, f"enable noop provider failed: {resp}"
     print("[noop provider enabled]")
 
@@ -2176,18 +2176,18 @@ def test_mm9_e2e():
     except urllib.error.HTTPError as e:
         raw = e.read().decode()
         print(f"Setup HTTP error: {raw}")
-        channels = api_get("/plugins/platforms/mattermost/channels").get("data", [])
-        if channels:
-            channel_id = channels[0]["id"]
+        channels = api_get("/channels").get("data", api_get("/channels"))
+        if isinstance(channels, list) and channels:
+            channel_id = int(channels[0]["id"])
             print(f"[using existing channel_id={channel_id}]")
         else:
             raise AssertionError(f"setup failed and no channels found: {raw}")
 
-    # 5. Patch channel to use noop provider (via PATCH)
+    # 5. Patch channel to use noop provider (via PATCH /channels/{id})
     import urllib.request
-    data = json.dumps({"provider": "noop"}).encode()
+    data = json.dumps({"current_provider": "noop"}).encode()
     req = urllib.request.Request(
-        f"{BASE}/api/plugins/platforms/mattermost/channels/{channel_id}",
+        f"{BASE}/channels/{channel_id}",
         data=data, method="PATCH",
         headers={"Content-Type": "application/json"}
     )

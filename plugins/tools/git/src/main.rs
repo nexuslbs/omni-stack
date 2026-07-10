@@ -22,7 +22,9 @@ fn private_key_path() -> String {
         eprintln!("FATAL: OMNI_DIR must be set");
         std::process::exit(1);
     });
-    format!("{}/credentials/nexuslbs-app.2026-06-04.private-key.pem", data_dir)
+    format!(
+
+"{0}/data/credentials/nexuslbs-app.2026-06-04.private-key.pem", data_dir)
 }
 
 fn dot_env_path() -> String {

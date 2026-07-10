@@ -2141,6 +2141,7 @@ def _mm_get_posts(base_url, channel_id, token, since_id="0"):
 
 def test_mm9_e2e():
     """Full e2e test: mattermost setup -> noop provider response."""
+    import urllib.request, urllib.error
     if not _check_mm_container():
         return
     MM = "http://mattermost:8065"
@@ -2189,7 +2190,6 @@ def test_mm9_e2e():
             raise AssertionError(f"setup failed and no channels found: {raw}")
 
     # 5. Patch channel to use noop provider (via PATCH /channels/{id})
-    import urllib.request
     data = json.dumps({"current_provider": "noop"}).encode()
     req = urllib.request.Request(
         f"{BASE}/channels/{channel_id}",

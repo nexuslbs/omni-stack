@@ -92,7 +92,7 @@ services:
       - /opt/workspace/omni-stack/:/opt/omni/:rw
       - /opt/workspace/omni-stack/user/:/opt/omni/user:rw
       - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
-      - /opt/workspace/omni-dashboard/repo:/opt/repo:ro
+      - /opt/workspace/omni-dashboard/repo:/opt/repo:rw
       - /opt/data:/opt/data:ro
       - /opt/hermes:/opt/hermes:ro
       - /opt/hermes-repo:/opt/hermes-repo:ro

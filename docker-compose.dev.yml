@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
     command: ["node", "/opt/repo/server-dist/index.js"]
     volumes:
-      - /opt/workspace/omni-dashboard/repo:/opt/repo:ro
+      - /opt/workspace/omni-dashboard/repo:/opt/repo:rw
       - /opt/workspace/omni-dashboard/repo/node_modules:/app/node_modules:ro
 
 networks:

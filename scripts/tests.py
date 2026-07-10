@@ -2157,24 +2157,18 @@ def test_mm9_e2e():
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
 
-    # 3. Enable noop provider (check current state)
-    noop_data = api_get("/plugins/noop")
-    noop_status = noop_data.get("data", {}).get("status") if isinstance(noop_data, dict) else None
-    if noop_status != "enabled":
-        success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    # 3. Enable noop provider (or noop-full as fallback)
+    success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    print(f"  enable noop: success={success}, resp={json.dumps(resp)[:200]}")
+    if not success:
+        print(f"(enable noop failed -- trying noop-full)")
+        success, resp = api_post_body("/plugins/noop-full/enable", {"source": "bundled"})
+        print(f"  enable noop-full: success={success}, resp={json.dumps(resp)[:200]}")
         if not success:
-            print(f"(enable noop failed: {resp} -- trying noop-full)")
-            noop_data = api_get("/plugins/noop-full")
-            noop_status = noop_data.get("data", {}).get("status") if isinstance(noop_data, dict) else None
-            if noop_status != "enabled":
-                success, resp = api_post_body("/plugins/noop-full/enable", {"source": "bundled"})
-                if not success:
-                    raise AssertionError(f"cannot enable any noop provider: {resp}")
-            print("[noop-full enabled]")
-        else:
-            print("[noop enabled]")
+            raise AssertionError(f"cannot enable any noop provider: {resp}")
+        print("[noop-full enabled]")
     else:
-        print("[noop already enabled]")
+        print("[noop enabled]")
 
     # 4. Run mattermost setup
     try:

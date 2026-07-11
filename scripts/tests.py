@@ -2147,7 +2147,8 @@ def test_mm9_e2e():
 
     # 4. Run mattermost setup (idempotent — may already exist)
     try:
-        r = urllib.request.urlopen(f"{BASE}/api/plugins/mattermost/setup", timeout=15)
+        req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST", headers={"Content-Type": "application/json"})
+        r = urllib.request.urlopen(req, timeout=15)
         body = r.read().decode()
         if body.strip():
             setup_resp = json.loads(body)

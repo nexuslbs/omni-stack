@@ -104,7 +104,7 @@ services:
   toolbox:
     image: ${TOOLBOX_IMAGE:-ghcr.io/nexuslbs/omni-stack-toolbox:latest}
     build:
-      context: ./toolbox
+      context: ./services/toolbox
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:

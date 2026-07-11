@@ -56,7 +56,7 @@ omni-stack/
 │       ├── templates/         #   Prompt templates (blog, knowledge pipeline, etc.)
 │       └── wiki/              #   Wiki content (reference docs, research)
 │
-├── toolbox/                   # Toolbox container (maintenance scripts)
+├── services/toolbox/                   # Toolbox container (maintenance scripts)
 │
 ├── platforms.yml              # Platform plugin config
 ├── providers.yml              # Provider plugin config
@@ -216,7 +216,7 @@ The `.github/workflows/publish.yml` workflow builds and publishes Docker images 
 Three parallel jobs build:
 1. **omniagent** — from [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) (multi-stage Rust build)
 2. **omni-dashboard** — from [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) (Svelte + Vite)
-3. **toolbox** — from this repo (`toolbox/Dockerfile`, alpine-based maintenance container)
+3. **toolbox** — from this repo (`services/toolbox/Dockerfile`, alpine-based maintenance container)
 
 ---
 

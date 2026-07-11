@@ -2235,6 +2235,13 @@ def test_mm9_e2e():
     assert mm_channel_id, "Cannot find 'setup' channel in Mattermost"
     print(f"[found mm channel_id={mm_channel_id}]")
 
+    # Get bot token from mattermost plugin config and send as bot
+    r = urllib.request.urlopen(f"{BASE}/api/plugins/mattermost", timeout=10)
+    bot_token = json.loads(r.read()).get("data", {}).get("resolved_env", {}).get("MATTERMOST_ACCESS_TOKEN")
+    if bot_token:
+        print("[using bot token for message]")
+        token = bot_token
+
     import uuid
     test_msg = f"E2E test from {test_user} [{uuid.uuid4().hex[:8]}]"
     msg_resp = _mm_send_message(MM, mm_channel_id, token, test_msg)

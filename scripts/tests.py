@@ -2341,6 +2341,165 @@ def test_mm9_e2e():
     assert False, "Noop provider did not respond within 35s"
 
 # ═══════════════════════════════════════════════════════════════════════
+#  GROUP 10 — Disabled Plugin Visibility Regression Tests
+# ═══════════════════════════════════════════════════════════════════════
+#  These tests verify that bundled plugins with only a plugin.json file
+#  (no entry in plugins.yml) still appear in the API listing as disabled,
+#  and that plugins without any directory do NOT appear.
+#  This is a regression guard for the fix that removed the "continue"
+#  statement in plugins_yaml.rs that was hiding disabled bundled plugins.
+
+PLUGIN_JSON_TOOL = """{
+  "name": "test-1",
+  "version": "1.0.0",
+  "type": "mcp",
+  "description": "Test tool plugin for disabled visibility regression testing",
+  "entrypoint": { "command": "test-1-tool", "args": [], "transport": "stdio" },
+  "config_schema": []
+}"""
+
+PLUGIN_JSON_PLATFORM = """{
+  "name": "test-1",
+  "version": "1.0.0",
+  "type": "platform",
+  "description": "Test platform plugin for disabled visibility regression testing",
+  "entrypoint": { "command": "./test-1-platform", "args": [], "transport": "stdio" },
+  "capabilities": { "inbound": false, "outbound": false },
+  "config_schema": []
+}"""
+
+PLUGIN_JSON_PROVIDER = """{
+  "name": "test-1",
+  "version": "1.0.0",
+  "type": "provider",
+  "description": "Test provider plugin for disabled visibility regression testing",
+  "default_base_url": "http://test-1-provider:9090/v1",
+  "api_mode": "chat_completions",
+  "config_schema": [],
+  "env": {}
+}"""
+
+def _plugin_dir(type_dir, name):
+    """Return the bundled plugin directory path."""
+    return f"{WORKSPACE}/plugins/{type_dir}/{name}"
+
+def _plugin_json_path(type_dir, name):
+    return f"{_plugin_dir(type_dir, name)}/plugin.json"
+
+def _create_test_plugin_dir(type_dir, content):
+    """Create a test plugin directory with just a plugin.json file."""
+    dir_path = _plugin_dir(type_dir, "test-1")
+    mkdir_p(dir_path)
+    with open(f"{dir_path}/plugin.json", "w") as f:
+        f.write(content)
+
+def _remove_test_plugin_dir(type_dir):
+    """Remove a test plugin directory."""
+    dir_path = _plugin_dir(type_dir, "test-1")
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
+
+def _plugin_in_api(name, plugin_type=None):
+    """Check if a plugin with given name (and optionally type) exists in the API listing.
+    Returns the plugin dict or None."""
+    plugins = api_get("/plugins")["data"]
+    for p in plugins:
+        if p["name"] == name:
+            if plugin_type is None or p.get("plugin_type") == plugin_type:
+                return p
+    return None
+
+def _assert_plugin_visible(name, plugin_type, expect_visible=True):
+    """Assert a plugin is visible (or not) in the API listing."""
+    p = _plugin_in_api(name, plugin_type)
+    if expect_visible:
+        assert p is not None, f"{name} ({plugin_type}) should be visible in API but was not found"
+        assert p.get("source") == "bundled", \
+            f"{name} ({plugin_type}) source should be 'bundled', got '{p.get('source')}'"
+        assert p.get("status") == "disabled", \
+            f"{name} ({plugin_type}) status should be 'disabled', got '{p.get('status')}'"
+    else:
+        # test-2 should not be visible, and test-1 should not be visible after cleanup
+        assert p is None, f"{name} ({plugin_type}) should NOT be visible in API but was found with status={p.get('status')}"
+
+# ── V1: Tool — disabled bundled tool visible in API ───────────────────
+
+def test_v1_disabled_tool_visible():
+    """Bundled tool with only plugin.json (no yml entry) → visible as disabled."""
+    type_dir, name, ptype = "tools", "test-1", "tool"
+    try:
+        # Phase 1: Start clean — remove test-1 and test-2 dirs if they exist
+        for n in ["test-1", "test-2"]:
+            d = _plugin_dir(type_dir, n)
+            if os.path.exists(d):
+                shutil.rmtree(d)
+        restart_agent()
+
+        # Verify neither shows in API
+        _assert_plugin_visible("test-1", ptype, expect_visible=False)
+        _assert_plugin_visible("test-2", ptype, expect_visible=False)
+
+        # Phase 2: Create test-1 dir with just plugin.json
+        _create_test_plugin_dir(type_dir, PLUGIN_JSON_TOOL)
+        restart_agent()
+
+        # Verify test-1 shows as disabled, test-2 still doesn't show
+        _assert_plugin_visible("test-1", ptype, expect_visible=True)
+        _assert_plugin_visible("test-2", ptype, expect_visible=False)
+    finally:
+        _remove_test_plugin_dir(type_dir)
+        restart_agent()
+
+# ── V2: Platform — disabled bundled platform visible in API ───────────
+
+def test_v2_disabled_platform_visible():
+    """Bundled platform with only plugin.json (no yml entry) → visible as disabled."""
+    type_dir, name, ptype = "platforms", "test-1", "platform"
+    try:
+        for n in ["test-1", "test-2"]:
+            d = _plugin_dir(type_dir, n)
+            if os.path.exists(d):
+                shutil.rmtree(d)
+        restart_agent()
+
+        _assert_plugin_visible("test-1", ptype, expect_visible=False)
+        _assert_plugin_visible("test-2", ptype, expect_visible=False)
+
+        _create_test_plugin_dir(type_dir, PLUGIN_JSON_PLATFORM)
+        restart_agent()
+
+        _assert_plugin_visible("test-1", ptype, expect_visible=True)
+        _assert_plugin_visible("test-2", ptype, expect_visible=False)
+    finally:
+        _remove_test_plugin_dir(type_dir)
+        restart_agent()
+
+# ── V3: Provider — disabled bundled provider visible in API ───────────
+
+def test_v3_disabled_provider_visible():
+    """Bundled provider with only plugin.json (no yml entry) → visible as disabled."""
+    type_dir, name, ptype = "providers", "test-1", "provider"
+    try:
+        for n in ["test-1", "test-2"]:
+            d = _plugin_dir(type_dir, n)
+            if os.path.exists(d):
+                shutil.rmtree(d)
+        restart_agent()
+
+        _assert_plugin_visible("test-1", ptype, expect_visible=False)
+        _assert_plugin_visible("test-2", ptype, expect_visible=False)
+
+        _create_test_plugin_dir(type_dir, PLUGIN_JSON_PROVIDER)
+        restart_agent()
+
+        _assert_plugin_visible("test-1", ptype, expect_visible=True)
+        _assert_plugin_visible("test-2", ptype, expect_visible=False)
+    finally:
+        _remove_test_plugin_dir(type_dir)
+        restart_agent()
+
+
+# ═══════════════════════════════════════════════════════════════════════
 #  Main
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -2470,6 +2629,17 @@ if __name__ == "__main__":
         test_t8_add_remote_new,
         test_t8_add_remote_duplicate,
         test_t8_remove_bundled_remote_yml_unchanged,
+    ]:
+        test(fn)
+
+    print(f"\n{'=' * 60}")
+    print("GROUP 10 — Disabled Plugin Visibility Regression Tests")
+    print(f"{'=' * 60}")
+
+    for fn in [
+        test_v1_disabled_tool_visible,
+        test_v2_disabled_platform_visible,
+        test_v3_disabled_provider_visible,
     ]:
         test(fn)
 

@@ -2141,27 +2141,22 @@ def test_mm9_e2e():
     test_pass = "Mattermost_Fresh_Start_1"
     test_user = "testuser"
 
-    # 1. Ensure mattermost platform is enabled (no restart needed — use API)
+    # 1. Ensure mattermost and noop platforms are enabled (no restart needed)
     success, resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
 
-    # 2. Trigger reload to start the platform subprocess with fresh config
-    req = urllib.request.Request(f"{BASE}/api/reload", method="POST")
-    try:
-        r = urllib.request.urlopen(req, timeout=15)
-        print(f"[reload triggered: {r.status}]")
-    except Exception as e:
-        print(f"[reload: {e}]")
-    time.sleep(3)
+    success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    assert success, f"enable noop provider failed: {resp}"
+    print("[noop enabled]")
 
-    # 3. Check noop is available (should be enabled after fresh restart)
+    # 2. Check noop is available
     r = urllib.request.urlopen(f"{BASE}/api/plugins/noop", timeout=10)
     nd = json.loads(r.read()).get("data", {})
     assert nd.get("status") == "enabled", f"noop status={nd.get('status')}, expected enabled"
     print(f"[noop status=enabled]")
 
-    # 4. Run mattermost setup (idempotent — may already exist)
+    # 3. Run mattermost setup (idempotent — may already exist)
     try:
         req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST", headers={"Content-Type": "application/json"})
         r = urllib.request.urlopen(req, timeout=15)

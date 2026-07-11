@@ -51,7 +51,7 @@ tools:
     source: built-in
     config: {}
   memory:
-    enabled: false
+    enabled: true
     source: built-in
     config: {}
   metrics:

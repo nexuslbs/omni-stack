@@ -313,7 +313,8 @@ def ensure_bundled_plugin(name, plugin_type="tools"):
     # Try .remote/ source (remote→bundled collision tests)
     remote_src = f"{WORKSPACE}/plugins/{plugin_type}/.remote/{name}/{plugin_type}/{name}"
     if exists(remote_src):
-        cp(remote_src, target, recursive=True)
+        shutil.copytree(remote_src, target, dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns("target"))
         return
 
     # Try local omni-plugins repo (used for remote plugin installs)
@@ -362,6 +363,11 @@ def ensure_remote_plugin(name, plugin_type="tools"):
     dest_base = remote_dir
     mkdir_p(f"{dest_base}/{plugin_type}")
     cp(repo_src, f"{dest_base}/{plugin_type}/{name}", recursive=True)
+
+    # Pre-build Rust binary so install API doesn't timeout compiling
+    cargo_toml = f"{dest_base}/{plugin_type}/{name}/Cargo.toml"
+    if os.path.exists(cargo_toml):
+        sh(f"cd {dest_base}/{plugin_type}/{name} && cargo build --release 2>&1")
 
     # Register in remote.yml
     remote_yml_path = f"{WORKSPACE}/remote.yml"

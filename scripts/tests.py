@@ -2153,13 +2153,13 @@ def test_mm9_e2e():
         if body.strip():
             setup_resp = json.loads(body)
             if "channel_id" in setup_resp.get("data", {}):
-                channel_id = int(setup_resp["data"]["channel_id"])
+                channel_id = setup_resp["data"]["channel_id"]
                 print(f"[setup done, channel_id={channel_id}]")
             else:
                 print(f"[setup returned: {body[:200]}]")
                 channels = api_get("/channels")
                 if isinstance(channels, dict) and channels.get("data"):
-                    channel_id = int(channels["data"][0]["id"])
+                    channel_id = channels["data"][0]["id"]
                     print(f"[using existing channel_id={channel_id}]")
                 else:
                     raise AssertionError(f"setup returned no channel_id and no channels found")
@@ -2167,7 +2167,7 @@ def test_mm9_e2e():
             print("[setup returned empty body — using channels list]")
             channels = api_get("/channels")
             if isinstance(channels, dict) and channels.get("data"):
-                channel_id = int(channels["data"][0]["id"])
+                channel_id = channels["data"][0]["id"]
                 print(f"[using existing channel_id={channel_id}]")
             else:
                 raise AssertionError("setup returned empty body and no channels found")
@@ -2175,7 +2175,7 @@ def test_mm9_e2e():
         print(f"[setup error: {e}]")
         channels = api_get("/channels")
         if isinstance(channels, dict) and channels.get("data"):
-            channel_id = int(channels["data"][0]["id"])
+            channel_id = channels["data"][0]["id"]
             print(f"[using existing channel_id={channel_id}]")
         else:
             raise AssertionError(f"setup failed: {e}")

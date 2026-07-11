@@ -2151,34 +2151,17 @@ def test_mm9_e2e():
         r = urllib.request.urlopen(req, timeout=15)
         body = r.read().decode()
         if body.strip():
-            setup_resp = json.loads(body)
-            if "channel_id" in setup_resp.get("data", {}):
-                channel_id = setup_resp["data"]["channel_id"]
-                print(f"[setup done, channel_id={channel_id}]")
-            else:
-                print(f"[setup returned: {body[:200]}]")
-                channels = api_get("/channels")
-                if isinstance(channels, dict) and channels.get("data"):
-                    channel_id = channels["data"][0]["id"]
-                    print(f"[using existing channel_id={channel_id}]")
-                else:
-                    raise AssertionError(f"setup returned no channel_id and no channels found")
-        else:
-            print("[setup returned empty body — using channels list]")
-            channels = api_get("/channels")
-            if isinstance(channels, dict) and channels.get("data"):
-                channel_id = channels["data"][0]["id"]
-                print(f"[using existing channel_id={channel_id}]")
-            else:
-                raise AssertionError("setup returned empty body and no channels found")
+            print(f"[setup returned: {body[:200]}]")
     except (urllib.error.HTTPError, urllib.error.URLError, Exception) as e:
-        print(f"[setup error: {e}]")
-        channels = api_get("/channels")
-        if isinstance(channels, dict) and channels.get("data"):
-            channel_id = channels["data"][0]["id"]
-            print(f"[using existing channel_id={channel_id}]")
-        else:
-            raise AssertionError(f"setup failed: {e}")
+        print(f"[setup error (may be already set up): {e}]")
+
+    # Find the omniagent channel ID for mattermost
+    channels_resp = api_get("/channels")
+    channels = channels_resp.get("data") if isinstance(channels_resp, dict) else channels_resp
+    mm_channel = next((ch for ch in (channels or []) if ch.get("platform") == "mattermost"), None)
+    assert mm_channel, f"No mattermost channel found in omniagent channels"
+    channel_id = mm_channel["id"]
+    print(f"[using omniagent channel_id={channel_id} ({mm_channel.get('name')})]")
 
     # 5. Patch channel to use noop
     req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})

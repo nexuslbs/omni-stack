@@ -1454,6 +1454,31 @@ def test_remove_no_source(name):
     assert not success
     assert "source is required" in json.dumps(resp).lower()
 
+def test_enable_no_source(name):
+    success, resp = api_post_body(f"/plugins/{name}/enable", {})
+    assert not success
+    assert "source is required" in json.dumps(resp).lower()
+
+def test_disable_no_source(name):
+    success, resp = api_post_body(f"/plugins/{name}/disable", {})
+    assert not success
+    assert "source is required" in json.dumps(resp).lower()
+
+def test_install_no_source(name):
+    success, resp = api_post_body(f"/plugins/{name}/install", {})
+    assert not success
+    assert "source is required" in json.dumps(resp).lower()
+
+def test_reinstall_no_source(name):
+    success, resp = api_post_body(f"/plugins/{name}/reinstall", {})
+    assert not success
+    assert "source is required" in json.dumps(resp).lower()
+
+def test_download_no_source(name):
+    success, resp = api_post_body(f"/plugins/{name}/download", {})
+    assert not success
+    assert "source is required" in json.dumps(resp).lower()
+
 def test_config_update(name, config_body):
     success, resp = api_post_body(f"/plugins/{name}/config", {"config": config_body})
     assert success, f"config update {name} failed: {resp}"

@@ -2291,9 +2291,12 @@ def test_mm9_e2e():
     token = _mm_login(MM, test_user, test_pass)
     print("[testuser logged in]")
 
-    req = urllib.request.Request(f"{MM}/api/v4/channels", method="GET", headers={"Authorization": f"Bearer {token}"})
-    channels_resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-    mm_channel_id = next((ch["id"] for ch in channels_resp if ch["name"] == "setup"), None)
+    # Find the "setup" channel ID in Mattermost via admin API
+    team_channels = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
+                               headers={"Authorization": f"Bearer {admin_token}"})
+    , timeout=10).read())
+    mm_channel_id = next((ch["id"] for ch in team_channels if ch["name"] == "setup"), None)
     assert mm_channel_id, "Cannot find 'setup' channel in Mattermost"
     print(f"[found mm channel_id={mm_channel_id}]")
 

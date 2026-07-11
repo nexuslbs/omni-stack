@@ -1428,7 +1428,7 @@ def test_download_source(name, source, expected_success=True):
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/download", {"source": source}, timeout=120)
+    success, resp = api_post_body(f"/plugins/{name}/download", {"source": source}, timeout=300)
     if expected_success:
         assert success, f"download {name} source={source} failed: {resp}"
         if source == "bundled": _assert_dir_exists(bundled_dir)

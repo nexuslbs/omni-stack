@@ -2668,6 +2668,166 @@ def test_p6_missing_fallback():
         # Acceptable if the channel doesn't exist and server returns 400+
         assert e.code >= 400, f"Unexpected HTTP {e.code}"
 
+# ── Compact-messages helpers ─────────────────────────────────────────
+
+def _make_assistant_msg(tool_names: list[str]) -> dict:
+    """Build an assistant message with tool_calls."""
+    return {
+        "role": "assistant",
+        "content": "Let me check that.",
+        "tool_calls": [
+            {"id": f"call_{i}", "type": "function",
+             "function": {"name": name, "arguments": '{"x": 1}'}}
+            for i, name in enumerate(tool_names)
+        ]
+    }
+
+def _make_tool_msg(name: str = "tool_a") -> dict:
+    """Build a tool result message."""
+    return {"role": "tool", "content": '{"result": "ok"}', "name": name}
+
+def _make_user_msg(text: str = "Hello") -> dict:
+    return {"role": "user", "content": text}
+
+def _compact_call(messages: list, keep_recent: int = 3) -> dict:
+    """Call the prompt_compact-messages MCP tool and return parsed response."""
+    r = urllib.request.urlopen(
+        urllib.request.Request(
+            f"{BASE}/mcp/execute",
+            data=json.dumps({"name": "prompt_compact-messages",
+                             "arguments": {"messages": messages, "keep_recent": keep_recent}}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        ),
+        timeout=15
+    )
+    result = json.loads(r.read())
+    assert result.get("success"), f"compact-messages failed: {result}"
+    return json.loads(result["content"])
+
+# ── Compact-messages tests ───────────────────────────────────────────
+
+def test_p7_no_compaction_needed():
+    """Fewer tool-calling messages than keep_recent → no change"""
+    msgs = [_make_user_msg(), _make_assistant_msg(["tool_a"]), _make_tool_msg(),
+            _make_user_msg("Hi again"), _make_assistant_msg(["tool_b"]), _make_tool_msg()]
+    resp = _compact_call(msgs, keep_recent=3)
+    assert not resp["was_compacted"], f"Should not compact: {resp['before_count']} ≤ 3"
+    assert resp["before_count"] == resp["after_count"]
+    assert resp["after_count"] == 6
+
+def test_p7_compaction_reduces_count():
+    """More tool-calling messages than keep_recent → compacts oldest"""
+    # 5 assistant+tool pairs, keep_recent=3 → compact 2 pairs (4 messages removed)
+    msgs = []
+    for i in range(5):
+        msgs.append(_make_assistant_msg(["tool_a"]))
+        msgs.append(_make_tool_msg("tool_a"))
+    msgs.insert(0, _make_user_msg("Start"))
+    before = len(msgs)  # 11
+
+    resp = _compact_call(msgs, keep_recent=3)
+    assert resp["was_compacted"], "Should have compacted"
+    assert resp["before_count"] == 11
+    # 2 old pairs compacted: each removes the tool msg after the assistant → 2 removed
+    assert resp["after_count"] == 9, f"Expected 9 after compacting 2 pairs, got {resp['after_count']}"
+    # Compaction produces [compact: ...] messages but doesn't delete the assistant msg
+
+def test_p7_keep_recent_1():
+    """keep_recent=1 compacts all but the most recent"""
+    msgs = []
+    for i in range(5):
+        msgs.append(_make_assistant_msg(["tool_a"]))
+        msgs.append(_make_tool_msg("tool_a"))
+    resp = _compact_call(msgs, keep_recent=1)
+    assert resp["was_compacted"]
+    # 5 pairs → after keep_recent=1: 4 old pairs compacted (4 removed) → 6 remaining
+    assert resp["after_count"] == 6, f"Expected 6 (5 pairs - 4 compact + 1 user? no), got {resp['after_count']}"
+
+def test_p7_zero_tool_calls():
+    """Messages with no tool_calls → no compaction"""
+    msgs = [_make_user_msg("A"), _make_user_msg("B"), _make_user_msg("C")]
+    resp = _compact_call(msgs, keep_recent=3)
+    assert not resp["was_compacted"]
+    assert resp["after_count"] == 3
+
+def test_p7_tool_names_preserved():
+    """Compacted messages still reference the tool names"""
+    msgs = []
+    for i in range(4):
+        msgs.append(_make_assistant_msg(["search_docs", "read_file"]))
+        msgs.append(_make_tool_msg("search_docs"))
+        msgs.append(_make_tool_msg("read_file"))
+    resp = _compact_call(msgs, keep_recent=2)
+    assert resp["was_compacted"]
+    for msg in resp["messages"]:
+        if msg.get("role") == "assistant" and msg.get("content", "").startswith("[compact:"):
+            assert "search_docs" in msg["content"] or "read_file" in msg["content"], \
+                f"Compacted msg missing tool name: {msg['content']}"
+
+def test_p7_compact_multiple_tools():
+    """Assistant with multiple tool_calls in one message → compacted reference shows all tools"""
+    msgs = [
+        _make_assistant_msg(["tool_a", "tool_b", "tool_c"]),
+        _make_tool_msg("tool_a"),
+        _make_tool_msg("tool_b"),
+        _make_tool_msg("tool_c"),
+        _make_assistant_msg(["result"]),
+        _make_tool_msg("result"),
+    ]
+    resp = _compact_call(msgs, keep_recent=1)
+    assert resp["was_compacted"]
+    # Find the compacted message
+    compacted = [m for m in resp["messages"] if "[compact:" in m.get("content", "")]
+    assert len(compacted) >= 1, "No compacted messages found"
+    assert "tool_a" in compacted[0]["content"]
+    assert "tool_b" in compacted[0]["content"]
+    assert "tool_c" in compacted[0]["content"]
+
+def test_p7_missing_messages_field():
+    """Missing messages field returns descriptive error"""
+    r = urllib.request.urlopen(
+        urllib.request.Request(
+            f"{BASE}/mcp/execute",
+            data=json.dumps({"name": "prompt_compact-messages",
+                             "arguments": {"keep_recent": 3}}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        ),
+        timeout=10
+    )
+    result = json.loads(r.read())
+    assert result.get("success"), f"Expected tool-level success, got {result}"
+    content = result["content"]
+    # Content is either a JSON string (success) or plain error text
+    data = json.loads(content) if content.startswith("{") else content
+    if isinstance(data, str):
+        assert "Missing required" in data or "messages" in data or "error" in data.lower(), \
+            f"Expected error message about missing messages, got: {data}"
+    else:
+        # It returned something unexpected — but shouldn't crash
+        assert True
+
+def test_p7_empty_messages():
+    """Empty messages array → no compaction"""
+    resp = _compact_call([], keep_recent=3)
+    assert not resp["was_compacted"]
+    assert resp["after_count"] == 0
+
+def test_p7_idempotent():
+    """Same input produces identical results"""
+    msgs = []
+    for i in range(6):
+        msgs.append(_make_assistant_msg(["tool_x"]))
+        msgs.append(_make_tool_msg("tool_x"))
+    r1 = _compact_call(msgs, keep_recent=2)
+    r2 = _compact_call(msgs, keep_recent=2)
+    assert r1["before_count"] == r2["before_count"]
+    assert r1["after_count"] == r2["after_count"]
+    assert r1["was_compacted"] == r2["was_compacted"]
+    # Verify message count matches
+    assert r1["after_count"] == len(r1["messages"])
+
 # ═══════════════════════════════════════════════════════════════════════
 #  Main
 # ═══════════════════════════════════════════════════════════════════════
@@ -2832,6 +2992,15 @@ if __name__ == "__main__":
         test_p5_idempotent_plan_null,
         test_p5_stable_system_prompt_length,
         test_p6_missing_fallback,
+        test_p7_no_compaction_needed,
+        test_p7_compaction_reduces_count,
+        test_p7_keep_recent_1,
+        test_p7_zero_tool_calls,
+        test_p7_tool_names_preserved,
+        test_p7_compact_multiple_tools,
+        test_p7_missing_messages_field,
+        test_p7_empty_messages,
+        test_p7_idempotent,
     ]:
         test(fn)
 

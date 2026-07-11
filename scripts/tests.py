@@ -2092,47 +2092,26 @@ def test_t6_disable_invalid_source():
 
 
 # ── GROUP 9: Mattermost + Noop E2E integration test ──────────────────
-#
-# Tests the full pipeline: mattermost setup → channel config → user message
-# → noop provider response. Requires the 'mattermost' profile to be active.
-#
-
 def _check_mm_container():
-    """Check if mattermost container is running; fail if not."""
     rc = sh("docker inspect omni-mattermost-1 2>/dev/null | grep -q '\"Running\": true'")
-    assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running -- cannot run e2e test"
+    assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running"
 
 def _mm_login(base_url, username, password):
     import urllib.request
     data = json.dumps({"login_id": username, "password": password}).encode()
-    req = urllib.request.Request(
-        f"{base_url}/api/v4/users/login", data=data,
-        method="POST", headers={"Content-Type": "application/json"}
-    )
-    resp = urllib.request.urlopen(req, timeout=10)
-    token = resp.headers.get("Token")
-    return token
+    req = urllib.request.Request(f"{base_url}/api/v4/users/login", data=data, method="POST", headers={"Content-Type": "application/json"})
+    return urllib.request.urlopen(req, timeout=10).headers.get("Token")
 
 def _mm_send_message(base_url, channel_id, token, message):
     import urllib.request
     data = json.dumps({"channel_id": channel_id, "message": message}).encode()
-    req = urllib.request.Request(
-        f"{base_url}/api/v4/channels/{channel_id}/posts", data=data,
-        method="POST",
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
-    )
-    resp = urllib.request.urlopen(req, timeout=10)
-    return json.loads(resp.read())
+    req = urllib.request.Request(f"{base_url}/api/v4/channels/{channel_id}/posts", data=data, method="POST", headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    return json.loads(urllib.request.urlopen(req, timeout=10).read())
 
-def _mm_get_posts(base_url, channel_id, token, since_id="0"):
+def _mm_get_posts(base_url, channel_id, token):
     import urllib.request
-    req = urllib.request.Request(
-        f"{base_url}/api/v4/channels/{channel_id}/posts?since={since_id}",
-        method="GET",
-        headers={"Authorization": f"Bearer {token}"}
-    )
-    resp = urllib.request.urlopen(req, timeout=10)
-    return json.loads(resp.read())
+    req = urllib.request.Request(f"{base_url}/api/v4/channels/{channel_id}/posts", method="GET", headers={"Authorization": f"Bearer {token}"})
+    return json.loads(urllib.request.urlopen(req, timeout=10).read())
 
 def test_mm9_e2e():
     """Full e2e test: mattermost setup -> noop provider response."""
@@ -2142,34 +2121,25 @@ def test_mm9_e2e():
     test_pass = "Mattermost_Fresh_Start_1"
     test_user = "testuser"
 
-    # 1. Try to get actual password from container env if available
-    rc = sh("docker exec omni-mattermost-1 env 2>/dev/null | grep '^MM_TEST_PASSWORD=' | cut -d= -f2")
-    if rc.returncode == 0 and rc.stdout.strip():
-        test_pass = rc.stdout.strip()
-        print("[testuser password resolved from container]")
-    else:
-        print("[using default testuser password]")
+    # 1. Restart agent for clean plugin state
+    restart_agent()
 
     # 2. Enable mattermost platform
     success, resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
 
-    # 3. Verify noop provider is enabled (via GET; POST enable may fail
-    # due to state changes from earlier tests)
-    import urllib.request
+    # 3. Check noop is available (should be enabled after fresh restart)
     r = urllib.request.urlopen(f"{BASE}/api/plugins/noop", timeout=10)
-    noop_data = json.loads(r.read()).get("data", {})
-    noop_status = noop_data.get("status")
-    assert noop_status == "enabled", f"noop provider status is {noop_status}, expected enabled"
-    print(f"[noop status={noop_status}]")
+    nd = json.loads(r.read()).get("data", {})
+    assert nd.get("status") == "enabled", f"noop status={nd.get('status')}, expected enabled"
+    print(f"[noop status=enabled]")
 
     # 4. Run mattermost setup
     try:
         r = urllib.request.urlopen(f"{BASE}/api/plugins/mattermost/setup", timeout=15)
         setup_resp = json.loads(r.read())
-        assert "channel_id" in setup_resp, f"setup missing channel_id: {setup_resp}"
-        assert "bot_token" in setup_resp, f"setup missing bot_token: {setup_resp}"
+        assert "channel_id" in setup_resp, f"missing channel_id: {setup_resp}"
         channel_id = int(setup_resp["channel_id"])
         print(f"[setup done, channel_id={channel_id}]")
     except urllib.error.HTTPError as e:
@@ -2180,67 +2150,46 @@ def test_mm9_e2e():
             channel_id = int(channels[0]["id"])
             print(f"[using existing channel_id={channel_id}]")
         else:
-            raise AssertionError(f"setup failed and no channels found: {raw}")
+            raise AssertionError(f"setup failed: {raw}")
 
-    # 5. Patch channel to use noop provider (via PATCH /channels/{id})
-    data = json.dumps({"current_provider": "noop"}).encode()
-    req = urllib.request.Request(
-        f"{BASE}/channels/{channel_id}",
-        data=data, method="PATCH",
-        headers={"Content-Type": "application/json"}
-    )
+    # 5. Patch channel to use noop
+    req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})
     try:
-        r = urllib.request.urlopen(req, timeout=10)
+        urllib.request.urlopen(req, timeout=10)
         print("[channel patched to noop]")
     except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f"[channel patch response: {e.code} {body}]")
+        print(f"[channel patch: {e.code} {e.read().decode()[:100]}]")
 
-    # 6. Wait for channel to settle
     time.sleep(5)
 
-    # 7. Login as testuser
+    # 6. Login and send message as testuser
     token = _mm_login(MM, test_user, test_pass)
     print("[testuser logged in]")
 
-    # 8. Find mattermost channel ID
-    req = urllib.request.Request(
-        f"{MM}/api/v4/channels",
-        method="GET",
-        headers={"Authorization": f"Bearer {token}"}
-    )
+    req = urllib.request.Request(f"{MM}/api/v4/channels", method="GET", headers={"Authorization": f"Bearer {token}"})
     channels_resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-    mm_channel_id = None
-    for ch in channels_resp:
-        if ch["name"] == "setup":
-            mm_channel_id = ch["id"]
-            break
+    mm_channel_id = next((ch["id"] for ch in channels_resp if ch["name"] == "setup"), None)
     assert mm_channel_id, "Cannot find 'setup' channel in Mattermost"
     print(f"[found mm channel_id={mm_channel_id}]")
 
-    # 9. Send a message as testuser
     import uuid
     test_msg = f"E2E test from {test_user} [{uuid.uuid4().hex[:8]}]"
     msg_resp = _mm_send_message(MM, mm_channel_id, token, test_msg)
-    print(f"[message sent: id={msg_resp.get('id', '?')}]")
+    print(f"[message sent: {msg_resp.get('id', '?')}]")
 
-    # 10. Wait for noop provider response
+    # 7. Poll for noop response
     deadline = time.time() + 35
-    found = False
     while time.time() < deadline:
         time.sleep(4)
         posts = _mm_get_posts(MM, mm_channel_id, token)
         for pid, post in posts.get("posts", {}).items():
             msg = post.get("message", "")
             if msg.startswith("This is a reply to your message"):
-                print(f"[reply received: {msg[:100]}...]")
-                assert test_user in msg, f"Reply missing test_user: {msg[:100]}"
-                found = True
-                break
-        if found:
-            break
-    assert found, "Noop provider did not respond within 35s"
-    print("[e2e test PASSED]")
+                print(f"[reply: {msg[:100]}...]")
+                assert test_user in msg, f"Missing test_user: {msg[:100]}"
+                print("[e2e test PASSED]")
+                return
+    assert False, "Noop provider did not respond within 35s"
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Main

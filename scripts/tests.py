@@ -2510,6 +2510,165 @@ def test_v3_disabled_provider_visible():
 
 
 # ═══════════════════════════════════════════════════════════════════════
+PROMPT_CHANNEL = None  # resolved in setup
+
+# ═══════════════════════════════════════════════════════════════════════
+#  GROUP 11 — Prompt Plugin Tests
+# ═══════════════════════════════════════════════════════════════════════
+
+def _resolve_prompt_channel():
+    """Find a working channel for prompt preview tests."""
+    global PROMPT_CHANNEL
+    if PROMPT_CHANNEL:
+        return
+    for try_name in ["mm-setup", "cron", "kanban"]:
+        try:
+            r = urllib.request.urlopen(
+                urllib.request.Request(
+                    f"{BASE}/prompt-preview/{try_name}",
+                    data=json.dumps({"prompt": "hello", "plan": False}).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                ),
+                timeout=5
+            )
+            if r.status == 200:
+                PROMPT_CHANNEL = try_name
+                return
+        except:
+            pass
+    PROMPT_CHANNEL = "mm-setup"  # fallback
+
+def _pp(prompt: str, plan: bool = False) -> dict:
+    """Call the prompt-preview API and return the response."""
+    _resolve_prompt_channel()
+    r = urllib.request.urlopen(
+        urllib.request.Request(
+            f"{BASE}/prompt-preview/{PROMPT_CHANNEL}",
+            data=json.dumps({"prompt": prompt, "plan": plan}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        ),
+        timeout=30
+    )
+    return json.loads(r.read())
+
+def test_p1_basic_response_structure():
+    """Prompt preview returns system_prompt, messages, and plan fields"""
+    resp = _pp("Hello", plan=False)
+    assert "system_prompt" in resp, f"Missing system_prompt in {resp}"
+    assert "messages" in resp, f"Missing messages in {resp}"
+    assert "plan" in resp, f"Missing plan in {resp}"
+    assert isinstance(resp["system_prompt"], str), "system_prompt not string"
+    assert len(resp["system_prompt"]) > 0, "system_prompt empty"
+    assert isinstance(resp["messages"], list), "messages not list"
+    system_msgs = [m for m in resp["messages"] if m.get("role") == "system"]
+    assert len(system_msgs) >= 1, f"Expected >=1 system msg, got {len(system_msgs)}"
+    for msg in resp["messages"]:
+        assert "role" in msg, f"Message missing role: {msg}"
+        assert "content" in msg, f"Message missing content: {msg}"
+
+def test_p2_plan_true_attempts_llm():
+    """plan=true triggers LLM planning (response may be string or null)"""
+    resp = _pp("Implement a new feature", plan=True)
+    assert resp.get("plan") is None or isinstance(resp.get("plan"), str), \
+        f"plan=true should yield None or str, got {resp.get('plan')!r}"
+
+def test_p2_plan_false_returns_null():
+    """plan=false produces null plan"""
+    resp = _pp("Implement a new feature", plan=False)
+    assert resp.get("plan") is None, f"plan=false should be null, got {resp.get('plan')!r}"
+
+def test_p2_short_message_with_plan():
+    """Short message + plan=true still attempts planning"""
+    resp = _pp("Hi", plan=True)
+    assert resp.get("plan") is None or isinstance(resp.get("plan"), str), \
+        f"Got {resp.get('plan')!r}"
+
+def test_p2_long_complex_no_plan():
+    """Long complex message + plan=false returns null"""
+    resp = _pp(
+        "Please implement a complete refactoring of the authentication system with "
+        "JWT tokens, session management, and role-based access control.",
+        plan=False
+    )
+    assert resp.get("plan") is None, f"plan=false should be null, got {resp.get('plan')!r}"
+
+def test_p3_system_prompt_content():
+    """System prompt contains OmniAgent identity and profile reference"""
+    resp = _pp("What's the weather?", plan=False)
+    sys = resp["system_prompt"]
+    assert "OmniAgent" in sys, f"OmniAgent not in system prompt: {sys[:80]}"
+
+def test_p3_system_message_exists():
+    """At least one system message in the messages array"""
+    resp = _pp("Hello", plan=False)
+    has_sys = any(m.get("role") == "system" for m in resp["messages"])
+    assert has_sys, "No system message found"
+
+def test_p4_greeting_with_plan():
+    """Greeting with plan=true works"""
+    resp = _pp("Hi there!", plan=True)
+    assert resp.get("plan") is None or isinstance(resp.get("plan"), str)
+
+def test_p4_code_request_no_plan():
+    """Code request with plan=false returns null plan"""
+    resp = _pp("Write a Python function to sort a list", plan=False)
+    assert resp.get("plan") is None
+
+def test_p4_empty_prompt():
+    """Empty prompt returns a valid response"""
+    resp = _pp("", plan=False)
+    assert "system_prompt" in resp
+
+def test_p4_long_prompt_no_plan():
+    """Long prompt with plan=false returns null plan"""
+    long_text = "Tell me about " + "artificial intelligence and machine learning, " * 50
+    resp = _pp(long_text, plan=False)
+    assert resp.get("plan") is None
+
+def test_p4_multiline_prompt():
+    """Multiline prompt with plan=false returns null plan"""
+    resp = _pp("Step 1: Do this\nStep 2: Do that\nStep 3: Profit", plan=False)
+    assert resp.get("plan") is None
+
+def test_p5_idempotent_plan_null():
+    """Same input produces same plan type across calls"""
+    msg = "Create a new data pipeline for processing logs"
+    resp1 = _pp(msg, plan=False)
+    resp2 = _pp(msg, plan=False)
+    r1 = resp1.get("plan")
+    r2 = resp2.get("plan")
+    assert (r1 is None and r2 is None) or (isinstance(r1, str) and isinstance(r2, str)), \
+        f"Inconsistent: {r1!r} vs {r2!r}"
+
+def test_p5_stable_system_prompt_length():
+    """System prompt length is stable across identical calls"""
+    msg = "Create a new data pipeline"
+    resp1 = _pp(msg, plan=False)
+    resp2 = _pp(msg, plan=False)
+    diff = abs(len(resp1["system_prompt"]) - len(resp2["system_prompt"]))
+    assert diff < 50, f"Prompt length diff: {diff}"
+
+def test_p6_missing_fallback():
+    """Missing channel falls back to default profile and returns valid response"""
+    try:
+        r = urllib.request.urlopen(
+            urllib.request.Request(
+                f"{BASE}/prompt-preview/nonexistent-channel-xyz",
+                data=json.dumps({"prompt": "hello", "plan": False}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            ),
+            timeout=10
+        )
+        resp = json.loads(r.read())
+        assert "system_prompt" in resp, f"Missing system_prompt in fallback response"
+    except urllib.error.HTTPError as e:
+        # Acceptable if the channel doesn't exist and server returns 400+
+        assert e.code >= 400, f"Unexpected HTTP {e.code}"
+
+# ═══════════════════════════════════════════════════════════════════════
 #  Main
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -2653,6 +2812,30 @@ if __name__ == "__main__":
     ]:
         test(fn)
 
+    print(f"\n{'=' * 60}\n")
+    print("GROUP 11 — Prompt Plugin Tests")
+    print(f"{'=' * 60}")
+
+    for fn in [
+        test_p1_basic_response_structure,
+        test_p2_plan_true_attempts_llm,
+        test_p2_plan_false_returns_null,
+        test_p2_short_message_with_plan,
+        test_p2_long_complex_no_plan,
+        test_p3_system_prompt_content,
+        test_p3_system_message_exists,
+        test_p4_greeting_with_plan,
+        test_p4_code_request_no_plan,
+        test_p4_empty_prompt,
+        test_p4_long_prompt_no_plan,
+        test_p4_multiline_prompt,
+        test_p5_idempotent_plan_null,
+        test_p5_stable_system_prompt_length,
+        test_p6_missing_fallback,
+    ]:
+        test(fn)
+
+    print(f"\n{'=' * 60}")
     print(f"Results: {tests_pass}/{tests_run} passed, {tests_fail} failed")
     print(f"{'=' * 60}")
 

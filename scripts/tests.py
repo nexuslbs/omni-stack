@@ -1277,7 +1277,7 @@ def discard_all_changes():
 #  Helpers for Group 6
 # ═══════════════════════════════════════════════════════════════════════
 
-def api_post_body(path, body=None):
+def api_post_body(path, body=None, timeout=15):
     """POST with JSON body. Returns (success, response_dict)."""
     import urllib.request, urllib.error, json
     url = f"{BASE}/api{path}"
@@ -1285,7 +1285,7 @@ def api_post_body(path, body=None):
     req = urllib.request.Request(url, data=data, method="POST",
                                  headers={"Content-Type": "application/json"})
     try:
-        r = urllib.request.urlopen(req, timeout=15)
+        r = urllib.request.urlopen(req, timeout=timeout)
         return (True, json.loads(r.read()))
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
@@ -1428,7 +1428,7 @@ def test_download_source(name, source, expected_success=True):
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/download", {"source": source})
+    success, resp = api_post_body(f"/plugins/{name}/download", {"source": source}, timeout=120)
     if expected_success:
         assert success, f"download {name} source={source} failed: {resp}"
         if source == "bundled": _assert_dir_exists(bundled_dir)

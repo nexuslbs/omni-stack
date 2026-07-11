@@ -345,15 +345,21 @@ def remove_bundled_plugin(name, plugin_type="tools"):
 def ensure_remote_plugin(name, plugin_type="tools"):
     """Install a remote plugin from the local repo if not already installed."""
     remote_dir = f"{WORKSPACE}/plugins/{plugin_type}/.remote/{name}"
-    if exists(remote_dir):
-        return  # already installed
+    # Check plugin.json exists (not just the directory — may be empty from failed cleanup)
+    plugin_json = f"{remote_dir}/{plugin_type}/{name}/plugin.json"
+    if exists(plugin_json):
+        return  # already installed with files
 
     repo_src = f"{REMOTE_REPO}/{plugin_type}/{name}"
     if not exists(repo_src):
         raise RuntimeError(f"Cannot install remote plugin '{name}': source not found in repo")
 
+    # Clean up empty directory if it exists
+    if os.path.exists(remote_dir):
+        shutil.rmtree(remote_dir)
+
     # Copy source to .remote/<name>/<type>/<name>/
-    dest_base = f"{WORKSPACE}/plugins/{plugin_type}/.remote/{name}"
+    dest_base = remote_dir
     mkdir_p(f"{dest_base}/{plugin_type}")
     cp(repo_src, f"{dest_base}/{plugin_type}/{name}", recursive=True)
 
@@ -1349,7 +1355,9 @@ def _remote_yml_snapshot():
 def _get_plugin_type(name):
     for p in api_get("/plugins")["data"]:
         if p["name"] == name:
-            return p.get("type", "tools")
+            pt = p.get("plugin_type", "tool")
+            # Pluralize to match YAML keys (platform→platforms, provider→providers, tool→tools)
+            return pt + "s"
     return "tools"
 
 def test_enable_source(name, source, expected_success=True):
@@ -2152,7 +2160,7 @@ def _mm_login(base_url, username, password):
 def _mm_send_message(base_url, channel_id, token, message):
     import urllib.request
     data = json.dumps({"channel_id": channel_id, "message": message}).encode()
-    req = urllib.request.Request(f"{base_url}/api/v4/channels/{channel_id}/posts", data=data, method="POST", headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    req = urllib.request.Request(f"{base_url}/api/v4/posts", data=data, method="POST", headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
     return json.loads(urllib.request.urlopen(req, timeout=10).read())
 
 def _mm_get_posts(base_url, channel_id, token):

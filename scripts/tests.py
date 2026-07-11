@@ -1353,11 +1353,16 @@ def _remote_yml_snapshot():
     return read_remote_yml()
 
 def _get_plugin_type(name):
+    # Try API first (plugin is enabled/visible)
     for p in api_get("/plugins")["data"]:
         if p["name"] == name:
             pt = p.get("plugin_type", "tool")
-            # Pluralize to match YAML keys (platform→platforms, provider→providers, tool→tools)
             return pt + "s"
+    # Fall back to YAML (plugin may be disabled/unlisted)
+    data = read_plugins_yml()
+    for section in ("platforms", "providers", "tools"):
+        if name in data.get(section, {}):
+            return section
     return "tools"
 
 def test_enable_source(name, source, expected_success=True):
@@ -1568,7 +1573,9 @@ def test_t6_install_remote_tool():
     """Install a remote tool plugin → success"""
     name = find_first_plugin("remote", "tools")
     if not name:
-        return
+        # Ensure the remote test plugin source is available for install
+        ensure_remote_plugin("test-rust-tool", "tools")
+        name = "test-rust-tool"
     test_install_source(name, "remote")
 
 def test_t6_reinstall_bundled_tool():
@@ -2393,15 +2400,15 @@ if __name__ == "__main__":
 
     for fn in [
         test_t6_enable_bundled_tool,
-        test_t6_enable_remote_tool,
         test_t6_enable_builtin_tool,
         test_t6_disable_bundled_tool,
-        test_t6_disable_remote_tool,
         test_t6_disable_builtin_tool,
         test_t6_install_bundled_tool,
         test_t6_install_remote_tool,
         test_t6_reinstall_bundled_tool,
         test_t6_reinstall_remote_tool,
+        test_t6_enable_remote_tool,
+        test_t6_disable_remote_tool,
         test_t6_download_bundled_tool,
         test_t6_download_remote_tool,
         test_t6_enable_no_source_tool,

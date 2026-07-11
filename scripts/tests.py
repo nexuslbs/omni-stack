@@ -2155,13 +2155,18 @@ def test_mm9_e2e():
     except (urllib.error.HTTPError, urllib.error.URLError, Exception) as e:
         print(f"[setup error (may be already set up): {e}]")
 
-    # Find the omniagent channel ID for mattermost
-    channels_resp = api_get("/channels")
-    channels = channels_resp.get("data") if isinstance(channels_resp, dict) else channels_resp
-    mm_channel = next((ch for ch in (channels or []) if ch.get("platform") == "mattermost"), None)
-    assert mm_channel, f"No mattermost channel found in omniagent channels"
-    channel_id = mm_channel["id"]
-    print(f"[using omniagent channel_id={channel_id} ({mm_channel.get('name')})]")
+    # Find the omniagent channel ID for mattermost (wait for auto-discovery)
+    channel_id = None
+    for _ in range(10):
+        channels_resp = api_get("/channels")
+        channels = channels_resp.get("data") if isinstance(channels_resp, dict) else channels_resp
+        mm_channel = next((ch for ch in (channels or []) if ch.get("platform") == "mattermost"), None)
+        if mm_channel:
+            channel_id = mm_channel["id"]
+            print(f"[found omniagent channel_id={channel_id} ({mm_channel.get('name')})]")
+            break
+        time.sleep(3)
+    assert channel_id is not None, "No mattermost channel found in omniagent channels after setup"
 
     # 5. Patch channel to use noop
     req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})

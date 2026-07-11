@@ -2268,7 +2268,7 @@ def test_mm9_e2e():
 
             # Add testuser to "setup" channel
             channels_resp = json.loads(urllib.request.urlopen(
-                urllib.request.Request(f"{MM}/api/v4/users/me/channels", method="GET",
+                urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
                                        headers={"Authorization": f"Bearer {admin_token}"})
             , timeout=10).read())
             setup_ch = next((ch for ch in channels_resp if ch["name"] == "setup"), None)

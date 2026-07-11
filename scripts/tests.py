@@ -828,20 +828,27 @@ def test_3():
         return
     # Save state before deletion so other tests (e.g. test_6) can still run
     remote_yml_bak = f"{WORKSPACE}/remote.yml.bak"
+    plugins_yml_bak = f"{WORKSPACE}/plugins.yml.bak"
     shutil.copy2(f"{WORKSPACE}/remote.yml", remote_yml_bak)
+    shutil.copy2(f"{WORKSPACE}/plugins.yml", plugins_yml_bak)
     try:
         success, resp = api_delete(f"/plugins/{name}?source=remote")
         assert success, f"expected success, got success={success}, resp={resp}"
     finally:
-        # Restore remote.yml and re-create .remote dir if needed
+        # Restore YAML state so download API can find the entry
+        if os.path.exists(plugins_yml_bak):
+            shutil.copy2(plugins_yml_bak, f"{WORKSPACE}/plugins.yml")
+            os.remove(plugins_yml_bak)
         if os.path.exists(remote_yml_bak):
             shutil.copy2(remote_yml_bak, f"{WORKSPACE}/remote.yml")
             os.remove(remote_yml_bak)
-        for t in ["tools", "platforms", "providers"]:
-            remote_dir = f"{WORKSPACE}/plugins/{t}/.remote/{name}"
-            raw = read_remote_yml()
-            if name in raw.get(t, {}) and not os.path.exists(remote_dir):
-                ensure_remote_plugin(name, t)
+        # Use download API to restore .remote/ directory from git instead of
+        # manually copying files — also validates the download endpoint works
+        # with a proper remote.yml + plugins.yml entry
+        try:
+            api_post(f"/plugins/{name}/download", {"source": "remote"})
+        except Exception:
+            pass  # best-effort restore for subsequent tests
 
 # ── Test 4: Built-in in plugins.yml → error ──────────────────────────
 
@@ -1277,10 +1284,13 @@ def api_post_body(path, body=None):
 
 def find_plugins_by_source(source, plugin_type="tools"):
     """Find plugins of a given source and type from the API list."""
+    # The API returns plugin_type as singular ("tool", "platform", "provider"),
+    # but callers pass plural ("tools", "platforms", "providers")
+    singular_type = plugin_type.rstrip("s")
     plugins = api_get("/plugins")["data"]
     return [p for p in plugins
             if p.get("source") == source
-            and p.get("type") == plugin_type
+            and p.get("plugin_type") == singular_type
             and not p.get("is_duplicated", False)]
 
 def find_first_plugin(source, plugin_type="tools"):
@@ -1546,11 +1556,11 @@ def test_t6_reinstall_remote_tool():
 # ── 6.3: Tool download for each source variant ────────────────────────
 
 def test_t6_download_bundled_tool():
-    """Download a bundled tool plugin → success"""
+    """Download a bundled tool plugin → error (download only supports remote)"""
     name = find_first_plugin("bundled", "tools")
     if not name:
         return
-    test_download_source(name, "bundled")
+    test_download_source(name, "bundled", expected_success=False)
 
 def test_t6_download_remote_tool():
     """Download a remote tool plugin → success"""
@@ -2131,13 +2141,19 @@ def test_mm9_e2e():
     test_pass = "Mattermost_Fresh_Start_1"
     test_user = "testuser"
 
-    # 1. Restart agent for clean plugin state
-    restart_agent()
-
-    # 2. Enable mattermost platform
+    # 1. Ensure mattermost platform is enabled (no restart needed — use API)
     success, resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
     assert success, f"enable mattermost platform failed: {resp}"
     print("[mattermost platform enabled]")
+
+    # 2. Trigger reload to start the platform subprocess with fresh config
+    req = urllib.request.Request(f"{BASE}/api/reload", method="POST")
+    try:
+        r = urllib.request.urlopen(req, timeout=15)
+        print(f"[reload triggered: {r.status}]")
+    except Exception as e:
+        print(f"[reload: {e}]")
+    time.sleep(3)
 
     # 3. Check noop is available (should be enabled after fresh restart)
     r = urllib.request.urlopen(f"{BASE}/api/plugins/noop", timeout=10)
@@ -2157,15 +2173,15 @@ def test_mm9_e2e():
 
     # Find the omniagent channel ID for mattermost (wait for auto-discovery)
     channel_id = None
-    for _ in range(10):
-        channels_resp = api_get("/channels")
-        channels = channels_resp.get("data") if isinstance(channels_resp, dict) else channels_resp
-        mm_channel = next((ch for ch in (channels or []) if ch.get("platform") == "mattermost"), None)
+    for _ in range(15):
+        r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
+        channels = json.loads(r.read()).get("data", [])
+        mm_channel = next((ch for ch in channels if ch.get("platform") == "mattermost"), None)
         if mm_channel:
             channel_id = mm_channel["id"]
             print(f"[found omniagent channel_id={channel_id} ({mm_channel.get('name')})]")
             break
-        time.sleep(3)
+        time.sleep(2)
     assert channel_id is not None, "No mattermost channel found in omniagent channels after setup"
 
     # 5. Patch channel to use noop

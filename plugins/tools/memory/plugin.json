@@ -9,5 +9,27 @@
     "args": [],
     "transport": "stdio"
   },
-  "config_schema": []
+  "config_schema": [
+    {
+      "key": "SUMMARIZE_AFTER_DAYS",
+      "label": "Summarize After Days",
+      "type": "integer",
+      "default": 7,
+      "description": "Number of days before a channel is considered idle and gets automatically summarized"
+    },
+    {
+      "key": "SUMMARY_WINDOW",
+      "label": "Summary Window",
+      "type": "integer",
+      "default": 50,
+      "description": "Number of recent threads to include in the summary"
+    },
+    {
+      "key": "CHANNEL_SUMMARY_TOKENS",
+      "label": "Channel Summary Tokens",
+      "type": "integer",
+      "default": 500,
+      "description": "Max tokens for channel summary generation"
+    }
+  ]
 }

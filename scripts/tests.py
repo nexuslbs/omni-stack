@@ -23,6 +23,14 @@ GROUP 3 — File upload tests:
 
 Running twice on a clean repo produces identical results.
 """
+#
+# IMPORTANT: Tests must NOT restart the container or call pkill omniagent.
+# The container runs cargo-watch which auto-rebuilds from source changes.
+# If a config/state reload is needed, use the API reload endpoint instead
+# of restarting the process. The restart_agent() function is a legacy
+# workaround — avoid adding new calls to it.
+#
+
 
 import os, sys, json, shutil, subprocess, time, re
 import urllib.request, urllib.error
@@ -636,6 +644,7 @@ def test_d1():
         assert not yaml_has(ptype, plugin), "YAML entry still present"
     finally:
         restore_plugins_yml()
+        ensure_bundled_plugin(plugin, ptype)
         restart_agent()
 
 
@@ -659,6 +668,7 @@ def test_d2():
         assert not yaml_has(ptype, plugin), "YAML was affected but shouldn't have been"
     finally:
         restore_plugins_yml()
+        ensure_bundled_plugin(plugin, ptype)
         restart_agent()
 
 

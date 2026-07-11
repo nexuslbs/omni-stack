@@ -2223,10 +2223,18 @@ def test_mm9_e2e():
     assert admin_token, "Admin login returned no Token header"
     print("[admin logged in]")
 
-    # Reset testuser password via admin API
-    reset_data = json.dumps({"password": test_pass}).encode()
+    # Get testuser's user ID to reset password
+    user_resp = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{MM}/api/v4/users/username/{test_user}", method="GET",
+                               headers={"Authorization": f"Bearer {admin_token}"})
+    , timeout=10).read())
+    testuser_id = user_resp.get("id")
+    print(f"[testuser id={testuser_id}]")
+
+    # Reset testuser password via admin API — PUT /api/v4/users/{id}/password with {"new_password": "..."}
+    reset_data = json.dumps({"new_password": test_pass}).encode()
     reset_req = urllib.request.Request(
-        f"{MM}/api/v4/users/username/{test_user}/password",
+        f"{MM}/api/v4/users/{testuser_id}/password",
         data=reset_data, method="PUT",
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"}
     )
@@ -2243,12 +2251,6 @@ def test_mm9_e2e():
     , timeout=10).read())
     team_id = next((t["id"] for t in team_resp if t["name"] == "omni"), None)
     if team_id:
-        # Get testuser's actual user id first
-        user_resp = json.loads(urllib.request.urlopen(
-            urllib.request.Request(f"{MM}/api/v4/users/username/{test_user}", method="GET",
-                                   headers={"Authorization": f"Bearer {admin_token}"})
-        , timeout=10).read())
-        testuser_id = user_resp.get("id")
         if testuser_id:
             # Add testuser to team
             add_member = json.dumps({"user_id": testuser_id, "team_id": team_id}).encode()

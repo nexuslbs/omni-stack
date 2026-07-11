@@ -2216,7 +2216,76 @@ def test_mm9_e2e():
 
     time.sleep(5)
 
-    # 6. Login and send message as testuser
+    # 6. Login as admin to reset testuser password, then login as testuser
+    admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
+    admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
+    admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
+    assert admin_token, "Admin login returned no Token header"
+    print("[admin logged in]")
+
+    # Reset testuser password via admin API
+    reset_data = json.dumps({"password": test_pass}).encode()
+    reset_req = urllib.request.Request(
+        f"{MM}/api/v4/users/username/{test_user}/password",
+        data=reset_data, method="PUT",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"}
+    )
+    try:
+        urllib.request.urlopen(reset_req, timeout=10)
+        print(f"[testuser password reset]")
+    except urllib.error.HTTPError as e:
+        print(f"[reset password: {e.code} {e.read().decode()[:100]}]")
+
+    # Ensure testuser is in team "omni" and channel "setup"
+    team_resp = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{MM}/api/v4/users/me/teams", method="GET",
+                               headers={"Authorization": f"Bearer {admin_token}"})
+    , timeout=10).read())
+    team_id = next((t["id"] for t in team_resp if t["name"] == "omni"), None)
+    if team_id:
+        # Get testuser's actual user id first
+        user_resp = json.loads(urllib.request.urlopen(
+            urllib.request.Request(f"{MM}/api/v4/users/username/{test_user}", method="GET",
+                                   headers={"Authorization": f"Bearer {admin_token}"})
+        , timeout=10).read())
+        testuser_id = user_resp.get("id")
+        if testuser_id:
+            # Add testuser to team
+            add_member = json.dumps({"user_id": testuser_id, "team_id": team_id}).encode()
+            try:
+                urllib.request.urlopen(
+                    urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/members",
+                                           data=add_member, method="POST",
+                                           headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"})
+                , timeout=10)
+                print(f"[testuser added to team omni]")
+            except urllib.error.HTTPError as e:
+                if e.code != 409:  # 409 = already member
+                    raise
+                print(f"[testuser already in team omni]")
+
+            # Add testuser to "setup" channel
+            channels_resp = json.loads(urllib.request.urlopen(
+                urllib.request.Request(f"{MM}/api/v4/users/me/channels", method="GET",
+                                       headers={"Authorization": f"Bearer {admin_token}"})
+            , timeout=10).read())
+            setup_ch = next((ch for ch in channels_resp if ch["name"] == "setup"), None)
+            if setup_ch:
+                add_ch = json.dumps({"user_id": testuser_id, "channel_id": setup_ch["id"]}).encode()
+                try:
+                    urllib.request.urlopen(
+                        urllib.request.Request(f"{MM}/api/v4/channels/{setup_ch['id']}/members",
+                                               data=add_ch, method="POST",
+                                               headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"})
+                    , timeout=10)
+                    print(f"[testuser added to channel setup]")
+                except urllib.error.HTTPError as e:
+                    if e.code != 409:
+                        raise
+                    print(f"[testuser already in channel setup]")
+        print(f"[team omni id={team_id}]")
+
+    # Login as testuser
     token = _mm_login(MM, test_user, test_pass)
     print("[testuser logged in]")
 

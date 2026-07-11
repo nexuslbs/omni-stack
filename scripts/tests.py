@@ -2152,30 +2152,30 @@ def test_mm9_e2e():
         body = r.read().decode()
         if body.strip():
             setup_resp = json.loads(body)
-            if "channel_id" in setup_resp:
-                channel_id = int(setup_resp["channel_id"])
+            if "channel_id" in setup_resp.get("data", {}):
+                channel_id = int(setup_resp["data"]["channel_id"])
                 print(f"[setup done, channel_id={channel_id}]")
             else:
                 print(f"[setup returned: {body[:200]}]")
                 channels = api_get("/channels")
-                if isinstance(channels, list) and channels:
-                    channel_id = int(channels[0]["id"])
+                if isinstance(channels, dict) and channels.get("data"):
+                    channel_id = int(channels["data"][0]["id"])
                     print(f"[using existing channel_id={channel_id}]")
                 else:
                     raise AssertionError(f"setup returned no channel_id and no channels found")
         else:
             print("[setup returned empty body — using channels list]")
             channels = api_get("/channels")
-            if isinstance(channels, list) and channels:
-                channel_id = int(channels[0]["id"])
+            if isinstance(channels, dict) and channels.get("data"):
+                channel_id = int(channels["data"][0]["id"])
                 print(f"[using existing channel_id={channel_id}]")
             else:
                 raise AssertionError("setup returned empty body and no channels found")
     except (urllib.error.HTTPError, urllib.error.URLError, Exception) as e:
         print(f"[setup error: {e}]")
         channels = api_get("/channels")
-        if isinstance(channels, list) and channels:
-            channel_id = int(channels[0]["id"])
+        if isinstance(channels, dict) and channels.get("data"):
+            channel_id = int(channels["data"][0]["id"])
             print(f"[using existing channel_id={channel_id}]")
         else:
             raise AssertionError(f"setup failed: {e}")

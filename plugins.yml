@@ -2,34 +2,12 @@ platforms:
   mattermost:
     enabled: true
     source: bundled
-    config:
-      access_token: $env:MATTERMOST_ACCESS_TOKEN
-      admin_password: $env:MM_USER_PASSWORD
-      admin_user: $env:MM_USERNAME
-      bot_password: $env:MM_BOT_PASSWORD
-      bot_user: $env:MM_BOT_USERNAME
-      connection_mode: websocket
-      max_download_bytes: 500
-      polling_interval: 15
-      server_url: $env:MATTERMOST_SERVER_URL
-      setup_channel: $env:MM_CHANNEL
-      setup_team: $env:MM_TEAM
-      test_password: $env:MM_TEST_PASSWORD
-      test_user: $env:MM_TEST_USERNAME
+    config: {}
   telegram:
     enabled: false
     source: bundled
-    config:
-      bot_token: ''
+    config: {}
 tools:
-  actions:
-    enabled: true
-    source: bundled
-    config: {}
-  docker:
-    enabled: true
-    source: bundled
-    config: {}
   fetch:
     enabled: true
     source: bundled
@@ -62,10 +40,6 @@ tools:
     enabled: false
     source: built-in
     config: {}
-  prompt:
-    enabled: true
-    source: built-in
-    config: {}
   query:
     enabled: true
     source: built-in
@@ -78,27 +52,15 @@ tools:
     enabled: false
     source: bundled
     config: {}
-  prompt:
-    enabled: true
-    source: built-in
-    config: {}
   subtasks:
     enabled: true
     source: built-in
     config: {}
 providers:
-  anthropic:
-    enabled: false
-    source: bundled
-    config:
-      api_key: $env:ANTHROPIC_API_KEY
-      default_model: claude-sonnet-4
   deepseek:
     enabled: true
     source: bundled
-    config:
-      api_key: $env:DEEPSEEK_API_KEY
-      default_model: deepseek-v4-flash
+    config: {}
   noop:
     enabled: true
     source: bundled
@@ -110,12 +72,8 @@ providers:
   openai:
     enabled: false
     source: bundled
-    config:
-      api_key: $env:OPENAI_API_KEY
-      default_model: gpt-4o
+    config: {}
   opencode-go:
     enabled: true
     source: bundled
-    config:
-      api_key: $env:OPENCODE_GO_API_KEY
-      default_model: deepseek-v4-flash
+    config: {}

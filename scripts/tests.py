@@ -2145,18 +2145,9 @@ def _mm_login(base_url, username, password):
     import urllib.request
     data = json.dumps({"login_id": username, "password": password}).encode()
     req = urllib.request.Request(f"{base_url}/api/v4/users/login", data=data, method="POST", headers={"Content-Type": "application/json"})
-    try:
-        return urllib.request.urlopen(req, timeout=10).headers.get("Token")
-    except urllib.error.HTTPError as e:
-        # Try as admin if testuser fails
-        if e.code == 401:
-            body = e.read().decode()
-            print(f"[login as {username}: 401 {body[:80]}]")
-            # Try admin login
-            admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
-            req2 = urllib.request.Request(f"{base_url}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
-            return urllib.request.urlopen(req2, timeout=10).headers.get("Token")
-        raise
+    token = urllib.request.urlopen(req, timeout=10).headers.get("Token")
+    assert token, f"Login as {username} returned no Token header"
+    return token
 
 def _mm_send_message(base_url, channel_id, token, message):
     import urllib.request
@@ -2234,13 +2225,6 @@ def test_mm9_e2e():
     mm_channel_id = next((ch["id"] for ch in channels_resp if ch["name"] == "setup"), None)
     assert mm_channel_id, "Cannot find 'setup' channel in Mattermost"
     print(f"[found mm channel_id={mm_channel_id}]")
-
-    # Get bot token from mattermost plugin config and send as bot
-    r = urllib.request.urlopen(f"{BASE}/api/plugins/mattermost", timeout=10)
-    bot_token = json.loads(r.read()).get("data", {}).get("resolved_env", {}).get("MATTERMOST_ACCESS_TOKEN")
-    if bot_token:
-        print("[using bot token for message]")
-        token = bot_token
 
     import uuid
     test_msg = f"E2E test from {test_user} [{uuid.uuid4().hex[:8]}]"

@@ -2976,6 +2976,13 @@ if __name__ == "__main__":
     print("GROUP 11 — Prompt Plugin Tests")
     print(f"{'=' * 60}")
 
+    # Enable prompt plugin before group — needed for p7 compact-messages tool
+    success, resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    assert success, f"enable prompt plugin failed: {resp}"
+    print("[prompt plugin enabled]")
+    # Wait for MCP server tool registration
+    time.sleep(8)
+
     for fn in [
         test_p1_basic_response_structure,
         test_p2_plan_true_attempts_llm,

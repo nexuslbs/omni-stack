@@ -2250,7 +2250,7 @@ def test_mm9_e2e():
             mm_channel_id = next((ch["id"] for ch in team_channels if ch["name"] == "setup"), None)
 
     assert mm_channel_id, "Cannot find 'setup' channel in Mattermost — setup must create it"
-    print(f"[found mm channel_id={mm_channel_id}]")
+    print(f"[found mm_channel_id={mm_channel_id}]")
 
     # 4. Find the omniagent channel ID for mattermost (wait for auto-discovery)
     channel_id = None
@@ -2265,21 +2265,13 @@ def test_mm9_e2e():
         time.sleep(2)
     assert channel_id is not None, "No mattermost channel found in omniagent channels after setup"
 
-    # 5a. Patch channel to use noop BEFORE re-enabling mattermost
-    #     (so the handler starts with noop already configured)
+    # 5. Patch channel to use noop
     req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})
     try:
         urllib.request.urlopen(req, timeout=10)
         print("[channel patched to noop]")
     except urllib.error.HTTPError as e:
         print(f"[channel patch: {e.code} {e.read().decode()[:100]}]")
-
-    # 5b. Re-enable mattermost platform to pick up fresh bot token (setup creates a new one)
-    success, resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-    if success:
-        print("[mattermost re-enabled after setup]")
-    else:
-        print(f"[mattermost re-enable: {resp}]")
 
     time.sleep(15)
 

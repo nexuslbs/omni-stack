@@ -37,4 +37,5 @@ profiles/default/tmp/
 # ── Data dir (runtime-only: research, generated content) ──
 /data/
 plugins/mcp/.remote/
+plugins/tools/.remote/
 plugins/.remote/

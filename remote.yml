@@ -2,9 +2,6 @@ tools:
   cron:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/cron-echo
-  prompt:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/prompt
   test-js-tool:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-js-tool

@@ -2,7 +2,13 @@ platforms:
   mattermost:
     enabled: true
     source: bundled
-    config: {}
+    config:
+      setup_team: omni
+      setup_channel: setup
+      test_user: testuser
+      test_password: Mattermost_Fresh_Start_1
+      admin_user: lucasbasquerotto
+      admin_password: MTEnivuUVDZ3
   telegram:
     enabled: false
     source: bundled

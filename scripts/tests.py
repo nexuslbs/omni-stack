@@ -2192,7 +2192,9 @@ def _mm_get_posts(base_url, channel_id, token):
     return json.loads(urllib.request.urlopen(req, timeout=10).read())
 
 def test_mm9_e2e():
-    """Full e2e test: mattermost setup -> noop provider response."""
+    """Full e2e test: mattermost setup -> noop provider response.
+    The mattermost plugin config (plugins.yml) defines test_user/test_password
+    so the setup creates the test user, team, and channel automatically."""
     import urllib.request, urllib.error, time
     _check_mm_container()
     MM = "http://mattermost:8065"
@@ -2214,17 +2216,43 @@ def test_mm9_e2e():
     assert nd.get("status") == "enabled", f"noop status={nd.get('status')}, expected enabled"
     print(f"[noop status=enabled]")
 
-    # 3. Run mattermost setup (idempotent — may already exist)
+    # 3. Run mattermost setup — handles team, channel, test user, bot user, token
+    setup_response = None
     try:
         req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST", headers={"Content-Type": "application/json"})
         r = urllib.request.urlopen(req, timeout=15)
         body = r.read().decode()
         if body.strip():
-            print(f"[setup returned: {body[:200]}]")
+            print(f"[setup returned: {body[:300]}]")
+            setup_response = json.loads(body)
     except (urllib.error.HTTPError, urllib.error.URLError, Exception) as e:
         print(f"[setup error (may be already set up): {e}]")
 
-    # Find the omniagent channel ID for mattermost (wait for auto-discovery)
+    # Extract channel_id from setup response (mattermost channel ID, not omniagent channel ID)
+    mm_channel_id = None
+    if setup_response:
+        result = setup_response.get("result") or {}
+        mm_channel_id = result.get("channel_id") or setup_response.get("channel_id")
+
+    # Fallback: find the "setup" channel ID via admin API
+    if not mm_channel_id:
+        admin_token = _mm_login(MM, "lucasbasquerotto", "MTEnivuUVDZ3")
+        team_resp = json.loads(urllib.request.urlopen(
+            urllib.request.Request(f"{MM}/api/v4/users/me/teams", method="GET",
+                                   headers={"Authorization": f"Bearer {admin_token}"})
+        , timeout=10).read())
+        team_id = next((t["id"] for t in team_resp if t["name"] == "omni"), None)
+        if team_id:
+            team_channels = json.loads(urllib.request.urlopen(
+                urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
+                                       headers={"Authorization": f"Bearer {admin_token}"})
+            , timeout=10).read())
+            mm_channel_id = next((ch["id"] for ch in team_channels if ch["name"] == "setup"), None)
+
+    assert mm_channel_id, "Cannot find 'setup' channel in Mattermost — setup must create it"
+    print(f"[found mm channel_id={mm_channel_id}]")
+
+    # 4. Find the omniagent channel ID for mattermost (wait for auto-discovery)
     channel_id = None
     for _ in range(15):
         r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
@@ -2247,89 +2275,9 @@ def test_mm9_e2e():
 
     time.sleep(5)
 
-    # 6. Login as admin to reset testuser password, then login as testuser
-    admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
-    admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
-    admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
-    assert admin_token, "Admin login returned no Token header"
-    print("[admin logged in]")
-
-    # Get testuser's user ID to reset password
-    user_resp = json.loads(urllib.request.urlopen(
-        urllib.request.Request(f"{MM}/api/v4/users/username/{test_user}", method="GET",
-                               headers={"Authorization": f"Bearer {admin_token}"})
-    , timeout=10).read())
-    testuser_id = user_resp.get("id")
-    print(f"[testuser id={testuser_id}]")
-
-    # Reset testuser password via admin API — PUT /api/v4/users/{id}/password with {"new_password": "..."}
-    reset_data = json.dumps({"new_password": test_pass}).encode()
-    reset_req = urllib.request.Request(
-        f"{MM}/api/v4/users/{testuser_id}/password",
-        data=reset_data, method="PUT",
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"}
-    )
-    try:
-        urllib.request.urlopen(reset_req, timeout=10)
-        print(f"[testuser password reset]")
-    except urllib.error.HTTPError as e:
-        print(f"[reset password: {e.code} {e.read().decode()[:100]}]")
-
-    # Ensure testuser is in team "omni" and channel "setup"
-    team_resp = json.loads(urllib.request.urlopen(
-        urllib.request.Request(f"{MM}/api/v4/users/me/teams", method="GET",
-                               headers={"Authorization": f"Bearer {admin_token}"})
-    , timeout=10).read())
-    team_id = next((t["id"] for t in team_resp if t["name"] == "omni"), None)
-    if team_id:
-        if testuser_id:
-            # Add testuser to team
-            add_member = json.dumps({"user_id": testuser_id, "team_id": team_id}).encode()
-            try:
-                urllib.request.urlopen(
-                    urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/members",
-                                           data=add_member, method="POST",
-                                           headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"})
-                , timeout=10)
-                print(f"[testuser added to team omni]")
-            except urllib.error.HTTPError as e:
-                if e.code != 409:  # 409 = already member
-                    raise
-                print(f"[testuser already in team omni]")
-
-            # Add testuser to "setup" channel
-            channels_resp = json.loads(urllib.request.urlopen(
-                urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
-                                       headers={"Authorization": f"Bearer {admin_token}"})
-            , timeout=10).read())
-            setup_ch = next((ch for ch in channels_resp if ch["name"] == "setup"), None)
-            if setup_ch:
-                add_ch = json.dumps({"user_id": testuser_id, "channel_id": setup_ch["id"]}).encode()
-                try:
-                    urllib.request.urlopen(
-                        urllib.request.Request(f"{MM}/api/v4/channels/{setup_ch['id']}/members",
-                                               data=add_ch, method="POST",
-                                               headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"})
-                    , timeout=10)
-                    print(f"[testuser added to channel setup]")
-                except urllib.error.HTTPError as e:
-                    if e.code != 409:
-                        raise
-                    print(f"[testuser already in channel setup]")
-        print(f"[team omni id={team_id}]")
-
-    # Login as testuser
+    # 6. Login as testuser (setup already created the user and set the password)
     token = _mm_login(MM, test_user, test_pass)
     print("[testuser logged in]")
-
-    # Find the "setup" channel ID in Mattermost via admin API
-    team_channels = json.loads(urllib.request.urlopen(
-        urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
-                               headers={"Authorization": f"Bearer {admin_token}"})
-    , timeout=10).read())
-    mm_channel_id = next((ch["id"] for ch in team_channels if ch["name"] == "setup"), None)
-    assert mm_channel_id, "Cannot find 'setup' channel in Mattermost"
-    print(f"[found mm channel_id={mm_channel_id}]")
 
     import uuid
     test_msg = f"E2E test from {test_user} [{uuid.uuid4().hex[:8]}]"

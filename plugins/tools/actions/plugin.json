@@ -3,7 +3,7 @@
   "name": "Actions MCP Server",
   "version": "0.1.0",
   "description": "Built-in action tools — kanban_dispatcher, hindsight_populator, relevance_indexer, setup_knowledge_pipeline",
-  "type": "tool",
+  "type": "mcp",
   "entrypoint": {
     "command": "mcp-server-actions",
     "args": [],

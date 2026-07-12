@@ -2252,6 +2252,13 @@ def test_mm9_e2e():
     assert mm_channel_id, "Cannot find 'setup' channel in Mattermost — setup must create it"
     print(f"[found mm channel_id={mm_channel_id}]")
 
+    # Re-enable mattermost platform to pick up fresh bot token (setup creates a new one)
+    success, resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
+    if success:
+        print("[mattermost re-enabled after setup]")
+    else:
+        print(f"[mattermost re-enable: {resp}]")
+
     # 4. Find the omniagent channel ID for mattermost (wait for auto-discovery)
     channel_id = None
     for _ in range(15):

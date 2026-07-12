@@ -6,7 +6,8 @@ platforms:
   telegram:
     enabled: false
     source: bundled
-    config: {}
+    config:
+      bot_token: ''
 tools:
   fetch:
     enabled: true

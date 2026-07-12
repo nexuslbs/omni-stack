@@ -3011,6 +3011,10 @@ if __name__ == "__main__":
     ]:
         test(fn)
 
+    # Disable prompt plugin after tests
+    api_post_body("/plugins/prompt/disable", {"source": "built-in"})
+    print("[prompt plugin disabled]")
+
     print(f"\n{'=' * 60}")
     print(f"Results: {tests_pass}/{tests_run} passed, {tests_fail} failed")
     print(f"{'=' * 60}")

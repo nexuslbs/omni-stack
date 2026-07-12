@@ -53,6 +53,10 @@ tools:
     enabled: false
     source: bundled
     config: {}
+  prompt:
+    enabled: false
+    source: built-in
+    config: {}
   subtasks:
     enabled: true
     source: built-in

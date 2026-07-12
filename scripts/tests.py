@@ -2280,7 +2280,7 @@ def test_mm9_e2e():
     except urllib.error.HTTPError as e:
         print(f"[channel patch: {e.code} {e.read().decode()[:100]}]")
 
-    time.sleep(5)
+    time.sleep(15)
 
     # 6. Login as testuser (setup already created the user and set the password)
     token = _mm_login(MM, test_user, test_pass)

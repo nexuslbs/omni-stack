@@ -2,7 +2,7 @@
 name = "mcp-server-fetch"
 version = "0.1.0"
 edition = "2021"
-description = "Fetch MCP server — HTTP GET tool using reqwest"
+description = "Fetch MCP server - HTTP GET tool using reqwest"
 
 [dependencies]
 mcp-server-util = { path = "../util" }

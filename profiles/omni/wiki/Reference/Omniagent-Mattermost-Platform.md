@@ -16,29 +16,29 @@ OmniAgent Core (Rust) ←──stdio──→ Mattermost Plugin Binary (Rust)
 ```
 
 ### Capabilities
-- **Outbound** — Send, edit, delete messages via Mattermost REST API
-- **Inbound** — Receive messages via WebSocket (default) or polling (fallback)
-- **Setup** — Create teams, channels, users, bots, and tokens
+- **Outbound** - Send, edit, delete messages via Mattermost REST API
+- **Inbound** - Receive messages via WebSocket (default) or polling (fallback)
+- **Setup** - Create teams, channels, users, bots, and tokens
 
 ### Connection Modes
-- `websocket` (default) — Real-time event stream, lower latency, fewer API calls
-- `polling` — HTTP poll every N seconds (configurable via `polling_interval`)
+- `websocket` (default) - Real-time event stream, lower latency, fewer API calls
+- `polling` - HTTP poll every N seconds (configurable via `polling_interval`)
 
-## Channel Discovery — NO MATTERMOST_CHANNEL_IDS
+## Channel Discovery - NO MATTERMOST_CHANNEL_IDS
 
 **The `MATTERMOST_CHANNEL_IDS` environment variable has been removed.**
 
 The plugin discovers channels automatically at runtime via the Mattermost API:
 
-1. `get_teams()` — which teams the bot is a member of
-2. `get_user_channels()` — all channels within those teams
-3. `discover_channels()` — collected and deduplicated
+1. `get_teams()` - which teams the bot is a member of
+2. `get_user_channels()` - all channels within those teams
+3. `discover_channels()` - collected and deduplicated
 
 When the plugin starts, it calls `discover_channels()` to find all channels the bot belongs to. For WebSocket mode, it auto-discovers and listens for all channels. For polling mode, it polls all discovered channels.
 
 When omniagent needs to deliver a message to a specific Mattermost channel, it:
 1. Looks up the channel in the **omniagent `channels` table** (platform='mattermost')
-2. Reads the `resource_identifier` column — which is the Mattermost channel ID
+2. Reads the `resource_identifier` column - which is the Mattermost channel ID
 3. Passes it to the plugin's `deliver` method as `params.resource_identifier`
 
 **The omniagent channels table is the single source of truth for channel mapping.** Channels are registered when:
@@ -49,21 +49,21 @@ When omniagent needs to deliver a message to a specific Mattermost channel, it:
 
 The setup (`POST /api/plugins/mattermost/setup`) performs a one-time initialization:
 
-1. **Authenticate** — Login as admin to get elevated API access
-2. **Find/create team** — Using `setup_team` config value
-3. **Find/create setup channel** — Using `setup_channel` config value
-4. **Create/find admin user** — First admin or specified by `admin_user`
-5. **Create/find bot user** — Using `bot_user` / `bot_password`
-6. **Register bot** — Create bot account via `/api/v4/bots`
-7. **Create personal access token** — For the bot user (via admin API)
-8. **Add bot to team and channel** — So it can receive messages
-9. **Return credentials** — Token, team_id, channel_id, bot_user_id
+1. **Authenticate** - Login as admin to get elevated API access
+2. **Find/create team** - Using `setup_team` config value
+3. **Find/create setup channel** - Using `setup_channel` config value
+4. **Create/find admin user** - First admin or specified by `admin_user`
+5. **Create/find bot user** - Using `bot_user` / `bot_password`
+6. **Register bot** - Create bot account via `/api/v4/bots`
+7. **Create personal access token** - For the bot user (via admin API)
+8. **Add bot to team and channel** - So it can receive messages
+9. **Return credentials** - Token, team_id, channel_id, bot_user_id
 
 The returned token is written to `.env` as `MATTERMOST_ACCESS_TOKEN`.
 
 ## Design Invariants (THE 3 RULES)
 
-### Rule 1: No MATTERMOST_CHANNEL_IDS — Use DB Channels
+### Rule 1: No MATTERMOST_CHANNEL_IDS - Use DB Channels
 
 **Do NOT use `MATTERMOST_CHANNEL_IDS` anywhere.**
 
@@ -71,15 +71,15 @@ The returned token is written to `.env` as `MATTERMOST_ACCESS_TOKEN`.
 - The `resource_identifier` column holds the Mattermost channel ID
 - When you need a channel ID, query the DB: `SELECT * FROM channels WHERE platform = 'mattermost' AND resource_identifier = '<mm_channel_id>'`
 - When you need to find which Mattermost channels are active: query channels where `platform = 'mattermost' AND closed = false`
-- Auto-registration of new channels happens on inbound messages — the omniagent core creates a DB channel entry when it receives a message from a channel it hasn't seen before
+- Auto-registration of new channels happens on inbound messages - the omniagent core creates a DB channel entry when it receives a message from a channel it hasn't seen before
 
 **Files to check for removal when modifying the platform:**
-- `.env` — remove `MATTERMOST_CHANNEL_IDS` line
-- `mm-setup.py` — no longer writes to `MATTERMOST_CHANNEL_IDS`
-- `scripts/*.py` — no references to `MATTERMOST_CHANNEL_IDS`
-- `README.md`, `AGENTS.md` — no documentation of `MATTERMOST_CHANNEL_IDS`
-- Skill files — update any references
-- `docker-compose.yml` / `docker-compose.mm.yml` — no env var mapping
+- `.env` - remove `MATTERMOST_CHANNEL_IDS` line
+- `mm-setup.py` - no longer writes to `MATTERMOST_CHANNEL_IDS`
+- `scripts/*.py` - no references to `MATTERMOST_CHANNEL_IDS`
+- `README.md`, `AGENTS.md` - no documentation of `MATTERMOST_CHANNEL_IDS`
+- Skill files - update any references
+- `docker-compose.yml` / `docker-compose.mm.yml` - no env var mapping
 
 ### Rule 2: Env Changes Reload Without Restart
 
@@ -91,9 +91,9 @@ The omniagent has a **`POST /api/reload`** endpoint that:
 3. Refreshes the process environment in-place
 
 This is also called automatically during:
-- **Startup** — `main.rs` calls `refresh_env_from_file()` before registering plugins
-- **Platform config update** — `reload_platform_plugin()` refreshes env before restarting the subprocess
-- **Tool plugin reload** — `reload_tool_plugin()` refreshes env before reconnecting
+- **Startup** - `main.rs` calls `refresh_env_from_file()` before registering plugins
+- **Platform config update** - `reload_platform_plugin()` refreshes env before restarting the subprocess
+- **Tool plugin reload** - `reload_tool_plugin()` refreshes env before reconnecting
 
 **How to pick up new .env values after editing:**
 ```bash
@@ -112,9 +112,9 @@ curl -X POST http://localhost:8080/api/reload
 
 The setup is a **one-time** operation that should never need to repeat. Here's why:
 
-1. **Tokens persist in `.env`** — The setup writes the token to `MATTERMOST_ACCESS_TOKEN` in `.env`. On container restart, `refresh_env_from_file()` at startup loads it into the process environment. If no separate `.env` volume is used, the token is embedded in the Docker env at container creation time.
+1. **Tokens persist in `.env`** - The setup writes the token to `MATTERMOST_ACCESS_TOKEN` in `.env`. On container restart, `refresh_env_from_file()` at startup loads it into the process environment. If no separate `.env` volume is used, the token is embedded in the Docker env at container creation time.
 
-2. **Token recovery on invalidation** — If the token becomes invalid (expired, revoked, or the container was rebuilt with stale Docker env vars):
+2. **Token recovery on invalidation** - If the token becomes invalid (expired, revoked, or the container was rebuilt with stale Docker env vars):
    - The mattermost plugin fails to authenticate (403 from `get_me()`)
    - It logs the error and keeps trying to reconnect
    - The **admin should reload the env** (`POST /api/reload`) or **re-run setup** only if the token truly cannot be recovered
@@ -149,7 +149,7 @@ On omniagent container start:
 | `MATTERMOST_POLLING_INTERVAL` | No | Seconds between polls (default: 15, min: 5, max: 300) |
 
 **NOT used (removed):**
-- ~~`MATTERMOST_CHANNEL_IDS`~~ — Use DB channels table instead
+- ~~`MATTERMOST_CHANNEL_IDS`~~ - Use DB channels table instead
 
 ## Troubleshooting
 
@@ -165,5 +165,5 @@ On omniagent container start:
 
 ### Channels not being received
 1. The bot user must be added to the channel in Mattermost
-2. The plugin auto-discovers channels via the API — if the bot isn't a member, it won't see it
+2. The plugin auto-discovers channels via the API - if the bot isn't a member, it won't see it
 3. After adding the bot to a new channel in Mattermost, it should be auto-discovered within the next polling cycle or WS event

@@ -2,13 +2,13 @@
 """Noop-provider: OpenAI-compatible chat completions server for OmniAgent testing.
 
 Implements POST /v1/chat/completions returning a fake response quoting the user's
-last message. No actual LLM call is made — purely for testing channel/provider flows.
+last message. No actual LLM call is made - purely for testing channel/provider flows.
 
 Usage:
     python3 server.py [--port PORT]
 
 Environment:
-    PORT (default: 9090) — listen port
+    PORT (default: 9090) - listen port
 """
 
 import json
@@ -106,7 +106,7 @@ class NoopHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format, *args):
-        """Override default logging — quieter."""
+        """Override default logging - quieter."""
         if "GET /health" not in str(args) and "GET / " not in str(args):
             super().log_message(format, *args)
 
@@ -115,8 +115,8 @@ def main():
     port = int(os.environ.get("PORT", "9090"))
     server = HTTPServer(("0.0.0.0", port), NoopHandler)
     print(f"[noop-provider] Listening on http://0.0.0.0:{port}")
-    print(f"[noop-provider] POST /v1/chat/completions — returns fake response")
-    print(f"[noop-provider] GET  /v1/models           — lists test models")
+    print(f"[noop-provider] POST /v1/chat/completions - returns fake response")
+    print(f"[noop-provider] GET  /v1/models           - lists test models")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

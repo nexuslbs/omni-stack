@@ -100,7 +100,7 @@ services:
     logging:
       driver: journald
 
-  # ── Toolbox — always-running utility with backup/cron + dev tools ───
+  # ── Toolbox - always-running utility with backup/cron + dev tools ───
   toolbox:
     image: ${TOOLBOX_IMAGE:-ghcr.io/nexuslbs/omni-stack-toolbox:latest}
     build:
@@ -143,7 +143,7 @@ services:
     logging:
       driver: journald
 
-  # ── Memory — Hindsight (profile: memory) ─────────────────────────────
+  # ── Memory - Hindsight (profile: memory) ─────────────────────────────
   hindsight:
     image: ghcr.io/vectorize-io/hindsight:0.7.2
     profiles: ["memory", "all"]
@@ -202,7 +202,7 @@ services:
     logging:
       driver: journald
 
-  # ── Observability — Log Pipeline: Vector → Loki ───────────────────────
+  # ── Observability - Log Pipeline: Vector → Loki ───────────────────────
   vector:
     profiles: ["logs", "all"]
     container_name: omni-vector
@@ -245,7 +245,7 @@ services:
     logging:
       driver: journald
 
-  # ── Observability — Metrics: cAdvisor → Prometheus ────────────────────
+  # ── Observability - Metrics: cAdvisor → Prometheus ────────────────────
   cadvisor:
     profiles: ["cadvisor", "all"]
     image: ghcr.io/google/cadvisor:v0.57.0
@@ -282,7 +282,7 @@ services:
     logging:
       driver: journald
 
-  # ── Observability — Dashboards ─────────────────────────────────────────
+  # ── Observability - Dashboards ─────────────────────────────────────────
   grafana:
     profiles: ["logs", "monitor", "cadvisor", "all"]
     container_name: omni-grafana
@@ -311,7 +311,7 @@ services:
     logging:
       driver: journald
 
-  # ── Observability — Cloudflare Tunnel ──────────────────────────────────
+  # ── Observability - Cloudflare Tunnel ──────────────────────────────────
   cloudflared:
     profiles: ["tunnel", "all"]
     container_name: omni-cloudflared

@@ -1,6 +1,6 @@
 # Omni-Stack
 
-Deployment, configuration, and plugin infrastructure for **OmniAgent** — a next-generation agent system built with Rust, PostgreSQL + pgvector, and MCP tool support.
+Deployment, configuration, and plugin infrastructure for **OmniAgent** - a next-generation agent system built with Rust, PostgreSQL + pgvector, and MCP tool support.
 
 This repository contains everything needed to run the OmniAgent stack in production or development: docker-compose files, plugin definitions (MCP servers, platforms, providers), CI/CD, backup infrastructure, and profile/template management.
 
@@ -88,9 +88,9 @@ omni-stack/
    cp .env.example .env
    ```
    Edit `.env` and set at minimum:
-   - `LLM_API_KEY` — your LLM provider API key
-   - `OMNIAGENT_IMAGE` — set to `ghcr.io/nexuslbs/omniagent:latest` (or `omniagent:local` for local builds)
-   - `POSTGRES_PASSWORD` — secure password for PostgreSQL
+   - `LLM_API_KEY` - your LLM provider API key
+   - `OMNIAGENT_IMAGE` - set to `ghcr.io/nexuslbs/omniagent:latest` (or `omniagent:local` for local builds)
+   - `POSTGRES_PASSWORD` - secure password for PostgreSQL
 
 3. **Start the stack** (production):
    ```bash
@@ -109,8 +109,8 @@ This starts:
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
 | **omniagent** | `ghcr.io/nexuslbs/omniagent` | 8080 | The agent API |
-| **postgres** | `pgvector/pgvector:pg16` | — | Message storage with vector embeddings |
-| **qdrant** | `qdrant/qdrant:v1.18.2` | — | Vector similarity search |
+| **postgres** | `pgvector/pgvector:pg16` | - | Message storage with vector embeddings |
+| **qdrant** | `qdrant/qdrant:v1.18.2` | - | Vector similarity search |
 
 ### Verify
 
@@ -128,9 +128,9 @@ curl http://localhost:8080/health
 Cron schedules use **5-field Linux format** (`min hour day month weekday`). The scheduler internally prepends `0` (second=0) for the `cron` crate. Both `create_cron_job` and `update_cron_job` MCP tools validate exactly 5 fields.
 
 Examples:
-- `0 * * * *` — every hour
-- `*/15 * * * *` — every 15 minutes
-- `0 9 * * 1-5` — weekdays at 9am
+- `0 * * * *` - every hour
+- `*/15 * * * *` - every 15 minutes
+- `0 9 * * 1-5` - weekdays at 9am
 
 ### Profiles
 
@@ -148,7 +148,7 @@ OmniAgent uses a **three-source** plugin system:
 
 | Source | Location | Description |
 |--------|----------|-------------|
-| **Bundled** | `plugins/{type}/{name}/` | Standalone crates — actual source code in this repo |
+| **Bundled** | `plugins/{type}/{name}/` | Standalone crates - actual source code in this repo |
 | **Built-in** | `/app/plugins/{type}/{name}/` | Workspace crates inside the omniagent Docker image |
 | **Remote** | `plugins/{type}/.remote/{name}/` | Git-cloned from external repositories |
 
@@ -162,7 +162,7 @@ OmniAgent uses a **three-source** plugin system:
 
 **Builtin plugins** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight) are workspace members of omniagent at `/app/plugins/mcp/<name>/`. They only have mcp-config.json, not plugin.json. They require `builtin: true` in YAML to activate and are disabled by default.
 
-**Erroneous binary-only copies** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight also exist as binary-only directories here) — these will be removed in a future cleanup. The dashboard shows them as duplicated with a yellow badge. Install/Reinstall falls back to the builtin source automatically.
+**Erroneous binary-only copies** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight also exist as binary-only directories here) - these will be removed in a future cleanup. The dashboard shows them as duplicated with a yellow badge. Install/Reinstall falls back to the builtin source automatically.
 
 For detailed internal documentation, see [AGENTS.md](AGENTS.md).
 
@@ -170,10 +170,10 @@ For detailed internal documentation, see [AGENTS.md](AGENTS.md).
 
 Provider plugins declare which API format they use via `plugin.json`:
 
-- **`api_mode`** — the default API format for all models. One of:
-  - `"chat_completions"` — OpenAI-compatible `/v1/chat/completions` (default)
-  - `"anthropic_messages"` — Anthropic Messages API `/v1/messages`
-- **`api_modes`** (optional) — per-model overrides, keyed by the API mode with wildcard patterns as values. The first matching pattern wins.
+- **`api_mode`** - the default API format for all models. One of:
+  - `"chat_completions"` - OpenAI-compatible `/v1/chat/completions` (default)
+  - `"anthropic_messages"` - Anthropic Messages API `/v1/messages`
+- **`api_modes`** (optional) - per-model overrides, keyed by the API mode with wildcard patterns as values. The first matching pattern wins.
 
 ```json
 {
@@ -188,7 +188,7 @@ Provider plugins declare which API format they use via `plugin.json`:
 
 Wildcards (`*`) match any sequence of characters. A pattern like `"minimax-*"` matches model IDs starting with `"minimax-"`, while a bare `"minimax"` (no `*`) only matches the exact string `"minimax"`.
 
-This replaces the old `"dynamic"` api_mode — no hardcoded model-to-mode mappings needed in omniagent.
+This replaces the old `"dynamic"` api_mode - no hardcoded model-to-mode mappings needed in omniagent.
 
 ---
 
@@ -210,13 +210,13 @@ The dev compose adds:
 ## CI/CD
 
 The `.github/workflows/publish.yml` workflow builds and publishes Docker images to GHCR on:
-- **Push to `stable`** — tags `omniagent:latest`, `omni-dashboard:latest`, `toolbox:latest`
-- **Push to `v*` tags** — tags each image with the semver tag (e.g., `omniagent:1.2.3`)
+- **Push to `stable`** - tags `omniagent:latest`, `omni-dashboard:latest`, `toolbox:latest`
+- **Push to `v*` tags** - tags each image with the semver tag (e.g., `omniagent:1.2.3`)
 
 Three parallel jobs build:
-1. **omniagent** — from [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) (multi-stage Rust build)
-2. **omni-dashboard** — from [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) (Svelte + Vite)
-3. **toolbox** — from this repo (`services/toolbox/Dockerfile`, alpine-based maintenance container)
+1. **omniagent** - from [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) (multi-stage Rust build)
+2. **omni-dashboard** - from [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) (Svelte + Vite)
+3. **toolbox** - from this repo (`services/toolbox/Dockerfile`, alpine-based maintenance container)
 
 ---
 
@@ -224,9 +224,9 @@ Three parallel jobs build:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_API_KEY` | — | LLM provider API key |
+| `LLM_API_KEY` | - | LLM provider API key |
 | `OMNIAGENT_IMAGE` | `ghcr.io/nexuslbs/omniagent:latest` | OmniAgent image reference |
-| `POSTGRES_PASSWORD` | — | PostgreSQL password |
+| `POSTGRES_PASSWORD` | - | PostgreSQL password |
 | `MEMORY_MAX_CHARS` | `5000` | Max characters in MEMORY.md |
 | `USER_MAX_CHARS` | `1000` | Max characters for user memory |
 | `PLANNING_MODE` | `auto_plan` | Global planning mode |
@@ -239,7 +239,7 @@ When remote plugins are added via `install-git` or updated via Download (Update)
 
 **How it works:**
 - The first plugin from a given git URL triggers a one-time `git clone --mirror` into `.git-cache/<sha256(url)>/`
-- Each subsequent plugin from the same URL uses `git clone --reference <cache>` — an **instant, zero-network** local clone that hardlinks objects from the cache
+- Each subsequent plugin from the same URL uses `git clone --reference <cache>` - an **instant, zero-network** local clone that hardlinks objects from the cache
 - On Update, the cache is refreshed with `git remote update --prune` before the per-plugin fetch+reset
 
 **Benefits:**

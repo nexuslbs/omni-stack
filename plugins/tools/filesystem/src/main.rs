@@ -1,4 +1,4 @@
-//! mcp-server-filesystem — standalone MCP server for local file operations.
+//! mcp-server-filesystem: standalone MCP server for local file operations.
 //! Communicates via stdio JSON-RPC (MCP protocol).
 //!
 //! Tools: filesystem_read, filesystem_write, filesystem_list, filesystem_search, filesystem_info

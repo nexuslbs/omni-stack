@@ -11,18 +11,18 @@ VM_CPUS   = config_file.dig('vm', 'cpus')   || 2
 VM_DISK   = config_file.dig('vm', 'disk')   || "50GB"
 
 Vagrant.configure("2") do |config|
-  # ── Base Box ─────────────────────────────────────────────────────────
+  #  Base Box 
   config.vm.box = "generic/ubuntu2204"
 
   unless File.exist?(File.join(__dir__, '.vagrant/machines/default/hyperv/id'))
-    # ── Primary Disk ─────────────────────────────────────────────────────
+    #  Primary Disk 
     config.vm.disk :disk, size: VM_DISK, primary: true
   end
 
-  # ── No Host File Sharing (security) ─────────────────────────────────
+  #  No Host File Sharing (security) 
   config.vm.synced_folder ".", "/vagrant", disabled: true
 
-  # ── VM Resources ────────────────────────────────────────────────────
+  #  VM Resources 
   config.vm.provider "virtualbox" do |vb|
     vb.memory = VM_MEMORY.to_i
     vb.maxmemory = VM_MEMORY.to_i
@@ -38,16 +38,16 @@ Vagrant.configure("2") do |config|
     hv.enable_enhanced_session_mode = false
   end
 
-  # ── Network ─────────────────────────────────────────────────────────
+  #  Network 
   config.vm.provider "virtualbox" do |_vb, override|
     override.vm.network "private_network", type: "dhcp"
   end
 
-  # ── SSH ─────────────────────────────────────────────────────────────
+  #  SSH 
   config.ssh.forward_agent = false
   config.ssh.insert_key = true
 
-  # ── Install Docker Engine + Compose ─────────────────────────────────
+  #  Install Docker Engine + Compose 
   config.vm.provision "shell", name: "install-docker", privileged: true, inline: <<-SHELL
     set -euxo pipefail
 
@@ -81,7 +81,7 @@ Vagrant.configure("2") do |config|
     docker compose version
   SHELL
 
-  # ── Clone Repo + Run Startup ───────────────────────────────────────
+  #  Clone Repo + Run Startup 
   config.vm.provision "shell", name: "setup-omniagent", privileged: true, inline: <<-SHELL
     set -euxo pipefail
 
@@ -96,7 +96,7 @@ Vagrant.configure("2") do |config|
     bash /opt/omniagent/scripts/startup.sh
   SHELL
 
-  # ── Mattermost Setup (conditional on .env credentials) ──────────────
+  #  Mattermost Setup (conditional on .env credentials) 
   config.vm.provision "shell", name: "setup-mattermost", privileged: true, inline: <<-SHELL
     set -euxo pipefail
 
@@ -104,7 +104,7 @@ Vagrant.configure("2") do |config|
 
     # Only proceed if .env exists and has Mattermost credentials
     if [ ! -f "$ENV_FILE" ]; then
-      echo "SKIP: No .env found at $ENV_FILE — Mattermost setup skipped"
+      echo "SKIP: No .env found at $ENV_FILE: Mattermost setup skipped"
       exit 0
     fi
 
@@ -120,7 +120,7 @@ Vagrant.configure("2") do |config|
       exit 0
     fi
 
-    echo "Mattermost credentials found — running setup..."
+    echo "Mattermost credentials found: running setup..."
 
     COMPOSE="docker compose -f /opt/omni-stack/docker-compose.yml --profile manual"
 

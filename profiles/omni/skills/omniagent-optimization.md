@@ -2,7 +2,7 @@
 
 ## Overview
 
-This skill documents the iterative optimization process for OmniAgent — a Rust-based autonomous agent. The goal is to improve:
+This skill documents the iterative optimization process for OmniAgent: a Rust-based autonomous agent. The goal is to improve:
 - **Token efficiency** (reduce prompt tokens, increase cache ratio)
 - **Loop efficiency** (fewer LLM turns, fewer duplicate tool calls)
 - **Memory/wiki retrieval** (use existing knowledge before fetching external data)
@@ -115,7 +115,7 @@ For each optimization, run a research task with:
 ### Research Topics (9 iterations)
 
 Each iteration uses a different research topic to ensure generalization:
-1. PostgreSQL vector extensions (pgvector, pgvecto.rs, pg_embedding, pg_vectorize) — DONE as baseline
+1. PostgreSQL vector extensions (pgvector, pgvecto.rs, pg_embedding, pg_vectorize): DONE as baseline
 2. Rust async runtimes (Tokio vs async-std vs smol)
 3. Container orchestration (Kubernetes vs Nomad vs Docker Swarm)
 4. Python web frameworks (FastAPI vs Django vs Flask vs Starlette)

@@ -370,7 +370,7 @@ impl MattermostClient {
     }
 
     /// Download the actual content of a file.
-    /// Returns the raw bytes — caller should check MIME type and size.
+    /// Returns the raw bytes: caller should check MIME type and size.
     async fn get_file_content(&self, file_id: &str) -> Result<Vec<u8>> {
         let resp = self
             .http_client
@@ -426,11 +426,11 @@ impl MattermostClient {
 }
 
 // ---------------------------------------------------------------------------
-// MattermostClient — Setup API methods
+// MattermostClient: Setup API methods
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// MattermostClient — Setup API methods
+// MattermostClient: Setup API methods
 // ---------------------------------------------------------------------------
 
 impl MattermostClient {
@@ -866,7 +866,7 @@ struct DeliverParams {
     #[serde(default)]
     cause_external_id: Option<String>,
     /// If the cause message was itself a reply in a thread, use this as the
-    /// reply target instead of cause_external_id — Mattermost doesn't allow
+    /// reply target instead of cause_external_id: Mattermost doesn't allow
     /// nested threads, so all replies must reference the thread root.
     #[serde(default)]
     cause_root_id: Option<String>,
@@ -931,7 +931,7 @@ struct PluginConfig {
     polling_enabled: bool,
     #[serde(default = "default_polling_interval", deserialize_with = "deserialize_u64_from_string_or_number")]
     polling_interval: u64,
-    // channel_ids removed — plugin auto-discovers channels from omniagent channel records
+    // channel_ids removed: plugin auto-discovers channels from omniagent channel records
     #[serde(default)]
     setup_team: String,
     #[serde(default = "default_setup_channel")]
@@ -1041,7 +1041,7 @@ async fn main() -> Result<()> {
     let stdout = tokio::io::stdout();
     let mut writer = tokio::io::BufWriter::new(stdout);
 
-    // ── 1. Handle initialize (first message) ──────────────────────────────
+    //  1. Handle initialize (first message) 
     let first_line = lines.next_line().await?.unwrap_or_default();
     let request: PluginRequest = serde_json::from_str(&first_line)
         .context("Expected initialize request as first message")?;
@@ -1067,7 +1067,7 @@ async fn main() -> Result<()> {
     writer.write_all(b"\n").await?;
     writer.flush().await?;
 
-    // ── 2. Handle configure (second message) ───────────────────────────────
+    //  2. Handle configure (second message) 
     let second_line = lines.next_line().await?.unwrap_or_default();
     let request: PluginRequest = serde_json::from_str(&second_line)
         .context("Expected configure request as second message")?;
@@ -1119,7 +1119,7 @@ async fn main() -> Result<()> {
     let access_token = config.access_token;
 
     if is_setup_mode {
-        // ── Setup mode: read setup request, process, exit ──
+        //  Setup mode: read setup request, process, exit 
         let third_line = lines.next_line().await?.unwrap_or_default();
         let request: PluginRequest = match serde_json::from_str(&third_line) {
             Ok(r) => r,
@@ -1161,14 +1161,14 @@ async fn main() -> Result<()> {
         // Determine which client to use for setup.
         // Priority: admin credentials (full admin privileges) >
         //           default password fallback (handles password-changed scenario) >
-        //           access token / bot PAT (limited — can't update passwords) >
+        //           access token / bot PAT (limited: can't update passwords) >
         //           create first user (fresh DB only)
         //
         // This ordering ensures admin operations (password update, token creation,
         // config changes) always use an admin session, not a bot PAT which lacks
         // sufficient privileges.
         let client: MattermostClient = 'client: {
-            // ── 1. Try admin login with configured credentials ──
+            //  1. Try admin login with configured credentials 
             if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
                 if let Some(adm) =
                     login_admin_client(&server_url, &params.admin_user, &params.admin_password).await
@@ -1183,13 +1183,13 @@ async fn main() -> Result<()> {
                 );
             }
 
-            // ── 2. Try access token (bot PAT — valid auth but limited privileges) ──
+            //  2. Try access token (bot PAT: valid auth but limited privileges) 
             if let Some(token) = &access_token {
                 let test_client = MattermostClient::new(&server_url, token);
                 match test_client.get_me().await {
                     Ok(me) => {
                         tracing::warn!(
-                            "Access token is valid but '{}' is NOT an admin (role: system_user) — admin operations will fail. Setup will be limited.",
+                            "Access token is valid but '{}' is NOT an admin (role: system_user): admin operations will fail. Setup will be limited.",
                             me.username
                         );
                         break 'client test_client;
@@ -1200,10 +1200,10 @@ async fn main() -> Result<()> {
                 }
             }
 
-            // ── 4. Fresh DB: create first admin user (no auth needed) ──
+            //  4. Fresh DB: create first admin user (no auth needed) 
             if !params.admin_user.is_empty() {
                 if params.admin_password.is_empty() {
-                    tracing::error!("admin_password is empty — must provide a password to create admin user '{}'", params.admin_user);
+                    tracing::error!("admin_password is empty: must provide a password to create admin user '{}'", params.admin_user);
                     let err_resp = serde_json::json!({
                         "id": id,
                         "error": { "code": -1, "message": format!(
@@ -1234,7 +1234,7 @@ async fn main() -> Result<()> {
                         return Ok(());
                     }
                     Err(e) => {
-                        // create_first_user failed — users already exist and all auth methods exhausted
+                        // create_first_user failed: users already exist and all auth methods exhausted
                         tracing::error!("All authentication methods exhausted: admin login, default password, access token, and create_first_user all failed. Users likely exist with an unknown password.");
                         let err_resp = serde_json::json!({
                             "id": id,
@@ -1258,7 +1258,7 @@ async fn main() -> Result<()> {
                 }
             }
 
-            // ── 5. Nothing worked — error ──
+            //  5. Nothing worked: error 
             let err_resp = serde_json::json!({
                 "id": id,
                 "error": { "code": -1, "message": "No valid access_token and no admin_user + admin_password provided for bootstrap" }
@@ -1287,7 +1287,7 @@ async fn main() -> Result<()> {
     let max_download_bytes = config.max_download_bytes;
 
     // Always create a client (it's just a wrapper around reqwest + auth header).
-    // With a missing or invalid token, API calls will 401 — they already have
+    // With a missing or invalid token, API calls will 401: they already have
     // proper error handling. The plugin stays alive regardless.
     let mut owned_access_token = access_token.unwrap_or_default();
     let mut client = MattermostClient::new(&server_url, &owned_access_token);
@@ -1309,7 +1309,7 @@ async fn main() -> Result<()> {
                     "Failed to authenticate with Mattermost: {:?}. Attempting auto-recovery...",
                     e
                 );
-                // ── Auto-recovery: create a new PAT using admin credentials ──
+                //  Auto-recovery: create a new PAT using admin credentials 
                 let recovered: Option<(MattermostClient, String, MattermostUser)> = 'recover: {
                     let admin_user = match config.admin_user {
                         Some(ref u) if !u.is_empty() => u.clone(),
@@ -1412,7 +1412,7 @@ async fn main() -> Result<()> {
     };
 
 
-    // ── Inbound (polling or WebSocket) ──────────────────────────────────
+    //  Inbound (polling or WebSocket) 
     let use_websocket = connection_mode == "websocket";
     let inbound_handle: Option<tokio::task::JoinHandle<()>> = match bot_user.as_ref() {
         Some(bot) if use_websocket => {
@@ -1500,7 +1500,7 @@ async fn main() -> Result<()> {
         _ => None,
     };
 
-    // ── Main request-response loop ─────────────────────────────────────
+    //  Main request-response loop 
     // Cache bot_user_id for the react handler
     let bot_user_id: Option<&str> = bot_user.as_ref().map(|u| u.id.as_str());
 
@@ -1639,7 +1639,7 @@ async fn handle_deliver(
     let channel_id = &params.resource_identifier;
     let content = &params.content;
 
-    // Skip delivery of empty content — prevents posting blank plan/reasoning messages
+    // Skip delivery of empty content: prevents posting blank plan/reasoning messages
     if content.trim().is_empty() {
         return make_success(
             id,
@@ -1653,7 +1653,7 @@ async fn handle_deliver(
     // Determine if this is a threaded reply.
     // Mattermost uses root_id for threading. When the user's message was
     // inside an existing thread (cause_root_id is set), use that as the
-    // reply target — Mattermost doesn't allow nested threads, so all
+    // reply target: Mattermost doesn't allow nested threads, so all
     // replies must reference the thread root. Otherwise use cause_external_id.
     let root_id = if params.cause_root_id.as_ref().is_some_and(|r| !r.is_empty()) {
         params.cause_root_id.as_deref()
@@ -1908,13 +1908,13 @@ async fn create_first_user(server_url: &str, username: &str, password: &str, ema
 async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, params: &SetupParams) -> PluginResponse {
     // Validate required fields
     if params.setup_team.is_empty() {
-        return make_error(id, -1, "Missing required config: setup_team — set it in the plugin config");
+        return make_error(id, -1, "Missing required config: setup_team: set it in the plugin config");
     }
     if params.setup_channel.is_empty() {
-        return make_error(id, -1, "Missing required config: setup_channel — set it in the plugin config");
+        return make_error(id, -1, "Missing required config: setup_channel: set it in the plugin config");
     }
     if params.bot_user.is_empty() {
-        return make_error(id, -1, "Missing required config: bot_user — set it in the plugin config");
+        return make_error(id, -1, "Missing required config: bot_user: set it in the plugin config");
     }
 
     tracing::info!(
@@ -1926,7 +1926,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
     let bot_me = match client.get_me().await {
         Ok(u) => u,
         Err(e) => {
-            return make_error(id, -1, &format!("Authentication failed — check access_token and server_url: {}", e));
+            return make_error(id, -1, &format!("Authentication failed: check access_token and server_url: {}", e));
         }
     };
 
@@ -1972,7 +1972,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
     }
     let _ = client.add_channel_member(&channel_id, &bot_me.id).await;
 
-    // 5. Admin user — password update needs admin privileges
+    // 5. Admin user: password update needs admin privileges
     //    If the client is a bot PAT (not admin), this will fail and be logged
     let mut admin_id: Option<String> = None;
     if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
@@ -2007,7 +2007,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
         }
     }
 
-    // 6. Test user — skip if no password provided
+    // 6. Test user: skip if no password provided
     if !params.test_user.is_empty() && !params.test_password.is_empty() {
         let pw = &params.test_password;
         match client.find_user_by_username(&params.test_user).await {
@@ -2036,7 +2036,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
             let _ = client.add_team_member(&team_id, &uid).await;
             let _ = client.add_channel_member(&channel_id, &uid).await;
 
-            // Get or create token — needs admin auth for token management
+            // Get or create token: needs admin auth for token management
             // Try to create an admin client if admin credentials provided
             let bot_token = if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
                 // Login as admin to create/manage tokens
@@ -2058,12 +2058,12 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                         }
                     }
                     None => {
-                        tracing::warn!("Could not create admin client — token management may fail");
+                        tracing::warn!("Could not create admin client: token management may fail");
                         String::new()
                     }
                 }
             } else {
-                // No admin credentials — try using bot PAT directly
+                // No admin credentials: try using bot PAT directly
                 match client.setup_bot_token(&uid).await {
                     Ok(t) => t,
                     Err(e) => {
@@ -2087,7 +2087,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
             make_success(id, result)
         }
         Ok(None) => {
-            // Create bot user — requires bot_password
+            // Create bot user: requires bot_password
             if params.bot_password.is_empty() {
                 return make_error(id, -1, &format!(
                     "bot_password is required to create bot user '{}'. Set MM_BOT_PASSWORD in your .env file.",
@@ -2306,7 +2306,7 @@ async fn poll_channel(
             // Posts are newest-first from the API. We iterate in reverse
             // so we process oldest to newest (create_at is monotonic in rev()).
             for post in posts.iter().rev() {
-                // ── Detect deleted posts that we previously processed ──
+                //  Detect deleted posts that we previously processed 
                 if post.delete_at != 0 {
                     if known.remove(&post.id) {
                         // This post was previously processed and is now deleted
@@ -2446,7 +2446,7 @@ fn ws_api_url(server_url: &str, access_token: &str) -> String {
     url
 }
 
-/// URL-encode a string for query parameters (minimal — only encode what's needed).
+/// URL-encode a string for query parameters (minimal: only encode what's needed).
 fn urlencoding(s: &str) -> String {
     s.replace('%', "%25")
         .replace('&', "%26")
@@ -2461,7 +2461,7 @@ fn urlencoding(s: &str) -> String {
 
 /// Tracks whether a channel is currently being polled and whether a
 /// re-poll is needed after the current one finishes. Multiple rapid WS
-/// events coalesce into a single pending flag — the cursor-based catch-up
+/// events coalesce into a single pending flag: the cursor-based catch-up
 /// will find everything when it eventually runs.
 struct ChannelDebounce {
     is_processing: bool,
@@ -2555,7 +2555,7 @@ async fn ws_event_loop(
                 tracing::info!("WebSocket connected, authenticating...");
                 backoff = 1;
 
-                // ── Catch-up on connect: process any missed messages ──
+                //  Catch-up on connect: process any missed messages 
                 let client = MattermostClient::new(&server_url, &access_token);
                 // Initialize cursors for channels that don't have one yet
                 // (first connect) or need catch-up (reconnect)
@@ -2601,7 +2601,7 @@ async fn ws_event_loop(
                     continue;
                 }
 
-                // Event loop — WS events just trigger poll_channel for that channel
+                // Event loop: WS events just trigger poll_channel for that channel
                 loop {
                     match read.next().await {
                         Some(Ok(Message::Text(text))) => {
@@ -2609,7 +2609,7 @@ async fn ws_event_loop(
                                 Ok(v) => v,
                                 Err(e) => {
                                     tracing::warn!(
-                                        "WS: Failed to parse message JSON: {} — raw text (first 200 chars): {}",
+                                        "WS: Failed to parse message JSON: {}: raw text (first 200 chars): {}",
                                         e,
                                         if text.len() > 200 { format!("{}...", &text[..200]) } else { text.to_string() }
                                     );
@@ -2621,7 +2621,7 @@ async fn ws_event_loop(
                                 Some(t) => t,
                                 None => {
                                     tracing::debug!(
-                                        "WS: Message has no 'event' field — keys: {:?}, raw (first 200): {}",
+                                        "WS: Message has no 'event' field: keys: {:?}, raw (first 200): {}",
                                         event.as_object().map(|o| o.keys().cloned().collect::<Vec<_>>()).unwrap_or_default(),
                                         if text.len() > 200 { format!("{}...", &text[..200]) } else { text.to_string() }
                                     );
@@ -2693,13 +2693,13 @@ async fn ws_event_loop(
                                         .and_then(|v| {
                                             // First try: it's already a plain string (just the ID)
                                             if let Some(s) = v.as_str() {
-                                                // Try to parse it as JSON — if it works, extract the "id" field
+                                                // Try to parse it as JSON: if it works, extract the "id" field
                                                 if let Ok(post_obj) = serde_json::from_str::<Value>(s) {
                                                     post_obj.get("id")
                                                         .and_then(|i| i.as_str())
                                                         .map(|id| id.to_string())
                                                 } else {
-                                                    // Not JSON — it's just a plain post ID string
+                                                    // Not JSON: it's just a plain post ID string
                                                     Some(s.to_string())
                                                 }
                                             } else if let Some(id) = v.get("id").and_then(|i| i.as_str()) {
@@ -2785,7 +2785,7 @@ async fn ws_event_loop(
                                         .map(|d| serde_json::to_string(d).unwrap_or_default())
                                         .unwrap_or_default();
                                     tracing::debug!(
-                                        "WS: Unknown event type '{}' — data: {}",
+                                        "WS: Unknown event type '{}': data: {}",
                                         event_type,
                                         if data_summary.len() > 200 { format!("{}...", &data_summary[..200]) } else { data_summary }
                                     );

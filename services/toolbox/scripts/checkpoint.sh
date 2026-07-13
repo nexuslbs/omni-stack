@@ -12,11 +12,11 @@ DEST="s3-backup:${S3_BUCKET}/${S3_PATH}/checkpoint/${DATE_SUFFIX}"
 
 echo "[checkpoint] Starting full checkpoint for ${DATE_SUFFIX}..."
 
-# ─── 1. File data ─────────────────────────────────────────────────────
+#  1. File data 
 echo "[checkpoint] Step 1/3: File data → ${DEST}/data/"
 rclone sync ${OMNI_DIR:-/opt/omni}/ "${DEST}/data/" --create-empty-src-dirs --s3-no-check-bucket --verbose
 
-# ─── 2. Postgres dump ─────────────────────────────────────────────────
+#  2. Postgres dump 
 echo "[checkpoint] Step 2/3: Postgres dump..."
 PG_HOST="${PGHOST:-postgres}"
 PG_PORT="${PGPORT:-5432}"
@@ -31,13 +31,13 @@ if [ -n "${PGPASSWORD:-}" ]; then
   rm -f /tmp/pg-dump.sql.gz
   echo "[checkpoint] Postgres dump uploaded."
 else
-  echo "[checkpoint] PGPASSWORD not set — skipping Postgres backup."
+  echo "[checkpoint] PGPASSWORD not set: skipping Postgres backup."
 fi
 
-# ─── 3. Qdrant snapshot ───────────────────────────────────────────────
+#  3. Qdrant snapshot 
 echo "[checkpoint] Step 3/3: Qdrant wiki snapshot..."
 SNAPSHOT_RESPONSE=$(wget -qO- --post-data="" http://qdrant:6333/collections/wiki/snapshots 2>&1) || {
-  echo "[checkpoint] Qdrant snapshot creation failed — skipping."
+  echo "[checkpoint] Qdrant snapshot creation failed: skipping."
 }
 if [ -n "$SNAPSHOT_RESPONSE" ]; then
   SNAPSHOT_NAME=$(echo "$SNAPSHOT_RESPONSE" | sed 's/.*"name":"//' | sed 's/".*//')

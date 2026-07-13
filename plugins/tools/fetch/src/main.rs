@@ -1,4 +1,4 @@
-//! mcp-server-fetch — standalone MCP server for HTTP GET requests.
+//! mcp-server-fetch: standalone MCP server for HTTP GET requests.
 //! Communicates via stdio JSON-RPC (MCP protocol).
 //!
 //! Tools: fetch
@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
         def: McpToolDef {
             name: "fetch".to_string(),
             description:
-                "FETCH/HTTP GET a URL from the internet. Use this to download web pages, API responses, or any HTTP-accessible content. Does NOT work with file:// URLs or local files — use filesystem_read for local files."
+                "FETCH/HTTP GET a URL from the internet. Use this to download web pages, API responses, or any HTTP-accessible content. Does NOT work with file:// URLs or local files: use filesystem_read for local files."
                     .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",

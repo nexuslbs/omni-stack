@@ -2,7 +2,7 @@
   "id": "mcp-server-filesystem",
   "name": "Filesystem MCP Server",
   "version": "0.1.0",
-  "description": "Filesystem tools — read, write, list, search, info on local files",
+  "description": "Filesystem tools: read, write, list, search, info on local files",
   "type": "mcp",
   "entrypoint": {
     "command": "mcp-server-filesystem",

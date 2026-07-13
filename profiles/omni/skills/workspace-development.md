@@ -5,25 +5,25 @@ Use this skill when asked to build, run, or test code projects in the workspace.
 ## Rule: Don't Waste Iterations
 
 - If a tool fails 3+ times in a row, **stop calling it** and move on to the next step
-- If `list_kanban_tasks` fails, you don't need it to build code — skip kanban
+- If `list_kanban_tasks` fails, you don't need it to build code: skip kanban
 - Searching past messages is rarely needed for building a new project
 - When you have a clear instruction, **execute it directly** rather than exploring
 
 ## Tools Available
 
-- **`filesystem_write` / `filesystem_read` / `filesystem_info` / `filesystem_search`** — create and edit project files
-- **`compose`** — `build`, `up -d`, `exec`, `down`, `logs -n 50`, `ps` — all Docker operations
-- **`commit_and_push`** — git commit + push
-- **`query_database`** — run SQL on the shared PostgreSQL to retrieve agent memories, past messages, threads, kanban tasks and config info (for context, not for building)
-- **`clone_repo` / `create_github_repo`** — manage git repos
+- **`filesystem_write` / `filesystem_read` / `filesystem_info` / `filesystem_search`**: create and edit project files
+- **`compose`**: `build`, `up -d`, `exec`, `down`, `logs -n 50`, `ps`: all Docker operations
+- **`commit_and_push`**: git commit + push
+- **`query_database`**: run SQL on the shared PostgreSQL to retrieve agent memories, past messages, threads, kanban tasks and config info (for context, not for building)
+- **`clone_repo` / `create_github_repo`**: manage git repos
 
 ## Workspace Layout
 
 ```
 /opt/workspace/<project>/
-├── docker-compose.yml  # ALWAYS at project root, not in repo/
-├── .env                # gitignored, env overrides
-└── repo/               # gitignored, source code lives here
+├ docker-compose.yml  # ALWAYS at project root, not in repo/
+├ .env                # gitignored, env overrides
+└ repo/               # gitignored, source code lives here
 ```
 
 **Rules**: Only 1 project runs at a time. No docker.sock, no privileged. Names must not start with `omni`.
@@ -31,10 +31,10 @@ Use this skill when asked to build, run, or test code projects in the workspace.
 ## compose Tool Usage
 
 The `compose` tool accepts these parameters:
-- `project_dir` — directory with docker-compose.yml
-- `command` — compose verb + flags (e.g. `up -d`, `build`, `logs --tail=50`)
-- `service` — container name (required for exec/run)
-- `args` — command to run inside the container (for exec/run only)
+- `project_dir`: directory with docker-compose.yml
+- `command`: compose verb + flags (e.g. `up -d`, `build`, `logs --tail=50`)
+- `service`: container name (required for exec/run)
+- `args`: command to run inside the container (for exec/run only)
 
 ### Examples
 
@@ -45,7 +45,7 @@ compose(project_dir="/opt/workspace/blog", command="build")
 # Start services
 compose(project_dir="/opt/workspace/blog", command="up", args="-d")
 
-# Run commands INSIDE a container — NO character restrictions
+# Run commands INSIDE a container: NO character restrictions
 # Everything in `args` runs inside the container via Docker exec, not a shell
 compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="cargo build")
 compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="npm test")
@@ -65,14 +65,14 @@ compose(project_dir="/opt/workspace/blog", command="down")
 
 ### Important: Character Safety
 
-`exec` and `run` commands pass `args` directly to Docker, which passes them to the container's process via `execve`. **No shell** interprets the arguments on the host, so ANY characters are safe — including `$`, `>`, `<`, `&`, `|`, `;`, `*`, `~`, backticks, and brackets. They are all passed verbatim to the command running inside the container.
+`exec` and `run` commands pass `args` directly to Docker, which passes them to the container's process via `execve`. **No shell** interprets the arguments on the host, so ANY characters are safe: including `$`, `>`, `<`, `&`, `|`, `;`, `*`, `~`, backticks, and brackets. They are all passed verbatim to the command running inside the container.
 
 To run multiple commands inside the container, use a shell:
 ```
 compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="sh -c 'cd /app && cargo build && cargo test'")
 ```
 
-This runs a shell *inside* the container, and the `&&` chaining executes safely there — never on the host.
+This runs a shell *inside* the container, and the `&&` chaining executes safely there: never on the host.
 
 ### Common pitfalls
 

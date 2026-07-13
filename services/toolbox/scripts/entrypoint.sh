@@ -4,7 +4,7 @@ set -euo pipefail
 # Entrypoint for the toolbox container.
 # Sets up rclone config if S3 vars are available, installs cron jobs, then sleeps.
 
-# ── Optional: S3/rclone setup (only if S3_ACCESS_KEY is set) ──────────────
+#  Optional: S3/rclone setup (only if S3_ACCESS_KEY is set) 
 if [ -n "${S3_ACCESS_KEY:-}" ]; then
     : "${S3_SECRET_KEY:?S3_SECRET_KEY not set}"
     : "${S3_ENDPOINT:?S3_ENDPOINT not set}"
@@ -25,10 +25,10 @@ EOF
     chmod 600 /etc/rclone/rclone.conf
     echo "[entrypoint] rclone config written for remote 's3-backup'"
 else
-    echo "[entrypoint] S3_ACCESS_KEY not set — skipping rclone setup"
+    echo "[entrypoint] S3_ACCESS_KEY not set: skipping rclone setup"
 fi
 
-# ── Cron jobs (only if S3 is configured) ─────────────────────────────────
+#  Cron jobs (only if S3 is configured) 
 CRONTAB_FILE=/tmp/crontab
 rm -f "$CRONTAB_FILE"
 
@@ -55,6 +55,6 @@ echo "[entrypoint] Toolbox container ready."
 if [ -f "$CRONTAB_FILE" ]; then
     exec crond -f -l 2 -L /dev/stdout
 else
-    # No cron jobs — just keep the container alive
+    # No cron jobs: just keep the container alive
     exec tail -f /dev/null
 fi

@@ -1,10 +1,10 @@
-//! mcp-server-actions - standalone MCP server for built-in action tools.
+//! mcp-server-actions — standalone MCP server for built-in action tools.
 //! Communicates via stdio JSON-RPC (MCP protocol).
 //!
 //! Tools: kanban_dispatcher, hindsight_populator, relevance_indexer,
 //!        setup_knowledge_pipeline
 //!
-//! Fully self-contained - no dependency on the omniagent crate.
+//! Fully self-contained — no dependency on the omniagent crate.
 //! Connects directly to Postgres via sqlx.
 
 use anyhow::{Context, Result};
@@ -93,7 +93,7 @@ async fn handle_kanban_dispatcher(pool: &PgPool, _args: &Value) -> Result<(Strin
             continue;
         }
 
-        // ── All deps satisfied - create thread for this kanban task ──
+        // ── All deps satisfied — create thread for this kanban task ──
         // 1. Get full task data
         let task_data: Option<(String, String, Option<i64>, Option<String>, Option<String>, String)> = sqlx::query_as(
             "SELECT id, title, channel_id, profile, template, planning_mode FROM kanban_tasks WHERE id = $1"
@@ -111,7 +111,7 @@ async fn handle_kanban_dispatcher(pool: &PgPool, _args: &Value) -> Result<(Strin
         let channel_id = match maybe_channel_id {
             Some(cid) => cid,
             None => {
-                return Ok((format!("Kanban task '{}' ({}) has no channel - cannot create thread", title, id), false));
+                return Ok((format!("Kanban task '{}' ({}) has no channel — cannot create thread", title, id), false));
             }
         };
 
@@ -231,7 +231,7 @@ async fn handle_kanban_dispatcher(pool: &PgPool, _args: &Value) -> Result<(Strin
         .await
         .map_err(|e| anyhow::anyhow!("Failed to create cause message: {}", e))?;
 
-        // Check if channel is closed - if so, skip
+        // Check if channel is closed — if so, skip
         let is_closed: Option<(bool,)> = sqlx::query_as(
             "SELECT closed FROM channels WHERE id = $1"
         )
@@ -256,7 +256,7 @@ async fn handle_kanban_dispatcher(pool: &PgPool, _args: &Value) -> Result<(Strin
                 .map_err(|e| anyhow::anyhow!("Failed to reset kanban task: {}", e))?;
 
             return Ok((
-                format!("Channel {} is closed - skipped thread for task '{}' ({})", channel_id, title, id),
+                format!("Channel {} is closed — skipped thread for task '{}' ({})", channel_id, title, id),
                 false,
             ));
         }

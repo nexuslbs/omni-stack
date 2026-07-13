@@ -6,9 +6,9 @@ The omniagent container mounts several host directories, creating path namespace
 
 | Host Path | Container Path | Purpose | compose accessible? |
 |---|---|---|---|
-| `/opt/workspace/omni-workspace/` | `/opt/workspace/` | Project development files | ✅ Yes - under `/opt/workspace/omni-workspace/` |
-| `/opt/workspace/omni-stack/` | `/opt/data/` | AGENTS.md, wiki, skills, memories, templates | ✅ Yes - under `/opt/workspace/omni-stack/` |
-| `/opt/workspace/omniagent/` | `/app/` | Source code, compiled binaries | ✅ Yes - under `/opt/workspace/omniagent/` |
+| `/opt/workspace/omni-workspace/` | `/opt/workspace/` | Project development files | ✅ Yes — under `/opt/workspace/omni-workspace/` |
+| `/opt/workspace/omni-stack/` | `/opt/data/` | AGENTS.md, wiki, skills, memories, templates | ✅ Yes — under `/opt/workspace/omni-stack/` |
+| `/opt/workspace/omniagent/` | `/app/` | Source code, compiled binaries | ✅ Yes — under `/opt/workspace/omniagent/` |
 | `/var/run/docker.sock` | `/var/run/docker.sock` | Docker socket for compose tool | N/A |
 
 ## Path Discrepancy Bug

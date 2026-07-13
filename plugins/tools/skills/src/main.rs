@@ -1,4 +1,4 @@
-//! mcp-server-skills — standalone MCP server for creating reusable skill files.
+//! mcp-server-skills - standalone MCP server for creating reusable skill files.
 //! Communicates via stdio JSON-RPC (MCP protocol).
 //!
 //! Tools: create_skill

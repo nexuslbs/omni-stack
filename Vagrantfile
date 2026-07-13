@@ -104,7 +104,7 @@ Vagrant.configure("2") do |config|
 
     # Only proceed if .env exists and has Mattermost credentials
     if [ ! -f "$ENV_FILE" ]; then
-      echo "SKIP: No .env found at $ENV_FILE — Mattermost setup skipped"
+      echo "SKIP: No .env found at $ENV_FILE - Mattermost setup skipped"
       exit 0
     fi
 
@@ -120,7 +120,7 @@ Vagrant.configure("2") do |config|
       exit 0
     fi
 
-    echo "Mattermost credentials found — running setup..."
+    echo "Mattermost credentials found - running setup..."
 
     COMPOSE="docker compose -f /opt/omni-stack/docker-compose.yml --profile manual"
 

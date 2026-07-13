@@ -2,7 +2,7 @@
 name = "mcp-server-git"
 version = "0.1.0"
 edition = "2021"
-description = "Git/GitHub MCP server — create_github_repo, clone_repo, commit_and_push, status"
+description = "Git/GitHub MCP server - create_github_repo, clone_repo, commit_and_push, status"
 
 [dependencies]
 mcp-server-util = { path = "../util" }

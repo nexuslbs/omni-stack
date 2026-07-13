@@ -3,11 +3,11 @@
 ## Index
 
 - **Reference/**
-  - [Deployment Checklist](./Reference/Deployment-Checklist.md) — How to deploy services correctly via compose
-  - [Container Mount Map](./Reference/Container-Mount-Map.md) — Volume mount mapping between host and container
-  - [Omniagent Mattermost Platform](./Reference/Omniagent-Mattermost-Platform.md) — Mattermost platform architecture, setup, invariants, and recovery
+  - [Deployment Checklist](./Reference/Deployment-Checklist.md) - How to deploy services correctly via compose
+  - [Container Mount Map](./Reference/Container-Mount-Map.md) - Volume mount mapping between host and container
+  - [Omniagent Mattermost Platform](./Reference/Omniagent-Mattermost-Platform.md) - Mattermost platform architecture, setup, invariants, and recovery
 - **Log**
-  - [log.md](./log.md) — Change log
+  - [log.md](./log.md) - Change log
 
 ## Key Facts
 

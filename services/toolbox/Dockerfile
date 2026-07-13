@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Toolbox — always-running utility container with backup, cron, and dev tools
+# Toolbox: always-running utility container with backup, cron, and dev tools
 # Merges the previous backup and toolbox containers into one.
 
 FROM alpine:latest

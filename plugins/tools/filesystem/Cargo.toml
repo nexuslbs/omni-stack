@@ -2,7 +2,7 @@
 name = "mcp-server-filesystem"
 version = "0.1.0"
 edition = "2021"
-description = "Filesystem MCP server — read, write, list, search, info tools"
+description = "Filesystem MCP server: read, write, list, search, info tools"
 
 [dependencies]
 mcp-server-util = { path = "../util" }

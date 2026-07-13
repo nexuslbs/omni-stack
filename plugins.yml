@@ -3,12 +3,8 @@ platforms:
     enabled: true
     source: bundled
     config:
-      setup_team: omni
-      setup_channel: setup
-      test_user: testuser
-      test_password: Mattermost_Fresh_Start_1
-      admin_user: lucasbasquerotto
-      admin_password: MTEnivuUVDZ3
+      access_token: $env:MATTERMOST_ACCESS_TOKEN
+      server_url: http://mattermost:8065
   telegram:
     enabled: false
     source: bundled
@@ -47,6 +43,10 @@ tools:
     enabled: false
     source: built-in
     config: {}
+  prompt:
+    enabled: true
+    source: built-in
+    config: {}
   query:
     enabled: true
     source: built-in
@@ -59,10 +59,6 @@ tools:
     enabled: false
     source: bundled
     config: {}
-  prompt:
-    enabled: false
-    source: built-in
-    config: {}
   subtasks:
     enabled: true
     source: built-in
@@ -71,7 +67,9 @@ providers:
   deepseek:
     enabled: true
     source: bundled
-    config: {}
+    config:
+      api_key: $secret:DEEPSEEK_API_KEY
+      default_model: deepseek-v4-flash
   noop:
     enabled: true
     source: bundled

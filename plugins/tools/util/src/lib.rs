@@ -1,4 +1,4 @@
-//! Shared MCP server framework — JSON-RPC stdio protocol, types, and helpers.
+//! Shared MCP server framework: JSON-RPC stdio protocol, types, and helpers.
 //!
 //! Provides the runtime loop and type definitions needed by any stdio-based
 //! MCP server.  Each server binary:
@@ -12,7 +12,7 @@
 //! Tools/call requests are dispatched to independent tokio tasks so that
 //! long-running tools (e.g. docker compose) do not block other requests.
 //! Responses are multiplexed over the single stdout stream using the
-//! JSON-RPC request id — the MCP client matches responses to requests.
+//! JSON-RPC request id: the MCP client matches responses to requests.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -144,7 +144,7 @@ pub enum ToolContent {
 // Async handler type
 // ---------------------------------------------------------------------------
 
-/// Async handler function type — receives owned tool arguments,
+/// Async handler function type: receives owned tool arguments,
 /// returns result text + error flag as a future.
 pub type AsyncToolHandler =
     Box<dyn Fn(Value) -> Pin<Box<dyn Future<Output = Result<(String, bool)>> + Send>>
@@ -220,7 +220,7 @@ pub async fn run_server(
     server_info: ServerInfo,
     tools: Vec<McpToolEntry>,
 ) -> Result<()> {
-    // Initialize tracing — log to stderr
+    // Initialize tracing: log to stderr
     let _ = tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()

@@ -1,4 +1,4 @@
-//! mcp-server-git — standalone MCP server for Git/GitHub operations.
+//! mcp-server-git: standalone MCP server for Git/GitHub operations.
 //! Communicates via stdio JSON-RPC (MCP protocol).
 //!
 //! Tools: create_github_repo, clone_repo, commit_and_push, status
@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-// ── Constants ───────────────────────────────────────────────────────────────
+//  Constants 
 
 fn private_key_path() -> String {
     let data_dir = std::env::var("OMNI_DIR").unwrap_or_else(|_| {
@@ -39,7 +39,7 @@ const GITHUB_ORG: &str = "nexuslbs";
 const GITHUB_API: &str = "https://api.github.com";
 const USER_AGENT: &str = "mcp-server-git";
 
-// ── Token Cache ─────────────────────────────────────────────────────────────
+//  Token Cache 
 
 struct TokenCacheInner {
     token: Option<(String, u64)>,
@@ -71,7 +71,7 @@ impl TokenCacheInner {
 static TOKEN_CACHE: Lazy<Mutex<TokenCacheInner>> =
     Lazy::new(|| Mutex::new(TokenCacheInner { token: None }));
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+//  Helpers 
 
 /// Base64url encode without padding.
 fn base64url_encode(data: &[u8]) -> String {
@@ -261,9 +261,9 @@ fn run_git(args: &[&str], cwd: Option<&str>, timeout_secs: u64) -> (String, Stri
     }
 }
 
-// ── Tool Handlers ───────────────────────────────────────────────────────────
+//  Tool Handlers 
 
-/// `create_github_repo` — create a repository under nexuslbs org.
+/// `create_github_repo`: create a repository under nexuslbs org.
 fn handle_create_github_repo(args: Value) -> Result<(String, bool)> {
     let repo_name = args["name"]
         .as_str()
@@ -339,7 +339,7 @@ fn handle_create_github_repo(args: Value) -> Result<(String, bool)> {
     ))
 }
 
-/// `clone_repo` — clone a git repository to local filesystem.
+/// `clone_repo`: clone a git repository to local filesystem.
 fn handle_clone_repo(args: Value) -> Result<(String, bool)> {
     let url = args["url"]
         .as_str()
@@ -401,7 +401,7 @@ fn handle_clone_repo(args: Value) -> Result<(String, bool)> {
     ))
 }
 
-/// `commit_and_push` — stage, commit, and push changes.
+/// `commit_and_push`: stage, commit, and push changes.
 fn handle_commit_and_push(args: Value) -> Result<(String, bool)> {
     let repo_dir = args["repo_dir"]
         .as_str()
@@ -453,7 +453,7 @@ fn handle_commit_and_push(args: Value) -> Result<(String, bool)> {
             return Ok((
                 serde_json::json!({
                     "success": true,
-                    "note": "Nothing to commit — working tree clean"
+                    "note": "Nothing to commit: working tree clean"
                 })
                 .to_string(),
                 false,
@@ -475,7 +475,7 @@ fn handle_commit_and_push(args: Value) -> Result<(String, bool)> {
     let remote_url = remote_stdout.trim().to_string();
 
     if remote_url.is_empty() {
-        anyhow::bail!("No remote 'origin' configured — cannot push");
+        anyhow::bail!("No remote 'origin' configured: cannot push");
     }
 
     // Get current branch
@@ -527,7 +527,7 @@ fn handle_commit_and_push(args: Value) -> Result<(String, bool)> {
     ))
 }
 
-/// `status` — get git status of a repository.
+/// `status`: get git status of a repository.
 fn handle_status(args: Value) -> Result<(String, bool)> {
     let repo_dir = args["repo_dir"]
         .as_str()
@@ -561,7 +561,7 @@ fn handle_status(args: Value) -> Result<(String, bool)> {
     ))
 }
 
-// ── Main ────────────────────────────────────────────────────────────────────
+//  Main 
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -571,7 +571,7 @@ async fn main() -> Result<()> {
                 name: "create_github_repo".to_string(),
                 description:
                     "CREATE a new repository under the nexuslbs organization on GitHub. \
-                    The repository is created with no auto-init — it will be empty until pushed to. \
+                    The repository is created with no auto-init: it will be empty until pushed to. \
                     If the repository already exists, returns its URL with a note."
                         .to_string(),
                 input_schema: serde_json::json!({

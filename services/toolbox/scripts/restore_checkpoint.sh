@@ -24,11 +24,11 @@ SRC="s3-backup:${S3_BUCKET}/${S3_PATH}/checkpoint/${DATE_SUFFIX}"
 
 echo "[restore_checkpoint] Starting full restore from checkpoint ${DATE_SUFFIX}..."
 
-# ─── 1. File data ─────────────────────────────────────────────────────
+#  1. File data 
 echo "[restore_checkpoint] Step 1/3: File data ← ${SRC}/data/"
 rclone sync "${SRC}/data/" ${OMNI_DIR:-/opt/omni}/ --create-empty-src-dirs --s3-no-check-bucket --verbose
 
-# ─── 2. Postgres restore ──────────────────────────────────────────────
+#  2. Postgres restore 
 echo "[restore_checkpoint] Step 2/3: Postgres restore..."
 PG_HOST="${PGHOST:-postgres}"
 PG_PORT="${PGPORT:-5432}"
@@ -63,13 +63,13 @@ if [ -n "${PGPASSWORD:-}" ]; then
 
     echo "[restore_checkpoint] Postgres restore complete."
   else
-    echo "[restore_checkpoint] No Postgres dump at ${SRC}/db/pg-dump.sql.gz — skipping."
+    echo "[restore_checkpoint] No Postgres dump at ${SRC}/db/pg-dump.sql.gz: skipping."
   fi
 else
-  echo "[restore_checkpoint] PGPASSWORD not set — skipping Postgres restore."
+  echo "[restore_checkpoint] PGPASSWORD not set: skipping Postgres restore."
 fi
 
-# ─── 3. Qdrant restore ────────────────────────────────────────────────
+#  3. Qdrant restore 
 echo "[restore_checkpoint] Step 3/3: Qdrant restore..."
 
 if rclone ls "${SRC}/db/wiki-snapshot.snapshot" &>/dev/null; then
@@ -81,13 +81,13 @@ if rclone ls "${SRC}/db/wiki-snapshot.snapshot" &>/dev/null; then
     curl -s -X POST \
       -F "snapshot=@/tmp/wiki-snapshot.snapshot" \
       "http://qdrant:6333/collections/wiki/snapshots/upload?priority=snapshot" || {
-      echo "[restore_checkpoint] Qdrant snapshot upload failed — the collection may not exist yet."
+      echo "[restore_checkpoint] Qdrant snapshot upload failed: the collection may not exist yet."
     }
     rm -f /tmp/wiki-snapshot.snapshot
     echo "[restore_checkpoint] Qdrant restore complete."
   fi
 else
-  echo "[restore_checkpoint] No Qdrant snapshot at ${SRC}/db/wiki-snapshot.snapshot — skipping."
+  echo "[restore_checkpoint] No Qdrant snapshot at ${SRC}/db/wiki-snapshot.snapshot: skipping."
 fi
 
 echo "[restore_checkpoint] Full restore from checkpoint ${DATE_SUFFIX} complete."

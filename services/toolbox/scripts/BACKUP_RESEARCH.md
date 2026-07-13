@@ -27,28 +27,28 @@ Uses: rclone → Backblaze B2 (S3-compatible), pg_dump (plain format, gzipped), 
 ## 2. What's Good ✓
 
 ### 2.1. Self-Contained & No External Dependencies
-The scripts source everything from `OMNI_DIR/.env` - no Hermes dependency, no hardcoded secrets, no manual steps. This is excellent for disaster recovery where the Hermes container itself might be gone.
+The scripts source everything from `OMNI_DIR/.env` — no Hermes dependency, no hardcoded secrets, no manual steps. This is excellent for disaster recovery where the Hermes container itself might be gone.
 
 ### 2.2. Offsite Storage (Backblaze B2 / S3)
 Storing backups on an S3-compatible object store in a different region/zone provides **geographic redundancy**. Even if the entire docker host fails, the data survives. This satisfies the "1 offsite" requirement of the 3-2-1 rule.
 
 ### 2.3. Date-Stamped Checkpoints
-The `checkout.sh` script creates immutable, dated snapshots (YYYYMMDD). This is a **retention-friendly** pattern - you can prune old checkpoints by deleting prefix directories without affecting the main backup stream.
+The `checkout.sh` script creates immutable, dated snapshots (YYYYMMDD). This is a **retention-friendly** pattern — you can prune old checkpoints by deleting prefix directories without affecting the main backup stream.
 
 ### 2.4. Crash Consistency via Service Stop
-Stopping services before restore avoids "dirty database" issues. The backup (pg_dump) runs while services are UP (which is correct - pg_dump provides a consistent snapshot without exclusive locks), but the RESTORE correctly stops everything first.
+Stopping services before restore avoids "dirty database" issues. The backup (pg_dump) runs while services are UP (which is correct — pg_dump provides a consistent snapshot without exclusive locks), but the RESTORE correctly stops everything first.
 
 ### 2.5. PG Dump Consistency
 `pg_dump` with `--clean --if-exists` creates internally consistent snapshots without blocking writes. Using `--no-owner --no-acl` makes the dump portable across environments.
 
 ### 2.6. Credential Isolation
-No credentials embedded in scripts - all read from `.env` at runtime. The rclone config is built in-memory via `mktemp` and discarded after use.
+No credentials embedded in scripts — all read from `.env` at runtime. The rclone config is built in-memory via `mktemp` and discarded after use.
 
 ---
 
 ## 3. What's Concerning / Needs Improvement ⚠
 
-### 3.1. Plain Format (Not Custom) - **Missing Parallelism**
+### 3.1. Plain Format (Not Custom) — **Missing Parallelism**
 The scripts use `pg_dump` in plain SQL format (piped to gzip), not the `--format=custom` (`.dump`) format. This means:
 
 | Concern | Impact |
@@ -80,7 +80,7 @@ After backup, the scripts do NOT verify the dump is restorable. Common corruptio
 > **Fix:** After backup, do `gunzip -t [file].gz` to verify integrity. For high-confidence, restore to a temp database and run `pg_dump -T ...` comparison queries.
 
 ### 3.4. No Retention Policy / Lifecycle Management
-The regular backup writes to the SAME path (`omni/data/`) every time - the previous backup is **overwritten**, not rotated. The checkpoint script creates dated snapshots, but:
+The regular backup writes to the SAME path (`omni/data/`) every time — the previous backup is **overwritten**, not rotated. The checkpoint script creates dated snapshots, but:
 
 - No automatic cleanup of old checkpoints
 - No retention tiers (daily → weekly → monthly)
@@ -111,7 +111,7 @@ Nothing notifies on backup failure, skipped dumps, or size anomalies. A backup t
 ### 3.8. `set -euo pipefail` Aggressiveness
 The scripts use `set -euo pipefail`, which is good for catching errors early. However:
 
-- `pg_dump ... 2>/dev/null` masks all pg_dump errors - the script would think an empty dump is fine
+- `pg_dump ... 2>/dev/null` masks all pg_dump errors — the script would think an empty dump is fine
 - The `set -e` combined with `$RC` rclone commands can cause unexpected exits from non-critical failures (missing S3 prefix, slow network)
 
 ---
@@ -138,20 +138,20 @@ The scripts use `set -euo pipefail`, which is good for catching errors early. Ho
 
 ## 5. Recommendations (Priority Order)
 
-### P0 - Must Fix
-1. **Add integrity verification** - `gunzip -t` after backup, size threshold checks
-2. **Add retention pruning** - delete checkpoints > 30/90/365 days old
-3. **Fix pg_dump error masking** - remove `2>/dev/null` from pg_dump, redirect to log instead
+### P0 — Must Fix
+1. **Add integrity verification** — `gunzip -t` after backup, size threshold checks
+2. **Add retention pruning** — delete checkpoints > 30/90/365 days old
+3. **Fix pg_dump error masking** — remove `2>/dev/null` from pg_dump, redirect to log instead
 
-### P1 - Important
-4. **Switch to custom format** - `--format=custom --compress=9` for parallel restore
-5. **Add backup+checkout combo cron** - `backup && checkout $(date +%Y%m%d)`
-6. **Add size validation** - fail if dump < 100 bytes (empty DB indicator)
+### P1 — Important
+4. **Switch to custom format** — `--format=custom --compress=9` for parallel restore
+5. **Add backup+checkout combo cron** — `backup && checkout $(date +%Y%m%d)`
+6. **Add size validation** — fail if dump < 100 bytes (empty DB indicator)
 
-### P2 - Nice to Have
-7. **Monitoring integration** - export backup duration/size as metrics to Loki
-8. **WAL archiving** - for sub-minute RPO on production data
-9. **Restore dry-run** - option to verify integrity without touching live databases
+### P2 — Nice to Have
+7. **Monitoring integration** — export backup duration/size as metrics to Loki
+8. **WAL archiving** — for sub-minute RPO on production data
+9. **Restore dry-run** — option to verify integrity without touching live databases
 
 ---
 
@@ -159,10 +159,10 @@ The scripts use `set -euo pipefail`, which is good for catching errors early. Ho
 
 **Overall: GOOD for a self-hosted, non-critical stack.** The approach is sound in its fundamentals: offsite storage, self-contained scripts, consistent snapshots, and proper credential handling. It passed an end-to-end restore test (30 kanban tasks → 29 → restore → 30 verified).
 
-**Not production-grade for high-availability or compliance-sensitive databases** - primarily due to:
+**Not production-grade for high-availability or compliance-sensitive databases** — primarily due to:
 - No PITR (worst case: up to 24h data loss)
 - No parallel restore (will struggle with databases >10GB)
 - No automated integrity checks
 - No retention management
 
-For the current omni-stack use case (agent development, kanban, research notes), this is **appropriate and sufficient**. The scripts are simple, auditable, and repairable - which matters more than feature completeness for a 4-script bash toolbox.
+For the current omni-stack use case (agent development, kanban, research notes), this is **appropriate and sufficient**. The scripts are simple, auditable, and repairable — which matters more than feature completeness for a 4-script bash toolbox.

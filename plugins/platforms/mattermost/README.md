@@ -24,7 +24,7 @@ After configure, the plugin:
 
 - **Authenticates** using the provided `access_token` (or auto-recovers via admin credentials).
 - **Discovers channels** the bot is a member of and merges any explicitly configured `channel_ids`.
-- **Starts inbound processing** - either a WebSocket event loop (`connection_mode: "websocket"`) or a polling loop (`connection_mode: "polling"` and `polling_enabled: true`).
+- **Starts inbound processing** — either a WebSocket event loop (`connection_mode: "websocket"`) or a polling loop (`connection_mode: "polling"` and `polling_enabled: true`).
 - **Enters the request-response loop** on stdin, handling these methods:
 
 | Method | Purpose |
@@ -52,7 +52,7 @@ All fields are optional in `plugin.json` and have sensible defaults via `serde(d
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `server_url` | string | `"http://mattermost:8065"` | Base URL of the Mattermost server |
-| `access_token` | string (secret) | - | Personal access token for the bot account |
+| `access_token` | string (secret) | — | Personal access token for the bot account |
 | `connection_mode` | enum | `"websocket"` | `"polling"` or `"websocket"` |
 | `polling_enabled` | boolean | `true` | Whether polling is active (if mode is `"polling"`) |
 | `polling_interval` | integer | `15` | Seconds between polls (min 5, max 300) |
@@ -61,11 +61,11 @@ All fields are optional in `plugin.json` and have sensible defaults via `serde(d
 | `setup_channel` | string | `"setup"` | Channel name for setup mode |
 | `bot_username` | string | `"omniagent"` | Bot account username |
 | `bot_user` | string | `"omniagent"` | Bot username for setup |
-| `bot_password` | string (secret) | - | Bot password for setup |
-| `admin_user` | string | - | Admin username for auto-recovery |
-| `admin_password` | string (secret) | - | Admin password for auto-recovery |
+| `bot_password` | string (secret) | — | Bot password for setup |
+| `admin_user` | string | — | Admin username for auto-recovery |
+| `admin_password` | string (secret) | — | Admin password for auto-recovery |
 | `test_user` | string | `""` | Test user to create during setup |
-| `test_password` | string (secret) | - | Test user password for setup |
+| `test_password` | string (secret) | — | Test user password for setup |
 | `env_path` | string | `"/opt/omni/.env"` | Path to `.env` file for token persistence |
 
 ## Inbound Message Detection

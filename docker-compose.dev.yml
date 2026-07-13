@@ -1,4 +1,4 @@
-# Dev overlay - adds cargo build capabilities to the omniagent container
+# Dev overlay — adds cargo build capabilities to the omniagent container
 # and binds source mounts for the dashboard.
 # Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 services:
@@ -10,7 +10,7 @@ services:
     env_file: []
     environment:
       CARGO_TARGET_DIR: /target
-      # Resolved from .env - cargo needs this for sql_forge! compile-time verification
+      # Resolved from .env — cargo needs this for sql_forge! compile-time verification
       DATABASE_URL: ${DATABASE_URL}
     volumes:
       - /opt/workspace/omniagent:/app:rw

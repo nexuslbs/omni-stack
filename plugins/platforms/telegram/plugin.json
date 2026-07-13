@@ -2,7 +2,7 @@
   "name": "telegram",
   "version": "1.0.0",
   "type": "platform",
-  "description": "Telegram Bot API platform - send and receive messages via Telegram",
+  "description": "Telegram Bot API platform — send and receive messages via Telegram",
   "entrypoint": {
     "command": "./target/release/telegram-platform",
     "args": [],

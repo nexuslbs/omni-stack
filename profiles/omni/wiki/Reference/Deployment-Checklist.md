@@ -13,7 +13,7 @@ This tells you where your files will actually land. **Critical:** `filesystem_wr
 
 ## Step 2: Check Port Availability
 
-**Do NOT** use: `fetch("http://localhost:PORT/")` - this only checks ports inside this container's network namespace. A container on the host can occupy the port but be invisible from here.
+**Do NOT** use: `fetch("http://localhost:PORT/")` — this only checks ports inside this container's network namespace. A container on the host can occupy the port but be invisible from here.
 
 **DO use:**
 ```
@@ -73,7 +73,7 @@ compose(project_dir="<host-abs-path>", command="exec", service="<service>", args
 
 ## Anti-Patterns
 
-- ❌ **Scope creep during deployment** - Do NOT upgrade infrastructure (e.g., changing from Python HTTP to nginx) while deploying. Infrastructure improvements are separate tasks.
-- ❌ **Not verifying after compose** - `up -d` can succeed while the port binding fails silently (port already taken). Always verify with `ps` and a health check.
-- ❌ **Writing compose file without deploying** - The compose file is inert until you call `up`.
-- ❌ **Using `fetch` to check host port availability** - `fetch` only sees this container's network.
+- ❌ **Scope creep during deployment** — Do NOT upgrade infrastructure (e.g., changing from Python HTTP to nginx) while deploying. Infrastructure improvements are separate tasks.
+- ❌ **Not verifying after compose** — `up -d` can succeed while the port binding fails silently (port already taken). Always verify with `ps` and a health check.
+- ❌ **Writing compose file without deploying** — The compose file is inert until you call `up`.
+- ❌ **Using `fetch` to check host port availability** — `fetch` only sees this container's network.

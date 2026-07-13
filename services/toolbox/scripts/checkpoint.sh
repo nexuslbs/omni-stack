@@ -31,13 +31,13 @@ if [ -n "${PGPASSWORD:-}" ]; then
   rm -f /tmp/pg-dump.sql.gz
   echo "[checkpoint] Postgres dump uploaded."
 else
-  echo "[checkpoint] PGPASSWORD not set - skipping Postgres backup."
+  echo "[checkpoint] PGPASSWORD not set — skipping Postgres backup."
 fi
 
 # ─── 3. Qdrant snapshot ───────────────────────────────────────────────
 echo "[checkpoint] Step 3/3: Qdrant wiki snapshot..."
 SNAPSHOT_RESPONSE=$(wget -qO- --post-data="" http://qdrant:6333/collections/wiki/snapshots 2>&1) || {
-  echo "[checkpoint] Qdrant snapshot creation failed - skipping."
+  echo "[checkpoint] Qdrant snapshot creation failed — skipping."
 }
 if [ -n "$SNAPSHOT_RESPONSE" ]; then
   SNAPSHOT_NAME=$(echo "$SNAPSHOT_RESPONSE" | sed 's/.*"name":"//' | sed 's/".*//')

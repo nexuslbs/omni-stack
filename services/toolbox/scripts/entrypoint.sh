@@ -25,7 +25,7 @@ EOF
     chmod 600 /etc/rclone/rclone.conf
     echo "[entrypoint] rclone config written for remote 's3-backup'"
 else
-    echo "[entrypoint] S3_ACCESS_KEY not set - skipping rclone setup"
+    echo "[entrypoint] S3_ACCESS_KEY not set — skipping rclone setup"
 fi
 
 # ── Cron jobs (only if S3 is configured) ─────────────────────────────────
@@ -55,6 +55,6 @@ echo "[entrypoint] Toolbox container ready."
 if [ -f "$CRONTAB_FILE" ]; then
     exec crond -f -l 2 -L /dev/stdout
 else
-    # No cron jobs - just keep the container alive
+    # No cron jobs — just keep the container alive
     exec tail -f /dev/null
 fi

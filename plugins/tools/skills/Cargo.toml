@@ -2,7 +2,7 @@
 name = "mcp-server-skills"
 version = "0.1.0"
 edition = "2021"
-description = "Skills MCP server - create_skill tool for reusable task procedures"
+description = "Skills MCP server — create_skill tool for reusable task procedures"
 
 [dependencies]
 mcp-server-util = { path = "../util" }

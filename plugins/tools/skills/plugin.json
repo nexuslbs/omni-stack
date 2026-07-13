@@ -2,7 +2,7 @@
   "id": "mcp-server-skills",
   "name": "Skills MCP Server",
   "version": "0.1.0",
-  "description": "Skills tool - create reusable task procedure skills",
+  "description": "Skills tool — create reusable task procedure skills",
   "type": "mcp",
   "entrypoint": {
     "command": "mcp-server-skills",

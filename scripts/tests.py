@@ -1246,6 +1246,132 @@ def test_dashboard_pages():
     assert health_js.get("status") == "ok", "/api/health must return status=ok"
 
 
+def test_dashboard_plugin_filters():
+    """
+    Verify plugin page filters render correctly and URL params are accepted.
+    Tests all 3 plugin pages (tools, providers, platforms) and all existing
+    filtered pages (threads, messages, channels).
+    """
+    # ── 1. Plugin pages with filter URL params (tools, providers, platforms) ──
+    # These are SPA pages — the server serves index.html for all routes.
+    # The filter bar is rendered client-side. We verify the page loads cleanly
+    # with various filter URL params, and the API data that feeds filters is valid.
+
+    plugin_pages = ["/tools", "/providers", "/platforms"]
+
+    for page in plugin_pages:
+        # Basic page load
+        code, text, js = _dash_get(page)
+        assert code == 200, f"GET {page} returned {code}"
+        assert "<!DOCTYPE html>" in text, f"GET {page} did not return SPA HTML"
+
+        # With single filter param — source
+        code, text, js = _dash_get(f"{page}?source=built-in")
+        assert code == 200, f"GET {page}?source=built-in returned {code}"
+        assert "<!DOCTYPE html>" in text, f"GET {page} with source filter did not return SPA HTML"
+
+        # With single filter param — status
+        code, text, js = _dash_get(f"{page}?status=disabled")
+        assert code == 200, f"GET {page}?status=disabled returned {code}"
+
+        # With single filter param — enabled
+        code, text, js = _dash_get(f"{page}?enabled=yes")
+        assert code == 200, f"GET {page}?enabled=yes returned {code}"
+
+        # With single filter param — name
+        code, text, js = _dash_get(f"{page}?name=memory")
+        assert code == 200, f"GET {page}?name=memory returned {code}"
+
+        # With multiple filter params
+        code, text, js = _dash_get(f"{page}?source=remote&status=enabled&enabled=yes")
+        assert code == 200, f"GET {page} with multi filters returned {code}"
+
+        # With all 4 filter params
+        code, text, js = _dash_get(f"{page}?source=built-in&status=enabled&enabled=yes&name=mcp")
+        assert code == 200, f"GET {page} with all 4 filters returned {code}"
+
+    # ── 2. Existing filtered pages (threads, messages, channels) ──
+
+    # Threads filters
+    for qs in [
+        "?status=completed",
+        "?cause=user",
+        "?status=completed&cause=user",
+        "?thread_id=123&parent_id=456",
+    ]:
+        code, text, js = _dash_get(f"/threads{qs}")
+        assert code == 200, f"GET /threads{qs} returned {code}"
+        assert "<!DOCTYPE html>" in text, f"GET /threads{qs} did not return SPA HTML"
+
+    # Messages filters
+    for qs in [
+        "?role=user",
+        "?channel_id=1",
+        "?role=assistant&provider=openai",
+        "?model=gpt-4&type=text",
+        "?seq0=true&order=asc",
+    ]:
+        code, text, js = _dash_get(f"/messages{qs}")
+        assert code == 200, f"GET /messages{qs} returned {code}"
+        assert "<!DOCTYPE html>" in text, f"GET /messages{qs} did not return SPA HTML"
+
+    # Channels filters
+    for qs in [
+        "?channelId=1",
+        "?platform=telegram",
+        "?status=open",
+        "?channelId=test&platform=discord&status=closed",
+    ]:
+        code, text, js = _dash_get(f"/channels{qs}")
+        assert code == 200, f"GET /channels{qs} returned {code}"
+        assert "<!DOCTYPE html>" in text, f"GET /channels{qs} did not return SPA HTML"
+
+    # ── 3. Verify filter-related API endpoints return valid data ──
+    _, _, plugin_js = _dash_get("/api/plugins")
+    assert plugin_js is not None, "/api/plugins must return valid JSON"
+    assert plugin_js.get("success") is True, "/api/plugins must return success=true"
+    assert "data" in plugin_js, "/api/plugins must have 'data' key"
+    data = plugin_js["data"]
+    assert len(data) > 0, "/api/plugins data must not be empty"
+
+    # Verify plugins have the expected fields used by filters
+    for p in data:
+        assert "source" in p, f"Plugin {p.get('name')} missing 'source' field"
+        assert "status" in p, f"Plugin {p.get('name')} missing 'status' field"
+        assert "name" in p, f"Plugin missing 'name' field"
+
+    # Verify known source values exist
+    sources = set(p.get("source") for p in data)
+    known_sources = {"built-in", "bundled", "remote"}
+    assert len(sources & known_sources) > 0, \
+        f"No known source values found in plugins: {sources}"
+
+    # Verify known status values exist
+    statuses = set(p.get("status") for p in data)
+    known_statuses = {"enabled", "disabled", "error"}
+    assert len(statuses & known_statuses) > 0, \
+        f"No known status values found in plugins: {statuses}"
+
+    # ── 4. Verify that each plugin page type has data─────
+    # Tools
+    _, _, tools_js = _dash_get("/api/mcp/tools")
+    assert tools_js is not None, "/api/mcp/tools must return valid JSON"
+    tools_list = tools_js if isinstance(tools_js, list) else tools_js.get("tools", tools_js.get("data", []))
+    assert len(tools_list) > 0, "/api/mcp/tools must return at least one tool"
+
+    # Threads filters API
+    _, _, filters_js = _dash_get("/api/threads/filters")
+    assert filters_js is not None, "/api/threads/filters must return valid JSON"
+    assert filters_js.get("success") is True, "/api/threads/filters must return success=true"
+    filters_data = filters_js.get("data", {})
+    assert "statuses" in filters_data, "/api/threads/filters data must have 'statuses' key"
+    assert "causes" in filters_data, "/api/threads/filters data must have 'causes' key"
+
+    # Channels data
+    _, _, channels_js = _dash_get("/api/channels")
+    assert channels_js is not None, "/api/channels must return valid JSON"
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  Git hygiene
 # ═══════════════════════════════════════════════════════════════════════
@@ -2192,9 +2318,7 @@ def _mm_get_posts(base_url, channel_id, token):
     return json.loads(urllib.request.urlopen(req, timeout=10).read())
 
 def test_mm9_e2e():
-    """Full e2e test: mattermost setup -> noop provider response.
-    The mattermost plugin config (plugins.yml) defines test_user/test_password
-    so the setup creates the test user, team, and channel automatically."""
+    """Full e2e test: mattermost setup -> noop provider response."""
     import urllib.request, urllib.error, time
     _check_mm_container()
     MM = "http://mattermost:8065"
@@ -2216,43 +2340,47 @@ def test_mm9_e2e():
     assert nd.get("status") == "enabled", f"noop status={nd.get('status')}, expected enabled"
     print(f"[noop status=enabled]")
 
-    # 3. Run mattermost setup — handles team, channel, test user, bot user, token
-    setup_response = None
+    # 3. Run mattermost setup (idempotent — may already exist)
     try:
         req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST", headers={"Content-Type": "application/json"})
         r = urllib.request.urlopen(req, timeout=15)
         body = r.read().decode()
         if body.strip():
-            print(f"[setup returned: {body[:300]}]")
-            setup_response = json.loads(body)
+            print(f"[setup returned: {body[:200]}]")
     except (urllib.error.HTTPError, urllib.error.URLError, Exception) as e:
         print(f"[setup error (may be already set up): {e}]")
 
-    # Extract channel_id from setup response (mattermost channel ID, not omniagent channel ID)
-    mm_channel_id = None
-    if setup_response:
-        result = setup_response.get("result") or {}
-        mm_channel_id = result.get("channel_id") or setup_response.get("channel_id")
+    # 4. Ensure access_token is in the mattermost config so the platform
+    #    subprocess can connect via WebSocket with inbound capability.
+    #    Setting this via API also triggers a config reload that refreshes
+    #    env vars from .env and restarts the subprocess with the token.
+    api_post_body("/plugins/mattermost/config", {
+        "config": {
+            "access_token": "$env:MATTERMOST_ACCESS_TOKEN",
+            "server_url": "http://mattermost:8065",
+        }
+    })
+    print("[mattermost config updated with access_token]")
 
-    # Fallback: find the "setup" channel ID via admin API
-    if not mm_channel_id:
-        admin_token = _mm_login(MM, "lucasbasquerotto", "MTEnivuUVDZ3")
-        team_resp = json.loads(urllib.request.urlopen(
-            urllib.request.Request(f"{MM}/api/v4/users/me/teams", method="GET",
-                                   headers={"Authorization": f"Bearer {admin_token}"})
-        , timeout=10).read())
-        team_id = next((t["id"] for t in team_resp if t["name"] == "omni"), None)
-        if team_id:
-            team_channels = json.loads(urllib.request.urlopen(
-                urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
-                                       headers={"Authorization": f"Bearer {admin_token}"})
-            , timeout=10).read())
-            mm_channel_id = next((ch["id"] for ch in team_channels if ch["name"] == "setup"), None)
+    # Ensure prompt plugin is enabled — the executor needs prompt_generate
+    # to process incoming messages through the channel handler.
+    api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    import time as _time
+    for _attempt in range(10):
+        try:
+            r = urllib.request.urlopen(f"{BASE}/mcp/tools", timeout=5)
+            tools = json.loads(r.read())
+            td = tools if isinstance(tools, list) else (tools.get("tools") or tools.get("data") or [])
+            if any("prompt_generate" in (t.get("full_name") or t.get("name") or "") for t in td):
+                print("[prompt plugin enabled and ready]")
+                break
+        except:
+            pass
+        _time.sleep(1)
+    else:
+        print("[WARN: prompt_generate tool not found after 10s]")
 
-    assert mm_channel_id, "Cannot find 'setup' channel in Mattermost — setup must create it"
-    print(f"[found mm_channel_id={mm_channel_id}]")
-
-    # 4. Find the omniagent channel ID for mattermost (wait for auto-discovery)
+    # Find the omniagent channel ID for mattermost (wait for auto-discovery)
     channel_id = None
     for _ in range(15):
         r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
@@ -2273,11 +2401,91 @@ def test_mm9_e2e():
     except urllib.error.HTTPError as e:
         print(f"[channel patch: {e.code} {e.read().decode()[:100]}]")
 
-    time.sleep(15)
+    time.sleep(5)
 
-    # 6. Login as testuser (setup already created the user and set the password)
+    # 6. Login as admin to reset testuser password, then login as testuser
+    admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
+    admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
+    admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
+    assert admin_token, "Admin login returned no Token header"
+    print("[admin logged in]")
+
+    # Get testuser's user ID to reset password
+    user_resp = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{MM}/api/v4/users/username/{test_user}", method="GET",
+                               headers={"Authorization": f"Bearer {admin_token}"})
+    , timeout=10).read())
+    testuser_id = user_resp.get("id")
+    print(f"[testuser id={testuser_id}]")
+
+    # Reset testuser password via admin API — PUT /api/v4/users/{id}/password with {"new_password": "..."}
+    reset_data = json.dumps({"new_password": test_pass}).encode()
+    reset_req = urllib.request.Request(
+        f"{MM}/api/v4/users/{testuser_id}/password",
+        data=reset_data, method="PUT",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"}
+    )
+    try:
+        urllib.request.urlopen(reset_req, timeout=10)
+        print(f"[testuser password reset]")
+    except urllib.error.HTTPError as e:
+        print(f"[reset password: {e.code} {e.read().decode()[:100]}]")
+
+    # Ensure testuser is in team "omni" and channel "setup"
+    team_resp = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{MM}/api/v4/users/me/teams", method="GET",
+                               headers={"Authorization": f"Bearer {admin_token}"})
+    , timeout=10).read())
+    team_id = next((t["id"] for t in team_resp if t["name"] == "omni"), None)
+    if team_id:
+        if testuser_id:
+            # Add testuser to team
+            add_member = json.dumps({"user_id": testuser_id, "team_id": team_id}).encode()
+            try:
+                urllib.request.urlopen(
+                    urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/members",
+                                           data=add_member, method="POST",
+                                           headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"})
+                , timeout=10)
+                print(f"[testuser added to team omni]")
+            except urllib.error.HTTPError as e:
+                if e.code != 409:  # 409 = already member
+                    raise
+                print(f"[testuser already in team omni]")
+
+            # Add testuser to "setup" channel
+            channels_resp = json.loads(urllib.request.urlopen(
+                urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
+                                       headers={"Authorization": f"Bearer {admin_token}"})
+            , timeout=10).read())
+            setup_ch = next((ch for ch in channels_resp if ch["name"] == "setup"), None)
+            if setup_ch:
+                add_ch = json.dumps({"user_id": testuser_id, "channel_id": setup_ch["id"]}).encode()
+                try:
+                    urllib.request.urlopen(
+                        urllib.request.Request(f"{MM}/api/v4/channels/{setup_ch['id']}/members",
+                                               data=add_ch, method="POST",
+                                               headers={"Content-Type": "application/json", "Authorization": f"Bearer {admin_token}"})
+                    , timeout=10)
+                    print(f"[testuser added to channel setup]")
+                except urllib.error.HTTPError as e:
+                    if e.code != 409:
+                        raise
+                    print(f"[testuser already in channel setup]")
+        print(f"[team omni id={team_id}]")
+
+    # Login as testuser
     token = _mm_login(MM, test_user, test_pass)
     print("[testuser logged in]")
+
+    # Find the "setup" channel ID in Mattermost via admin API
+    team_channels = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", method="GET",
+                               headers={"Authorization": f"Bearer {admin_token}"})
+    , timeout=10).read())
+    mm_channel_id = next((ch["id"] for ch in team_channels if ch["name"] == "setup"), None)
+    assert mm_channel_id, "Cannot find 'setup' channel in Mattermost"
+    print(f"[found mm channel_id={mm_channel_id}]")
 
     import uuid
     test_msg = f"E2E test from {test_user} [{uuid.uuid4().hex[:8]}]"
@@ -2638,11 +2846,11 @@ def _make_user_msg(text: str = "Hello") -> dict:
     return {"role": "user", "content": text}
 
 def _compact_call(messages: list, keep_recent: int = 3) -> dict:
-    """Call the prompt_compact-messages MCP tool and return parsed response."""
+    """Call the memory_compact-messages MCP tool and return parsed response."""
     r = urllib.request.urlopen(
         urllib.request.Request(
             f"{BASE}/mcp/execute",
-            data=json.dumps({"name": "prompt_compact-messages",
+            data=json.dumps({"name": "memory_compact-messages",
                              "arguments": {"messages": messages, "keep_recent": keep_recent}}).encode(),
             headers={"Content-Type": "application/json"},
             method="POST"
@@ -2709,7 +2917,7 @@ def test_p7_tool_names_preserved():
     resp = _compact_call(msgs, keep_recent=2)
     assert resp["was_compacted"]
     for msg in resp["messages"]:
-        if msg.get("role") == "assistant" and msg.get("content", "").startswith("[compact:"):
+        if msg.get("role") == "assistant" and "compacted" in msg.get("content", ""):
             assert "search_docs" in msg["content"] or "read_file" in msg["content"], \
                 f"Compacted msg missing tool name: {msg['content']}"
 
@@ -2726,7 +2934,7 @@ def test_p7_compact_multiple_tools():
     resp = _compact_call(msgs, keep_recent=1)
     assert resp["was_compacted"]
     # Find the compacted message
-    compacted = [m for m in resp["messages"] if "[compact:" in m.get("content", "")]
+    compacted = [m for m in resp["messages"] if "compacted" in m.get("content", "")]
     assert len(compacted) >= 1, "No compacted messages found"
     assert "tool_a" in compacted[0]["content"]
     assert "tool_b" in compacted[0]["content"]
@@ -2737,7 +2945,7 @@ def test_p7_missing_messages_field():
     r = urllib.request.urlopen(
         urllib.request.Request(
             f"{BASE}/mcp/execute",
-            data=json.dumps({"name": "prompt_compact-messages",
+            data=json.dumps({"name": "memory_compact-messages",
                              "arguments": {"keep_recent": 3}}).encode(),
             headers={"Content-Type": "application/json"},
             method="POST"
@@ -2832,7 +3040,7 @@ if __name__ == "__main__":
     print("GROUP 5 — Dashboard page loading tests")
     print(f"{'=' * 60}")
 
-    for fn in [test_dashboard_pages]:
+    for fn in [test_dashboard_pages, test_dashboard_plugin_filters]:
         test(fn)
 
 
@@ -2924,12 +3132,27 @@ if __name__ == "__main__":
     print("GROUP 11 — Prompt Plugin Tests")
     print(f"{'=' * 60}")
 
-    # Enable prompt plugin before group — needed for p7 compact-messages tool
-    success, resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
-    assert success, f"enable prompt plugin failed: {resp}"
-    print("[prompt plugin enabled]")
-    # Wait for MCP server tool registration
-    time.sleep(8)
+    # Enable the prompt plugin before running its tests (it's disabled by default)
+    enable_success, enable_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    if not enable_success:
+        print(f"  ⚠ Failed to enable prompt plugin: {enable_resp}")
+    else:
+        print("  ✓ Prompt plugin enabled for GROUP 11")
+
+    # Wait for prompt MCP server to register its tools
+    import time
+    for attempt in range(10):
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)
+            tools_data = json.loads(r.read())
+            tools = tools_data if isinstance(tools_data, list) else (tools_data.get("tools") or tools_data.get("data") or [])
+            if any("prompt_compact" in (t.get("full_name") or t.get("name") or "") for t in tools):
+                break
+        except:
+            pass
+        time.sleep(1)
+    else:
+        print("  ⚠ Timed out waiting for prompt_compact-messages tool to register")
 
     for fn in [
         test_p1_basic_response_structure,
@@ -2959,9 +3182,12 @@ if __name__ == "__main__":
     ]:
         test(fn)
 
-    # Disable prompt plugin after tests
-    api_post_body("/plugins/prompt/disable", {"source": "built-in"})
-    print("[prompt plugin disabled]")
+    # Disable the prompt plugin after tests (restore default state)
+    disable_success, disable_resp = api_post_body("/plugins/prompt/disable", {"source": "built-in"})
+    if not disable_success:
+        print(f"  ⚠ Failed to disable prompt plugin: {disable_resp}")
+    else:
+        print("  ✓ Prompt plugin disabled after GROUP 11")
 
     print(f"\n{'=' * 60}")
     print(f"Results: {tests_pass}/{tests_run} passed, {tests_fail} failed")

@@ -375,7 +375,7 @@ def ensure_remote_plugin(name, plugin_type="tools"):
     # Pre-build Rust binary so install API doesn't timeout compiling
     cargo_toml = f"{dest_base}/{plugin_type}/{name}/Cargo.toml"
     if os.path.exists(cargo_toml):
-        sh(f"cd {dest_base}/{plugin_type}/{name} && cargo build --release 2>&1")
+        sh(f"cd {dest_base}/{plugin_type}/{name} && timeout 120 cargo build --release 2>&1")
 
     # Register in remote.yml
     remote_yml_path = f"{WORKSPACE}/remote.yml"
@@ -2975,11 +2975,15 @@ def test_fn_12_file_upload():
     # Upload file
     test_content = b"Hello Hermes! Test file content: ABC123XYZ"
     boundary = uuid.uuid4().hex
-    body = (
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="filename"; filename="test.txt"\r\n'
-        f"Content-Type: text/plain\r\n\r\n"
-    ).encode() + test_content + f"\r\n--{boundary}--\r\n".encode()
+    body = b""
+    body += f"--{boundary}\r\n".encode()
+    body += f'Content-Disposition: form-data; name="files"; filename="test.txt"\r\n'.encode()
+    body += b"Content-Type: text/plain\r\n\r\n"
+    body += test_content + b"\r\n"
+    body += f"--{boundary}\r\n".encode()
+    body += f'Content-Disposition: form-data; name="channel_id"\r\n\r\n'.encode()
+    body += mm_channel_id.encode() + b"\r\n"
+    body += f"--{boundary}--\r\n".encode()
     file_post = urllib.request.Request(
         f"{MM}/api/v4/files",
         data=body, method="POST",
@@ -3136,6 +3140,14 @@ def test_fn_13_non_blocking():
 # ═══════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    # Discard test artifact files that may be stale from a previous crashed run
+    # Only clean specific artifact files, not all changes (preserves our patches)
+    for _artifact in ["plugins.yml", "remote.yml"]:
+        subprocess.run(
+            ["git", "checkout", "--", _artifact],
+            cwd=OMNI_STACK_DIR, capture_output=True
+        )
+
     # Verify clean git state before making any changes
     check_git_clean()
 

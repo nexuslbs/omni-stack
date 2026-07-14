@@ -357,6 +357,18 @@ def ensure_remote_plugin(name, plugin_type="tools"):
     # Check plugin.json exists (not just the directory: may be empty from failed cleanup)
     plugin_json = f"{remote_dir}/{plugin_type}/{name}/plugin.json"
     if exists(plugin_json):
+        # For Rust plugins, verify the binary was actually compiled (partial builds
+        # from interrupted runs leave plugin.json but no binary)
+        cargo_toml = f"{remote_dir}/{plugin_type}/{name}/Cargo.toml"
+        if os.path.exists(cargo_toml):
+            # Try to find the binary: check known Rust binary names
+            binary_name = name.replace("-", "_")
+            binary_path = f"{remote_dir}/{plugin_type}/{name}/target/release/{binary_name}"
+            if not os.path.exists(binary_path):
+                print(f"[recompiling {name} — binary missing]")
+                rc = sh(f"cd {remote_dir}/{plugin_type}/{name} && timeout 120 cargo build --release 2>&1")
+                if rc.returncode != 0:
+                    print(f"  ⚠ recompile output: {rc.stdout[-300:]}")
         return  # already installed with files
 
     repo_src = f"{REMOTE_REPO}/{plugin_type}/{name}"

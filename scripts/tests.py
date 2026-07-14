@@ -3153,16 +3153,6 @@ def test_fn_13_non_blocking():
 # ═══════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    # Restore any deleted tracked files from previous test runs (tests.py is
-    # committed, so git checkout won't revert our changes)
-    _git_discard_all(OMNI_STACK_DIR)
-    # Remove untracked test artifact directories that may have been created
-    _tools_dir = f"{WORKSPACE}/plugins/tools"
-    if os.path.isdir(_tools_dir):
-        for _d in sorted(os.listdir(_tools_dir), reverse=True):
-            if _d.startswith("test-"):
-                shutil.rmtree(f"{_tools_dir}/{_d}", ignore_errors=True)
-
     # Verify clean git state before making any changes
     check_git_clean()
 
@@ -3436,7 +3426,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"  ⚠ GROUP 12 file upload failed: {e}")
 
-test(file_fn_12_file_upload)
+test(test_fn_12_file_upload)
 
 print(f"\n{'=' * 60}")
 print("GROUP 13: Non-Blocking Tasks via test-tool-caller")

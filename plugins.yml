@@ -4,21 +4,20 @@ platforms:
     source: bundled
     config:
       access_token: $env:MATTERMOST_ACCESS_TOKEN
+      admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
+      admin_user: omniuser
+      bot_password: $secret:MATTERMOST_BOT_PASSWORD
+      bot_user: omnibot
       server_url: http://mattermost:8065
+      setup_channel: setup
+      setup_team: omni
+      test_password: $secret:MATTERMOST_TEST_PASSWORD
+      test_user: testuser
   telegram:
     enabled: false
     source: bundled
-    config:
-      bot_token: ''
+    config: {}
 tools:
-  fetch:
-    enabled: true
-    source: bundled
-    config: {}
-  filesystem:
-    enabled: true
-    source: bundled
-    config: {}
   git:
     enabled: true
     source: bundled
@@ -63,13 +62,11 @@ tools:
     enabled: true
     source: built-in
     config: {}
+  test-rust-tool:
+    enabled: false
+    source: built-in
+    config: {}
 providers:
-  deepseek:
-    enabled: true
-    source: bundled
-    config:
-      api_key: $secret:DEEPSEEK_API_KEY
-      default_model: deepseek-v4-flash
   noop:
     enabled: true
     source: bundled

@@ -18,10 +18,6 @@ platforms:
     source: bundled
     config: {}
 tools:
-  git:
-    enabled: true
-    source: bundled
-    config: {}
   hindsight:
     enabled: true
     source: built-in
@@ -43,7 +39,7 @@ tools:
     source: built-in
     config: {}
   prompt:
-    enabled: true
+    enabled: false
     source: built-in
     config: {}
   query:
@@ -55,7 +51,7 @@ tools:
     source: built-in
     config: {}
   skills:
-    enabled: false
+    enabled: true
     source: bundled
     config: {}
   subtasks:
@@ -63,8 +59,8 @@ tools:
     source: built-in
     config: {}
   test-rust-tool:
-    enabled: false
-    source: built-in
+    enabled: true
+    source: remote
     config: {}
 providers:
   noop:

@@ -142,3 +142,42 @@ These have `plugin.json` and a compiled binary but no source code. They show wit
 - First build takes time (dependency compilation). Subsequent builds use cache.
 - Run `cargo build --release` from the plugin's own directory.
 - Each plugin has its own `target/` directory.
+
+### Test Cleanup: Use `git checkout` Only, Never `git clean`
+
+The `_git_discard_all()` function MUST restore tracked files via `git checkout -- .` but MUST NOT run `git clean -fd`. The clean step deletes compiled binary directories (like `target/` for the mattermost platform plugin). Only tracked files should be restored — build artifacts and compiled binaries must be preserved.
+
+```python
+# CORRECT — restores tracked files only, preserves build artifacts
+def _git_discard_all(repo_dir):
+    subprocess.run(["git", "checkout", "--", "."], cwd=repo_dir, capture_output=True)
+    # Do NOT add git clean -fd — it deletes compiled binaries
+
+# WRONG — git clean -fd deletes target/ and other build artifacts
+def _git_discard_all(repo_dir):
+    subprocess.run(["git", "checkout", "--", "."], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "clean", "-fd"], cwd=repo_dir, capture_output=True)  # ❌
+```
+
+### Mattermost Platform Plugin Binary
+
+- Source tracked in omni-stack at `plugins/platforms/mattermost/`
+- Compiled binary at `plugins/platforms/mattermost/target/release/mattermost-platform`
+- `_ensure_mm_platform_binary()` checks if binary exists and compiles if missing — called at start of `test_mm9_e2e`
+- The binary survives `git checkout -- .` cleanup (only tracked files are restored)
+- Compiling takes ~2.5 min on first build, faster with cached deps
+
+### Run Tests Inside the Container (as Root)
+
+The test runner MUST run inside the omniagent container, which runs as root. Running from the host causes false failures:
+
+```bash
+docker exec -e PYTHONUNBUFFERED=1 omni-omniagent-1 \
+    python3 -u /opt/workspace/omni-stack/scripts/tests.py
+```
+
+**Host vs container differences that cause false failures:**
+- `git checkout -- .` hits "Permission denied" on root-owned files if run from the host
+- When `git checkout -- .` fails (even silently), no tracked files are restored — the working tree remains dirty
+- Do NOT run `git checkout -- .` or any git operations on omni-stack from the host for cleanup
+- If the repo needs cleaning, do it from inside the container or use `docker exec` to run git commands as root

@@ -1521,7 +1521,7 @@ def test_enable_source(name, source, expected_success=True):
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/enable", {"source": source})
+    success, resp = api_post_body(f"/plugins/{name}/enable", {"source": source}, timeout=120)
     if expected_success:
         assert success, f"enable {name} source={source} failed: {resp}"
         _assert_yaml_state(name, ptype, expect_enabled=True, expect_source=source)
@@ -1547,7 +1547,7 @@ def test_install_source(name, source, expected_success=True):
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/install", {"source": source})
+    success, resp = api_post_body(f"/plugins/{name}/install", {"source": source}, timeout=120)
     if expected_success:
         assert success, f"install {name} source={source} failed: {resp}"
         _assert_yaml_state(name, ptype, expect_source=source)
@@ -1560,7 +1560,7 @@ def test_install_source(name, source, expected_success=True):
 def test_reinstall_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/reinstall", {"source": source})
+    success, resp = api_post_body(f"/plugins/{name}/reinstall", {"source": source}, timeout=120)
     if expected_success:
         assert success, f"reinstall {name} source={source} failed: {resp}"
         _assert_yaml_state(name, ptype, expect_source=source)

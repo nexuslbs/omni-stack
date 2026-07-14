@@ -2297,13 +2297,14 @@ MM_BINARY = f"{MM_PLATFORM_DIR}/target/release/mattermost-platform"
 def _ensure_mm_platform_binary():
     """Compile mattermost platform binary if missing (target/ is gitignored and may be absent)."""
     if not os.path.exists(MM_BINARY):
-        # Source may have been deleted by a prior test's cleanup (e.g. git operations
-        # that wipe untracked directories). Restore from git if needed.
-        if not os.path.exists(MM_PLATFORM_DIR):
+        # Source may have been deleted by a prior test's cleanup that rm -rf'd the
+        # plugin directory. Check for Cargo.toml to distinguish "no source" from
+        # "uncompiled but source present".
+        if not os.path.exists(f"{MM_PLATFORM_DIR}/Cargo.toml"):
             print("[restoring mattermost platform source from git...]")
             sh(f"cd {WORKSPACE} && git checkout -- plugins/platforms/mattermost 2>&1")
-            assert os.path.exists(MM_PLATFORM_DIR), \
-                f"git restore failed: {MM_PLATFORM_DIR} still missing"
+            assert os.path.exists(f"{MM_PLATFORM_DIR}/Cargo.toml"), \
+                f"git restore failed: Cargo.toml still missing in {MM_PLATFORM_DIR}"
         print("[compiling mattermost platform binary...]")
         rc = sh(f"cd {MM_PLATFORM_DIR} && cargo build --release 2>&1")
         if rc.returncode != 0:

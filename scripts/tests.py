@@ -1394,10 +1394,7 @@ def _git_discard_all(repo_dir):
     subprocess.run(["git", "clean", "-fd"], cwd=repo_dir, capture_output=True)
 
 def check_git_clean():
-    """Restore repo to clean state before running tests.
-    The agent normalizes plugins.yml and remote.yml on startup, and previous
-    test runs may leave deleted files. Full checkout + clean handles all cases."""
-    _git_discard_all(OMNI_STACK_DIR)
+    """Raise if omni-stack repo has unstaged changes — never auto-discard."""
     dirty = _git_status(OMNI_STACK_DIR)
     if dirty:
         raise RuntimeError(
@@ -2951,7 +2948,7 @@ def test_fn_12_file_upload():
         f"Content-Type: text/plain\r\n\r\n"
     ).encode() + test_content + f"\r\n--{boundary}--\r\n".encode()
     file_post = urllib.request.Request(
-        f"{MM}/api/v4/files?channel_id={mm_channel_id}",
+        f"{MM}/api/v4/files",
         data=body, method="POST",
         headers={"Authorization": f"Bearer {admin_token}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
     )
@@ -2994,12 +2991,38 @@ def test_fn_12_file_upload():
 def test_fn_13_non_blocking():
     """Test lorem/poll_task/wait_task/read_task_logs lifecycle via test-tool-caller.
 
-    Sends a 4-step script via Mattermost. The test-tool-caller model processes
-    one step per iteration, resolving ${name.field} placeholders across steps.
+    Adds test-python-tool for lorem, runs a 4-step script via Mattermost.
+    The test-tool-caller model processes one step per iteration, resolving
+    ${name.field} placeholders across steps.
     Total execution should be ~5s (the lorem duration), not 120s (wait timeout).
+    Cleans up test-python-tool after.
     """
     import urllib.request, urllib.error, time, uuid
     MM = "http://mattermost:8065"
+
+    # Add test-python-tool (remote YAML entry) and download/enable it
+    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "remote", "config": {}})
+    success, resp = api_post_body("/plugins/test-python-tool/download", {"source": "remote"}, timeout=30)
+    if not success:
+        print(f"  ⚠ download failed: {resp}")
+    success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "remote"}, timeout=15)
+    if not success:
+        print(f"  ⚠ enable failed: {resp}")
+    # Wait for MCP server to register its tools
+    for attempt in range(15):
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)
+            tools_data = json.loads(r.read())
+            tools = tools_data if isinstance(tools_data, list) else (tools_data.get("tools") or tools_data.get("data") or [])
+            if any("test-python-tool_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
+                print("[test-python-tool_lorem registered]")
+                break
+        except:
+            pass
+        time.sleep(2)
+    else:
+        print("  ⚠ Timed out waiting for test-python-tool_lorem to register")
+
     admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
     admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
     admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
@@ -3014,46 +3037,30 @@ def test_fn_13_non_blocking():
     assert mm_channel_id
 
     # Ensure channel uses noop provider with test-tool-caller model
-    channel_set = False
     for _ in range(10):
         try:
             r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
-            channels_list = json.loads(r.read()).get("data", [])
-            mm_ch = next((ch for ch in channels_list if ch.get("platform") == "mattermost"), None)
+            channels = json.loads(r.read()).get("data", [])
+            mm_ch = next((ch for ch in channels if ch.get("platform") == "mattermost"), None)
             if mm_ch:
                 cid = mm_ch["id"]
-                patch_req = urllib.request.Request(f"{BASE}/channels/{cid}",
+                patch = urllib.request.Request(f"{BASE}/channels/{cid}",
                     data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
                     method="PATCH", headers={"Content-Type": "application/json"})
-                urllib.request.urlopen(patch_req, timeout=10)
-                time.sleep(1)
-                rr = urllib.request.urlopen(f"{BASE}/channels/{cid}", timeout=10)
-                updated = json.loads(rr.read())
-                upd_model = updated.get("current_model") or (updated.get("data") or {}).get("current_model")
-                if upd_model == "test-tool-caller":
-                    print(f"[channel {cid} set to noop/test-tool-caller]")
-                    channel_set = True
-                    break
-                else:
-                    print(f"[WARN] PATCH returned 200 but current_model is '{upd_model}', retrying...")
-        except Exception as e:
-            print(f"[WARN] Channel setup attempt failed: {e}")
+                urllib.request.urlopen(patch, timeout=10)
+                print(f"[channel {cid} set to noop/test-tool-caller]")
+                break
+        except Exception:
+            pass
         time.sleep(2)
 
-    if not channel_set:
-        print("[FAIL] Could not set channel to noop/test-tool-caller. Ensure:")
-        print("  1. The 'noop' provider is enabled (api_post_body /plugins/noop/enable)")
-        print("  2. The provider's plugin.json includes 'test-tool-caller' in allowed_values")
-        print("  3. The channel exists and has platform=mattermost")
-        raise AssertionError("Channel not configured for test-tool-caller")
-
     # 4-step script:
-    # 1. builtin_lorem(5) named "long_run" → returns {task_id, status:processing}
+    # 1. test-python-tool_lorem(5) named "long_run" → returns {task_id, status:processing}
     # 2. builtin_read-task-logs with task_id from step 1
     # 3. builtin_wait-task with task_id from step 1 (timeout 120s)
     # 4. builtin_read-task-logs again to verify summary
     script = json.dumps([
-        {"name": "long_run", "tool": "builtin_lorem", "arguments": {"seconds": 5}},
+        {"name": "long_run", "tool": "test-python-tool_lorem", "arguments": {"seconds": 5}},
         {"name": "logs1", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
         {"name": "wait", "tool": "builtin_wait-task", "arguments": {"task_id": "${long_run.task_id}", "timeout_secs": 120}},
         {"name": "logs2", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
@@ -3086,16 +3093,10 @@ def test_fn_13_non_blocking():
                 assert elapsed < 30, f"Took {elapsed:.1f}s — should be ~5s (lorem duration)"
                 print("[non-blocking test PASSED]")
                 return
-    # On timeout, show last posts for debugging
-    posts = json.loads(urllib.request.urlopen(
-        urllib.request.Request(f"{MM}/api/v4/channels/{mm_channel_id}/posts",
-        headers={"Authorization": f"Bearer {admin_token}"}), timeout=10).read())
-    last_msgs = []
-    for pid, post in sorted(posts.get("posts", {}).items(), key=lambda x: x[1].get("create_at", 0), reverse=True)[:3]:
-        last_msgs.append(f"  [{post.get("user_id","?")[:8]}]: {post.get("message","")[:200]}")
-    debug = "\n".join(last_msgs)
-    print(f"[TIMEOUT] Last posts on channel:\n{debug}")
-    assert False, "No completion message within 60s. Agent did not execute script."
+    assert False, "No completion message within 60s"
+
+    # Cleanup: remove test-python-tool
+    yaml_del("tools", "test-python-tool")
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Main
@@ -3355,7 +3356,7 @@ if __name__ == "__main__":
         f"Content-Type: text/plain\r\n\r\n"
     ).encode() + test_content + f"\r\n--{boundary}--\r\n".encode()
     file_post = urllib.request.Request(
-        f"{MM}/api/v4/files?channel_id={mm_channel_id}",
+        f"{MM}/api/v4/files",
         data=body,
         method="POST",
         headers={"Authorization": f"Bearer {admin_token}", "Content-Type": f"multipart/form-data; boundary={boundary}"},

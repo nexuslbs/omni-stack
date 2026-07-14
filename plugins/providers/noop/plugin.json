@@ -6,7 +6,7 @@
   "default_base_url": "http://noop-provider:9090/v1",
   "api_mode": "chat_completions",
   "config_schema": [
-    { "key": "default_model", "label": "Default Model", "type": "enum", "default": "test-model-1", "allowed_values": ["test-model-1", "test-model-2", "test-tool-caller"] }
+    { "key": "default_model", "label": "Default Model", "type": "enum", "default": "test-model-1", "allowed_values": ["test-model-1", "test-model-2"] }
   ],
   "env": {}
 }

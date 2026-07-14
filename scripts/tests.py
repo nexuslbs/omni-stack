@@ -2951,7 +2951,7 @@ def test_fn_12_file_upload():
         f"Content-Type: text/plain\r\n\r\n"
     ).encode() + test_content + f"\r\n--{boundary}--\r\n".encode()
     file_post = urllib.request.Request(
-        f"{MM}/api/v4/files",
+        f"{MM}/api/v4/files?channel_id={mm_channel_id}",
         data=body, method="POST",
         headers={"Authorization": f"Bearer {admin_token}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
     )
@@ -3014,22 +3014,38 @@ def test_fn_13_non_blocking():
     assert mm_channel_id
 
     # Ensure channel uses noop provider with test-tool-caller model
+    channel_set = False
     for _ in range(10):
         try:
             r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
-            channels = json.loads(r.read()).get("data", [])
-            mm_ch = next((ch for ch in channels if ch.get("platform") == "mattermost"), None)
+            channels_list = json.loads(r.read()).get("data", [])
+            mm_ch = next((ch for ch in channels_list if ch.get("platform") == "mattermost"), None)
             if mm_ch:
                 cid = mm_ch["id"]
-                patch = urllib.request.Request(f"{BASE}/channels/{cid}",
+                patch_req = urllib.request.Request(f"{BASE}/channels/{cid}",
                     data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
                     method="PATCH", headers={"Content-Type": "application/json"})
-                urllib.request.urlopen(patch, timeout=10)
-                print(f"[channel {cid} set to noop/test-tool-caller]")
-                break
-        except Exception:
-            pass
+                urllib.request.urlopen(patch_req, timeout=10)
+                time.sleep(1)
+                rr = urllib.request.urlopen(f"{BASE}/channels/{cid}", timeout=10)
+                updated = json.loads(rr.read())
+                upd_model = updated.get("current_model") or (updated.get("data") or {}).get("current_model")
+                if upd_model == "test-tool-caller":
+                    print(f"[channel {cid} set to noop/test-tool-caller]")
+                    channel_set = True
+                    break
+                else:
+                    print(f"[WARN] PATCH returned 200 but current_model is '{upd_model}', retrying...")
+        except Exception as e:
+            print(f"[WARN] Channel setup attempt failed: {e}")
         time.sleep(2)
+
+    if not channel_set:
+        print("[FAIL] Could not set channel to noop/test-tool-caller. Ensure:")
+        print("  1. The 'noop' provider is enabled (api_post_body /plugins/noop/enable)")
+        print("  2. The provider's plugin.json includes 'test-tool-caller' in allowed_values")
+        print("  3. The channel exists and has platform=mattermost")
+        raise AssertionError("Channel not configured for test-tool-caller")
 
     # 4-step script:
     # 1. builtin_lorem(5) named "long_run" → returns {task_id, status:processing}
@@ -3070,7 +3086,16 @@ def test_fn_13_non_blocking():
                 assert elapsed < 30, f"Took {elapsed:.1f}s — should be ~5s (lorem duration)"
                 print("[non-blocking test PASSED]")
                 return
-    assert False, "No completion message within 60s"
+    # On timeout, show last posts for debugging
+    posts = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{MM}/api/v4/channels/{mm_channel_id}/posts",
+        headers={"Authorization": f"Bearer {admin_token}"}), timeout=10).read())
+    last_msgs = []
+    for pid, post in sorted(posts.get("posts", {}).items(), key=lambda x: x[1].get("create_at", 0), reverse=True)[:3]:
+        last_msgs.append(f"  [{post.get("user_id","?")[:8]}]: {post.get("message","")[:200]}")
+    debug = "\n".join(last_msgs)
+    print(f"[TIMEOUT] Last posts on channel:\n{debug}")
+    assert False, "No completion message within 60s. Agent did not execute script."
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Main
@@ -3330,7 +3355,7 @@ if __name__ == "__main__":
         f"Content-Type: text/plain\r\n\r\n"
     ).encode() + test_content + f"\r\n--{boundary}--\r\n".encode()
     file_post = urllib.request.Request(
-        f"{MM}/api/v4/files",
+        f"{MM}/api/v4/files?channel_id={mm_channel_id}",
         data=body,
         method="POST",
         headers={"Authorization": f"Bearer {admin_token}", "Content-Type": f"multipart/form-data; boundary={boundary}"},

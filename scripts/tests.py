@@ -2291,6 +2291,20 @@ def test_t6_disable_invalid_source():
 
 
 # ── GROUP 9: Mattermost + Noop E2E integration test ──────────────────
+MM_PLATFORM_DIR = f"{WORKSPACE}/plugins/platforms/mattermost"
+MM_BINARY = f"{MM_PLATFORM_DIR}/target/release/mattermost-platform"
+
+def _ensure_mm_platform_binary():
+    """Compile mattermost platform binary if missing (target/ is gitignored and may be absent)."""
+    if not os.path.exists(MM_BINARY):
+        print("[compiling mattermost platform binary...]")
+        rc = sh(f"cd {MM_PLATFORM_DIR} && cargo build --release 2>&1")
+        if rc.returncode != 0:
+            print(f"  ⚠ compilation output (last 20 lines):\n" + "\n".join(rc.stdout.split("\n")[-20:]))
+            raise RuntimeError(f"mattermost platform build failed (exit {rc.returncode})")
+        assert os.path.exists(MM_BINARY), "Binary still missing after build"
+        print(f"[mattermost platform binary compiled: {MM_BINARY}]")
+
 def _check_mm_container():
     rc = sh("docker inspect omni-mattermost-1 2>/dev/null | grep -q '\"Running\": true'")
     assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running"
@@ -2322,6 +2336,7 @@ def test_mm9_e2e():
     access token. No manual Mattermost admin API calls should be needed.
     """
     import urllib.request, urllib.error, time
+    _ensure_mm_platform_binary()
     _check_mm_container()
     MM = "http://mattermost:8065"
     test_pass = "Mattermost_Fresh_Start_1"

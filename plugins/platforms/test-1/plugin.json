@@ -1,0 +1,9 @@
+{
+  "name": "test-1",
+  "version": "1.0.0",
+  "type": "platform",
+  "description": "Test platform plugin for disabled visibility regression testing",
+  "entrypoint": { "command": "./test-1-platform", "args": [], "transport": "stdio" },
+  "capabilities": { "inbound": false, "outbound": false },
+  "config_schema": []
+}

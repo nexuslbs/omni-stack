@@ -2297,10 +2297,14 @@ MM_BINARY = f"{MM_PLATFORM_DIR}/target/release/mattermost-platform"
 def _ensure_mm_platform_binary():
     """Compile mattermost platform binary if missing (target/ is gitignored and may be absent)."""
     if not os.path.exists(MM_BINARY):
-        print(f"[DEBUG] MM_BINARY={MM_BINARY}")
-        print(f"[DEBUG] MM_PLATFORM_DIR exists={os.path.exists(MM_PLATFORM_DIR)}")
-        print(f"[DEBUG] MM_PLATFORM_DIR contents={os.listdir(MM_PLATFORM_DIR) if os.path.exists(MM_PLATFORM_DIR) else 'N/A'}")
-        print(f"[compiling mattermost platform binary...]")
+        # Source may have been deleted by a prior test's cleanup (e.g. git operations
+        # that wipe untracked directories). Restore from git if needed.
+        if not os.path.exists(MM_PLATFORM_DIR):
+            print("[restoring mattermost platform source from git...]")
+            sh(f"cd {WORKSPACE} && git checkout -- plugins/platforms/mattermost 2>&1")
+            assert os.path.exists(MM_PLATFORM_DIR), \
+                f"git restore failed: {MM_PLATFORM_DIR} still missing"
+        print("[compiling mattermost platform binary...]")
         rc = sh(f"cd {MM_PLATFORM_DIR} && cargo build --release 2>&1")
         if rc.returncode != 0:
             print(f"  ⚠ compilation output (last 20 lines):\n" + "\n".join(rc.stdout.split("\n")[-20:]))

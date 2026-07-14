@@ -2344,6 +2344,17 @@ def test_mm9_e2e():
     """
     import urllib.request, urllib.error, time
     _ensure_mm_platform_binary()
+    # Ensure noop provider exists (GROUP 1 tests may have deleted it)
+    noop_dir = f"{WORKSPACE}/plugins/providers/noop"
+    if not os.path.exists(noop_dir):
+        print("[restoring noop provider from backup...]")
+        from shutil import copytree
+        repo_noop = f"{REMOTE_REPO}/providers/noop"
+        if os.path.exists(repo_noop):
+            copytree(repo_noop, noop_dir, dirs_exist_ok=True)
+        else:
+            sh(f"cd {WORKSPACE} && git checkout -- plugins/providers/noop 2>&1")
+        assert os.path.exists(noop_dir), f"Failed to restore noop provider"
     _check_mm_container()
     MM = "http://mattermost:8065"
     test_pass = "Mattermost_Fresh_Start_1"

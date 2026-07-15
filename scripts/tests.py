@@ -2838,9 +2838,9 @@ def _make_assistant_msg(tool_names: list[str]) -> dict:
         ]
     }
 
-def _make_tool_msg(name: str = "tool_a") -> dict:
+def _make_tool_msg(name: str = "tool_a", tool_call_id: str = "call_0") -> dict:
     """Build a tool result message."""
-    return {"role": "tool", "content": '{"result": "ok"}', "name": name}
+    return {"role": "tool", "content": '{"result": "ok"}', "name": name, "tool_call_id": tool_call_id}
 
 def _make_user_msg(text: str = "Hello") -> dict:
     return {"role": "user", "content": text}
@@ -2865,8 +2865,8 @@ def _compact_call(messages: list, keep_recent: int = 3) -> dict:
 
 def test_p7_no_compaction_needed():
     """Fewer tool-calling messages than keep_recent → no change"""
-    msgs = [_make_user_msg(), _make_assistant_msg(["tool_a"]), _make_tool_msg(),
-            _make_user_msg("Hi again"), _make_assistant_msg(["tool_b"]), _make_tool_msg()]
+    msgs = [_make_user_msg(), _make_assistant_msg(["tool_a"]), _make_tool_msg("tool_a", "call_0"),
+            _make_user_msg("Hi again"), _make_assistant_msg(["tool_b"]), _make_tool_msg("tool_b", "call_0")]
     resp = _compact_call(msgs, keep_recent=3)
     assert not resp["was_compacted"], f"Should not compact: {resp['before_count']} ≤ 3"
     assert resp["before_count"] == resp["after_count"]
@@ -2878,7 +2878,7 @@ def test_p7_compaction_reduces_count():
     msgs = []
     for i in range(5):
         msgs.append(_make_assistant_msg(["tool_a"]))
-        msgs.append(_make_tool_msg("tool_a"))
+        msgs.append(_make_tool_msg("tool_a", "call_0"))
     msgs.insert(0, _make_user_msg("Start"))
     before = len(msgs)  # 11
 
@@ -2894,7 +2894,7 @@ def test_p7_keep_recent_1():
     msgs = []
     for i in range(5):
         msgs.append(_make_assistant_msg(["tool_a"]))
-        msgs.append(_make_tool_msg("tool_a"))
+        msgs.append(_make_tool_msg("tool_a", "call_0"))
     resp = _compact_call(msgs, keep_recent=1)
     assert resp["was_compacted"]
     # 5 pairs → after keep_recent=1: 4 old pairs compacted (4 removed) → 6 remaining
@@ -2912,8 +2912,8 @@ def test_p7_tool_names_preserved():
     msgs = []
     for i in range(4):
         msgs.append(_make_assistant_msg(["search_docs", "read_file"]))
-        msgs.append(_make_tool_msg("search_docs"))
-        msgs.append(_make_tool_msg("read_file"))
+        msgs.append(_make_tool_msg("search_docs", "call_0"))
+        msgs.append(_make_tool_msg("read_file", "call_1"))
     resp = _compact_call(msgs, keep_recent=2)
     assert resp["was_compacted"]
     for msg in resp["messages"]:
@@ -2927,7 +2927,7 @@ def test_p7_compact_multiple_tools():
     msgs = [_make_user_msg("Start")]
     for i in range(5):
         msgs.append(_make_assistant_msg(["tool_a"]))
-        msgs.append(_make_tool_msg("tool_a"))
+        msgs.append(_make_tool_msg("tool_a", "call_0"))
     resp = _compact_call(msgs, keep_recent=1)
     assert resp["was_compacted"], f"Expected compaction: {resp['before_count']} -> {resp['after_count']}"
     assert resp["after_count"] < resp["before_count"], f"Count did not reduce: {resp}"
@@ -3549,6 +3549,11 @@ if __name__ == "__main__":
     print(f"{'=' * 60}")
 
     _check_mm_container()
+
+    # Re-enable the prompt plugin (G11 disabled it at the end of its tests)
+    prompt_success, prompt_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    assert prompt_success, f"enable prompt plugin for G12 failed: {prompt_resp}"
+    print("  ✓ Prompt plugin enabled for G12")
 
     # Ensure config is set for mattermost
     config_success, config_resp = api_post_body("/plugins/mattermost/config", {

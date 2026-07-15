@@ -878,8 +878,8 @@ def test_3():
         # with a proper remote.yml + plugins.yml entry
         try:
             api_post(f"/plugins/{name}/download", {"source": "remote"})
-        except Exception:
-            pass  # best-effort restore for subsequent tests
+        except Exception as e:
+            print(f"  [WARN: download restore failed: {e}]")
 
 # ── Test 4: Built-in in plugins.yml → error ──────────────────────────
 

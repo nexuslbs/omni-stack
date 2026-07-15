@@ -366,7 +366,7 @@ def ensure_remote_plugin(name, plugin_type="tools"):
             binary_path = f"{remote_dir}/{plugin_type}/{name}/target/release/{binary_name}"
             if not os.path.exists(binary_path):
                 print(f"[recompiling {name} — binary missing]")
-                rc = sh(f"cd {remote_dir}/{plugin_type}/{name} && timeout 120 cargo build --release 2>&1")
+                rc = sh(f"cd {remote_dir}/{plugin_type}/{name} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
                 if rc.returncode != 0:
                     print(f"  ⚠ recompile output: {rc.stdout[-300:]}")
         return  # already installed with files
@@ -387,7 +387,7 @@ def ensure_remote_plugin(name, plugin_type="tools"):
     # Pre-build Rust binary so install API doesn't timeout compiling
     cargo_toml = f"{dest_base}/{plugin_type}/{name}/Cargo.toml"
     if os.path.exists(cargo_toml):
-        sh(f"cd {dest_base}/{plugin_type}/{name} && timeout 120 cargo build --release 2>&1")
+        sh(f"cd {dest_base}/{plugin_type}/{name} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
 
     # Register in remote.yml
     remote_yml_path = f"{WORKSPACE}/remote.yml"
@@ -2336,7 +2336,7 @@ def _ensure_mm_platform_binary():
             assert os.path.exists(f"{MM_PLATFORM_DIR}/Cargo.toml"), \
                 f"git restore failed: Cargo.toml still missing in {MM_PLATFORM_DIR}"
         print("[compiling mattermost platform binary...]")
-        rc = sh(f"cd {MM_PLATFORM_DIR} && cargo build --release 2>&1")
+        rc = sh(f"cd {MM_PLATFORM_DIR} && CARGO_TARGET_DIR=target cargo build --release 2>&1")
         if rc.returncode != 0:
             print(f"  ⚠ compilation output (last 20 lines):\n" + "\n".join(rc.stdout.split("\n")[-20:]))
             raise RuntimeError(f"mattermost platform build failed (exit {rc.returncode})")

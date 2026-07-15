@@ -2349,7 +2349,7 @@ def _ensure_secret_exists(name):
     import urllib.request
     import urllib.error
     req = urllib.request.Request(
-        f"{BASE}/api/secrets",
+        f"{BASE}/secrets",
         data=json.dumps({"name": name, "fieldType": "password", "value": ""}).encode(),
         headers={"Content-Type": "application/json"},
         method="POST"

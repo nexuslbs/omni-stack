@@ -1269,7 +1269,7 @@ async fn main() -> Result<()> {
             return Ok(());
         };
 
-        let response = handle_setup(id, &client, &server_url, &params).await;
+        let response = handle_setup(id, &client, &server_url, &params, &access_token).await;
         let response_line = serde_json::to_string(&response)?;
         writer.write_all(response_line.as_bytes()).await?;
         writer.write_all(b"\n").await?;
@@ -1905,7 +1905,7 @@ async fn create_first_user(server_url: &str, username: &str, password: &str, ema
 /// Run the Mattermost setup process: create team, channel, users, bot, token.
 /// Validates required config fields, creates resources idempotently,
 /// and returns team_id, channel_id, bot_token, etc.
-async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, params: &SetupParams) -> PluginResponse {
+async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, params: &SetupParams, access_token: &Option<String>) -> PluginResponse {
     // Validate required fields
     if params.setup_team.is_empty() {
         return make_error(id, -1, "Missing required config: setup_team: set it in the plugin config");
@@ -2036,39 +2036,53 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
             let _ = client.add_team_member(&team_id, &uid).await;
             let _ = client.add_channel_member(&channel_id, &uid).await;
 
-            // Get or create token: needs admin auth for token management
-            // Try to create an admin client if admin credentials provided
-            let bot_token = if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
-                // Login as admin to create/manage tokens
-                let admin_client = login_admin_client(server_url, &params.admin_user, &params.admin_password).await;
-                match admin_client {
-                    Some(adm) => {
-                        // Always create a new token. The Mattermost GET tokens API
-                        // returns only token IDs (not values), so we cannot
-                        // meaningfully reuse existing tokens.
-                        match adm.create_user_token(&uid, "OmniAgent bot access token").await {
-                            Ok(t) => {
-                                tracing::info!("Created new token for bot user");
-                                t
-                            }
-                            Err(e) => {
-                                tracing::warn!("Could not create token: {}. Continuing without token refresh.", e);
-                                String::new()
+            // Get or create token: reuse existing access_token if valid,
+            // otherwise create a new one (needs admin auth).
+            let bot_token = {
+                // Check if existing access_token is still valid for this bot user
+                let mut reuse = None;
+                if let Some(tok) = access_token {
+                    if !tok.is_empty() {
+                        let test = MattermostClient::new(server_url, tok);
+                        if let Ok(me) = test.get_me().await {
+                            if me.id == uid {
+                                tracing::info!("Existing access_token valid for bot user '{}' — reusing", params.bot_user);
+                                reuse = Some(tok.clone());
                             }
                         }
                     }
-                    None => {
-                        tracing::warn!("Could not create admin client: token management may fail");
-                        String::new()
-                    }
                 }
-            } else {
-                // No admin credentials: try using bot PAT directly
-                match client.setup_bot_token(&uid).await {
-                    Ok(t) => t,
-                    Err(e) => {
-                        tracing::warn!("Could not get bot token: {}. The bot user exists but no new token was created.", e);
-                        String::new()
+                if let Some(tok) = reuse {
+                    tok
+                } else if !params.admin_user.is_empty() && !params.admin_password.is_empty() {
+                    // Login as admin to create/manage tokens
+                    let admin_client = login_admin_client(server_url, &params.admin_user, &params.admin_password).await;
+                    match admin_client {
+                        Some(adm) => {
+                            match adm.create_user_token(&uid, "OmniAgent bot access token").await {
+                                Ok(t) => {
+                                    tracing::info!("Created new token for bot user");
+                                    t
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Could not create token: {}. Continuing without token refresh.", e);
+                                    String::new()
+                                }
+                            }
+                        }
+                        None => {
+                            tracing::warn!("Could not create admin client: token management may fail");
+                            String::new()
+                        }
+                    }
+                } else {
+                    // No admin credentials: try using bot PAT directly
+                    match client.setup_bot_token(&uid).await {
+                        Ok(t) => t,
+                        Err(e) => {
+                            tracing::warn!("Could not get bot token: {}. The bot user exists but no new token was created.", e);
+                            String::new()
+                        }
                     }
                 }
             };

@@ -2886,7 +2886,7 @@ fn agent_api_url() -> String {
 
 /// Retrieve a secret value from the omniagent secrets API by name.
 async fn get_agent_secret(http_client: &reqwest::Client, secret_name: &str) -> Option<String> {
-    let url = format!("{}/api/secrets/{}", agent_api_url(), secret_name);
+    let url = format!("{}/secrets/{}", agent_api_url(), secret_name);
     let resp = http_client.get(&url).send().await.ok()?;
     if !resp.status().is_success() {
         return None;
@@ -2903,7 +2903,7 @@ async fn set_agent_secret(http_client: &reqwest::Client, secret_name: &str, valu
     let base = agent_api_url();
     let payload = serde_json::json!({"value": value});
 
-    let put_url = format!("{}/api/secrets/{}", base, secret_name);
+    let put_url = format!("{}/secrets/{}", base, secret_name);
     let resp = http_client
         .put(&put_url)
         .json(&payload)
@@ -2912,7 +2912,7 @@ async fn set_agent_secret(http_client: &reqwest::Client, secret_name: &str, valu
         .context("Failed to PUT agent secret")?;
 
     if resp.status().as_u16() == 404 {
-        let post_url = format!("{}/api/secrets", base);
+        let post_url = format!("{}/secrets", base);
         let create_body = serde_json::json!({
             "name": secret_name,
             "fieldType": "password",

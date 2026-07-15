@@ -3016,7 +3016,7 @@ def test_fn_12_file_upload():
     script = json.dumps([
         {
             "name": "read_file",
-            "tool": "builtin_read_attached_file",
+            "tool": "builtin_read-attached-file",
             "arguments": {"file_id": file_id},
         },
     ])
@@ -3060,11 +3060,9 @@ def test_fn_13_non_blocking():
     import urllib.request, urllib.error, time, uuid
     MM = "http://mattermost:8065"
 
-    # Add test-python-tool (remote YAML entry) and download/enable it
+    # Add test-python-tool: copy from local repo and enable via API
+    ensure_remote_plugin("test-python-tool", "tools")
     yaml_set("tools", "test-python-tool", {"enabled": False, "source": "remote", "config": {}})
-    success, resp = api_post_body("/plugins/test-python-tool/download", {"source": "remote"}, timeout=30)
-    if not success:
-        print(f"  ⚠ download failed: {resp}")
     success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "remote"}, timeout=15)
     if not success:
         print(f"  ⚠ enable failed: {resp}")
@@ -3119,12 +3117,12 @@ def test_fn_13_non_blocking():
         # 1. test-python-tool_lorem(6) named "long_run" → returns {task_id, status:processing}
         # 2. builtin_read_task_logs with task_id from step 1
         # 3. builtin_wait_task with task_id from step 1 (timeout 120s, but returns in ~6s)
-        # 4. builtin_read_task_logs again to verify summary
+        # 4. builtin_read-task-logs again to verify summary
         script = json.dumps([
             {"name": "long_run", "tool": "test-python-tool_lorem", "arguments": {"seconds": 6}},
-            {"name": "logs1", "tool": "builtin_read_task_logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
-            {"name": "wait", "tool": "builtin_wait_task", "arguments": {"task_id": "${long_run.task_id}", "timeout_secs": 120}},
-            {"name": "logs2", "tool": "builtin_read_task_logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
+            {"name": "logs1", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
+            {"name": "wait", "tool": "builtin_wait-task", "arguments": {"task_id": "${long_run.task_id}", "timeout_secs": 120}},
+            {"name": "logs2", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
         ])
 
         start = time.time()
@@ -3176,11 +3174,9 @@ def test_fn_14_cancel_task():
     import urllib.request, urllib.error, time, uuid
     MM = "http://mattermost:8065"
 
-    # Add test-python-tool (reuse ensure_remote_plugin directly since it may already be installed)
+    # Add test-python-tool: copy from local repo and enable via API
+    ensure_remote_plugin("test-python-tool", "tools")
     yaml_set("tools", "test-python-tool", {"enabled": False, "source": "remote", "config": {}})
-    success, resp = api_post_body("/plugins/test-python-tool/download", {"source": "remote"}, timeout=30)
-    if not success:
-        print(f"  ⚠ download failed: {resp}")
     success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "remote"}, timeout=15)
     if not success:
         print(f"  ⚠ enable failed: {resp}")
@@ -3236,8 +3232,8 @@ def test_fn_14_cancel_task():
         # 3. poll_task confirms cancellation
         script = json.dumps([
             {"name": "long_run", "tool": "test-python-tool_lorem", "arguments": {"seconds": 30}},
-            {"name": "cancel", "tool": "builtin_cancel_task", "arguments": {"task_id": "${long_run.task_id}"}},
-            {"name": "poll", "tool": "builtin_poll_task", "arguments": {"task_id": "${long_run.task_id}"}},
+            {"name": "cancel", "tool": "builtin_cancel-task", "arguments": {"task_id": "${long_run.task_id}"}},
+            {"name": "poll", "tool": "builtin_poll-task", "arguments": {"task_id": "${long_run.task_id}"}},
         ])
 
         msg_data = json.dumps({"channel_id": mm_channel_id, "message": script}).encode()

@@ -1,11 +1,23 @@
 platforms: null
 tools:
-  test-python-tool:
-    enabled: false
-    source: bundled
+  hindsight:
+    enabled: true
+    source: built-in
     config: {}
-providers:
-  noop:
+  prompt:
+    enabled: true
+    source: built-in
+    config: {}
+  search:
+    enabled: true
+    source: built-in
+    config: {}
+  skills:
     enabled: true
     source: bundled
     config: {}
+  test-rust-tool:
+    enabled: true
+    source: remote
+    config: {}
+providers: {}

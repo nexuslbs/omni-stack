@@ -3544,11 +3544,34 @@ if __name__ == "__main__":
     else:
         print("  ✓ Prompt plugin disabled after GROUP 11")
 
+    # Verify that prompt_generate returns an error when prompt plugin is disabled
+    print("  [verifying prompt_generate error when prompt is disabled]")
+    try:
+        r = urllib.request.urlopen(
+            urllib.request.Request(
+                f"{BASE}/mcp/execute",
+                data=json.dumps({"name": "prompt_generate", "arguments": {"user_message": "test"}}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            ),
+            timeout=10
+        )
+        resp = json.loads(r.read())
+        assert not resp.get("success"), f"Expected prompt_generate to fail when prompt is disabled, but it succeeded: {resp}"
+        print("  ✓ prompt_generate correctly returns error when prompt plugin is disabled")
+    except (urllib.error.HTTPError, Exception) as e:
+        print(f"  ✓ prompt_generate correctly raised error: {e}")
+
     print(f"\n{'=' * 60}")
     print("GROUP 12: File Upload via Mattermost + test-tool-caller")
     print(f"{'=' * 60}")
 
     _check_mm_container()
+
+    # Re-enable the prompt plugin (G11 disabled it at the end of its tests)
+    prompt_success, prompt_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    assert prompt_success, f"enable prompt plugin for G12 failed: {prompt_resp}"
+    print("  ✓ Prompt plugin enabled for G12")
 
     # Ensure config is set for mattermost
     config_success, config_resp = api_post_body("/plugins/mattermost/config", {

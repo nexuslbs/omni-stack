@@ -2424,7 +2424,8 @@ def test_mm9_e2e():
     print(f"[setup complete: channel_id={mm_channel_id}]")
 
     # 5. Ensure prompt plugin is enabled
-    api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    prompt_success, prompt_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    assert prompt_success, f"enable prompt plugin failed: {prompt_resp}"
     import time as _time
     for _attempt in range(10):
         try:
@@ -3064,10 +3065,8 @@ def test_fn_13_non_blocking():
     ensure_bundled_plugin("test-python-tool", "tools")
     yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
     success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
-    if not success:
-        print(f"  ⚠ enable failed: {resp}")
-    else:
-        print("[test-python-tool enabled]")
+    assert success, f"enable test-python-tool failed: {resp}"
+    print("[test-python-tool enabled]")
     # Wait for MCP server to register its tools
     for attempt in range(15):
         try:
@@ -3098,6 +3097,7 @@ def test_fn_13_non_blocking():
         assert mm_channel_id
 
         # Ensure channel uses noop provider with test-tool-caller model
+        channel_set = False
         for _ in range(10):
             try:
                 r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
@@ -3105,15 +3105,26 @@ def test_fn_13_non_blocking():
                 mm_ch = next((ch for ch in channels if ch.get("platform") == "mattermost"), None)
                 if mm_ch:
                     cid = mm_ch["id"]
-                    patch = urllib.request.Request(f"{BASE}/channels/{cid}",
+                    patch_req = urllib.request.Request(f"{BASE}/channels/{cid}",
                         data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
                         method="PATCH", headers={"Content-Type": "application/json"})
-                    urllib.request.urlopen(patch, timeout=10)
-                    print(f"[channel {cid} set to noop/test-tool-caller]")
-                    break
-            except Exception:
-                pass
+                    urllib.request.urlopen(patch_req, timeout=10)
+                    # Verify the PATCH took effect
+                    time.sleep(1)
+                    rr = urllib.request.urlopen(f"{BASE}/channels/{cid}", timeout=10)
+                    updated = json.loads(rr.read())
+                    upd_model = updated.get("current_model") or (updated.get("data") or {}).get("current_model")
+                    if upd_model == "test-tool-caller":
+                        print(f"[channel {cid} set to noop/test-tool-caller]")
+                        channel_set = True
+                        break
+                    else:
+                        print(f"[WARN] PATCH returned 200 but current_model is '{upd_model}', retrying...")
+            except Exception as e:
+                print(f"[WARN] Channel setup attempt failed: {e}")
             time.sleep(2)
+
+        assert channel_set, "Could not set channel to noop/test-tool-caller. Ensure: 1) noop provider is enabled, 2) test-tool-caller is in allowed_values, 3) channel exists"
 
         # 4-step script (lorem=6s to exceed 5s short_timeout and trigger background mode):
         # 1. test-python-tool_lorem(6) named "long_run" → returns {task_id, status:processing}
@@ -3180,10 +3191,8 @@ def test_fn_14_cancel_task():
     ensure_bundled_plugin("test-python-tool", "tools")
     yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
     success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
-    if not success:
-        print(f"  ⚠ enable failed: {resp}")
-    else:
-        print("[test-python-tool enabled for cancel test]")
+    assert success, f"enable test-python-tool for cancel test failed: {resp}"
+    print("[test-python-tool enabled for cancel test]")
     for attempt in range(15):
         try:
             r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)
@@ -3213,6 +3222,7 @@ def test_fn_14_cancel_task():
         assert mm_channel_id
 
         # Ensure channel uses noop provider with test-tool-caller model
+        channel_set = False
         for _ in range(10):
             try:
                 r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
@@ -3220,15 +3230,26 @@ def test_fn_14_cancel_task():
                 mm_ch = next((ch for ch in channels if ch.get("platform") == "mattermost"), None)
                 if mm_ch:
                     cid = mm_ch["id"]
-                    patch = urllib.request.Request(f"{BASE}/channels/{cid}",
+                    patch_req = urllib.request.Request(f"{BASE}/channels/{cid}",
                         data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
                         method="PATCH", headers={"Content-Type": "application/json"})
-                    urllib.request.urlopen(patch, timeout=10)
-                    print(f"[channel {cid} set to noop/test-tool-caller]")
-                    break
-            except Exception:
-                pass
+                    urllib.request.urlopen(patch_req, timeout=10)
+                    # Verify the PATCH took effect
+                    time.sleep(1)
+                    rr = urllib.request.urlopen(f"{BASE}/channels/{cid}", timeout=10)
+                    updated = json.loads(rr.read())
+                    upd_model = updated.get("current_model") or (updated.get("data") or {}).get("current_model")
+                    if upd_model == "test-tool-caller":
+                        print(f"[channel {cid} set to noop/test-tool-caller]")
+                        channel_set = True
+                        break
+                    else:
+                        print(f"[WARN] PATCH returned 200 but current_model is '{upd_model}', retrying...")
+            except Exception as e:
+                print(f"[WARN] Channel setup attempt failed: {e}")
             time.sleep(2)
+
+        assert channel_set, "Could not set channel to noop/test-tool-caller. Ensure: 1) noop provider is enabled, 2) test-tool-caller is in allowed_values, 3) channel exists"
 
         # 3-step cancel script:
         # 1. lorem(30) starts a long bg task
@@ -3487,33 +3508,32 @@ if __name__ == "__main__":
 
     _check_mm_container()
 
-    try:
-        # Ensure config is set for mattermost
-        api_post_body("/plugins/mattermost/config", {
-            "config": {
-                "server_url": "http://mattermost:8065",
-                "access_token": "$env:MATTERMOST_ACCESS_TOKEN",
-                "setup_team": "omni",
-                "setup_channel": "setup",
-                "admin_user": "omniuser",
-                "admin_password": "$secret:MATTERMOST_ADMIN_PASSWORD",
-                "test_user": "testuser",
-                "test_password": "$secret:MATTERMOST_TEST_PASSWORD",
-                "bot_user": "omnibot",
-                "bot_password": "$secret:MATTERMOST_BOT_PASSWORD",
-            }
-        })
-        api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-        api_post_body("/plugins/noop/enable", {"source": "bundled"})
-    except Exception as e:
-        print(f"  ⚠ GROUP 12 setup failed: {e}")
+    # Ensure config is set for mattermost
+    config_success, config_resp = api_post_body("/plugins/mattermost/config", {
+        "config": {
+            "server_url": "http://mattermost:8065",
+            "access_token": "$env:MATTERMOST_ACCESS_TOKEN",
+            "setup_team": "omni",
+            "setup_channel": "setup",
+            "admin_user": "omniuser",
+            "admin_password": "$secret:MATTERMOST_ADMIN_PASSWORD",
+            "test_user": "testuser",
+            "test_password": "$secret:MATTERMOST_TEST_PASSWORD",
+            "bot_user": "omnibot",
+            "bot_password": "$secret:MATTERMOST_BOT_PASSWORD",
+        }
+    })
+    assert config_success, f"set mattermost config failed: {config_resp}"
 
-    # Run setup
-    try:
-        req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
-        r = urllib.request.urlopen(req, timeout=30)
-    except Exception:
-        pass
+    enable_s, enable_r = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
+    assert enable_s, f"enable mattermost failed: {enable_r}"
+    noop_s, noop_r = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    assert noop_s, f"enable noop failed: {noop_r}"
+
+    # Run setup (idempotent: may already exist)
+    setup_req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
+    setup_resp = json.loads(urllib.request.urlopen(setup_req, timeout=30).read())
+    print(f"  [setup response: {json.dumps(setup_resp)[:100]}]")
 
     # Login as admin and find channel
     MM = "http://mattermost:8065"

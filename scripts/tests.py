@@ -1401,7 +1401,9 @@ def _git_status(repo_dir):
     return result.stdout.strip()
 
 def _git_discard_all(repo_dir):
-    """Restore tracked files to HEAD — does NOT git clean (preserves compiled binaries)."""
+    """Restore all tracked files to HEAD — unstages, then restores modified/deleted files.
+    Does NOT git clean -fd (preserves compiled Rust binaries under target/)."""
+    subprocess.run(["git", "reset", "HEAD", "--", "."], cwd=repo_dir, capture_output=True)
     subprocess.run(["git", "checkout", "--", "."], cwd=repo_dir, capture_output=True)
     # Intentionally no git clean -fd — that would delete compiled binaries from target/
 
@@ -3300,6 +3302,10 @@ def test_fn_14_cancel_task():
 # ═══════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    # Discard any leftover artifacts from a previous crashed run.
+    # This restores tracked files without deleting untracked (compiled binaries).
+    _git_discard_all(OMNI_STACK_DIR)
+
     # Verify clean git state before making any changes
     check_git_clean()
 

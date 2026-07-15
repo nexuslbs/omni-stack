@@ -2343,6 +2343,24 @@ def _ensure_mm_platform_binary():
         assert os.path.exists(MM_BINARY), "Binary still missing after build"
         print(f"[mattermost platform binary compiled: {MM_BINARY}]")
 
+
+def _ensure_secret_exists(name):
+    """Create an empty secret if it doesn't exist."""
+    import urllib.request
+    import urllib.error
+    req = urllib.request.Request(
+        f"{BASE}/api/secrets",
+        data=json.dumps({"name": name, "fieldType": "password", "value": ""}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    try:
+        urllib.request.urlopen(req, timeout=10)
+    except urllib.error.HTTPError as e:
+        if e.code != 409:
+            raise
+
+
 def _check_mm_container():
     rc = sh("docker inspect omni-mattermost-1 2>/dev/null | grep -q '\"Running\": true'")
     assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running"
@@ -2406,7 +2424,10 @@ def test_mm9_e2e():
     assert nd.get("status") == "enabled", f"noop status={nd.get('status')}, expected enabled"
     print(f"[noop status=enabled]")
 
-    # 3. Set mattermost config with setup params BEFORE running setup.
+    # 3. Ensure the access token secret exists (empty, to be filled by setup)
+    _ensure_secret_exists("MATTERMOST_ACCESS_TOKEN")
+
+    # 4. Set mattermost config with setup params BEFORE running setup.
     #    The setup API reads these from the plugin config and passes them
     #    to the mattermost binary's setup mode, which creates team, channel,
     #    users, and bot token.
@@ -2415,7 +2436,7 @@ def test_mm9_e2e():
     success, resp = api_post_body("/plugins/mattermost/config", {
         "config": {
             "server_url": "http://mattermost:8065",
-            "access_token": "$env:MATTERMOST_ACCESS_TOKEN",
+            "access_token_name": "MATTERMOST_ACCESS_TOKEN",
             "setup_team": "omni",
             "setup_channel": "setup",
             "admin_user": "omniuser",
@@ -2429,7 +2450,7 @@ def test_mm9_e2e():
     assert success, f"set mattermost config failed: {resp}"
     print("[mattermost config set with setup params]")
 
-    # 4. Run mattermost setup (idempotent: may already exist).
+    # 5. Run mattermost setup (idempotent: may already exist).
     #    The setup handler creates the omniagent channel and writes the
     #    bot_token to .env so the subprocess can authenticate.
     req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
@@ -3573,11 +3594,14 @@ if __name__ == "__main__":
     assert prompt_success, f"enable prompt plugin for G12 failed: {prompt_resp}"
     print("  ✓ Prompt plugin enabled for G12")
 
+    # Ensure the MATTERMOST_ACCESS_TOKEN secret exists
+    _ensure_secret_exists("MATTERMOST_ACCESS_TOKEN")
+
     # Ensure config is set for mattermost
     config_success, config_resp = api_post_body("/plugins/mattermost/config", {
         "config": {
             "server_url": "http://mattermost:8065",
-            "access_token": "$env:MATTERMOST_ACCESS_TOKEN",
+            "access_token_name": "MATTERMOST_ACCESS_TOKEN",
             "setup_team": "omni",
             "setup_channel": "setup",
             "admin_user": "omniuser",

@@ -3,7 +3,7 @@ platforms:
     enabled: true
     source: bundled
     config:
-      access_token: $env:MATTERMOST_ACCESS_TOKEN
+      access_token_name: MATTERMOST_ACCESS_TOKEN
       admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
       admin_user: omniuser
       bot_password: $secret:MATTERMOST_BOT_PASSWORD

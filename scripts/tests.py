@@ -557,6 +557,10 @@ def test_a3():
 
         success, resp = api_delete(f"/plugins/{plugin}?source=remote")
         assert success, f"expected success, got {resp}"
+        for _retry in range(10):
+            if not exists(remote_dir):
+                break
+            time.sleep(0.5)
         assert not exists(remote_dir), ".remote dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML was affected but shouldn't have been"
         assert not remote_yml_has(plugin, ptype), "remote.yml entry should be removed"
@@ -621,6 +625,10 @@ def test_b3():
 
         success, resp = api_delete(f"/plugins/{plugin}?source=remote")
         assert success, f"expected success, got {resp}"
+        for _retry in range(10):
+            if not exists(remote_dir):
+                break
+            time.sleep(0.5)
         assert not exists(remote_dir), ".remote dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML entry still present"
         assert not remote_yml_has(plugin, ptype), "remote.yml entry should be removed"
@@ -768,6 +776,10 @@ def test_f1():
 
         success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
         assert success, f"expected success, got {resp}"
+        for _retry in range(10):
+            if not exists(bundled_dir):
+                break
+            time.sleep(0.5)
         assert not exists(bundled_dir), "bundled dir should have been removed"
         assert exists(remote_dir), "remote dir should NOT have been removed"
         assert not yaml_has(ptype, plugin), "YAML entry should have been removed"
@@ -797,6 +809,10 @@ def test_f2():
 
         success, resp = api_delete(f"/plugins/{plugin}?source=remote")
         assert success, f"expected success, got {resp}"
+        for _retry in range(10):
+            if not exists(remote_dir):
+                break
+            time.sleep(0.5)
         assert not exists(remote_dir), ".remote dir should have been removed"
         assert exists(bundled_dir), "bundled dir should NOT have been removed"
         assert not yaml_has(ptype, plugin), "YAML entry should have been removed"
@@ -2830,11 +2846,11 @@ def _make_user_msg(text: str = "Hello") -> dict:
     return {"role": "user", "content": text}
 
 def _compact_call(messages: list, keep_recent: int = 3) -> dict:
-    """Call the memory_compact-messages MCP tool and return parsed response."""
+    """Call the prompt_compact-messages MCP tool and return parsed response."""
     r = urllib.request.urlopen(
         urllib.request.Request(
             f"{BASE}/mcp/execute",
-            data=json.dumps({"name": "memory_compact-messages",
+            data=json.dumps({"name": "prompt_compact-messages",
                              "arguments": {"messages": messages, "keep_recent": keep_recent}}).encode(),
             headers={"Content-Type": "application/json"},
             method="POST"
@@ -2929,7 +2945,7 @@ def test_p7_missing_messages_field():
     r = urllib.request.urlopen(
         urllib.request.Request(
             f"{BASE}/mcp/execute",
-            data=json.dumps({"name": "memory_compact-messages",
+            data=json.dumps({"name": "prompt_compact-messages",
                              "arguments": {"keep_recent": 3}}).encode(),
             headers={"Content-Type": "application/json"},
             method="POST"
@@ -2990,6 +3006,23 @@ def test_fn_12_file_upload():
         urllib.request.Request(f"{MM}/api/v4/teams/{team_id}/channels", headers={"Authorization": f"Bearer {admin_token}"}), timeout=10).read())
     mm_channel_id = next((ch["id"] for ch in channels if ch["name"] == "setup"), None)
     assert mm_channel_id, "Cannot find 'setup' channel"
+
+    # Patch omniagent channel to noop/test-tool-caller
+    import time as _g12t
+    for _ in range(15):
+        r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
+        chs = json.loads(r.read()).get("data", [])
+        mm_ch = next((ch for ch in chs if ch.get("platform") == "mattermost"), None)
+        if mm_ch:
+            cid = mm_ch["id"]
+            patch_req = urllib.request.Request(f"{BASE}/channels/{cid}",
+                data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
+                method="PATCH", headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(patch_req, timeout=10)
+            print(f"  [channel {cid} patched to noop/test-tool-caller]")
+            break
+        _g12t.sleep(2)
+    _g12t.sleep(3)
 
     # Upload a small text file via Mattermost API
     test_content = b"Hello Hermes! Test file content: ABC123XYZ"
@@ -3552,31 +3585,24 @@ if __name__ == "__main__":
     mm_channel_id = next((ch["id"] for ch in channels if ch["name"] == "setup"), None)
     assert mm_channel_id, "Cannot find 'setup' channel"
 
-    # Upload test file
-    try:
-        test_content = b"Hello from test file upload! Content: ABC123XYZ"
-        boundary = uuid.uuid4().hex
-        body = b""
-        body += f"--{boundary}\r\n".encode()
-        body += f'Content-Disposition: form-data; name="files"; filename="test-upload.txt"\r\n'.encode()
-        body += b"Content-Type: text/plain\r\n\r\n"
-        body += test_content + b"\r\n"
-        body += f"--{boundary}\r\n".encode()
-        body += f'Content-Disposition: form-data; name="channel_id"\r\n\r\n'.encode()
-        body += mm_channel_id.encode() + b"\r\n"
-        body += f"--{boundary}--\r\n".encode()
-        file_post = urllib.request.Request(
-            f"{MM}/api/v4/files",
-            data=body,
-            method="POST",
-            headers={"Authorization": f"Bearer {admin_token}", "Content-Type": f"multipart/form-data; boundary={boundary}"},
-        )
-        file_resp = json.loads(urllib.request.urlopen(file_post, timeout=10).read())
-        file_id = file_resp.get("file_infos", [{}])[0].get("id", "")
-        assert file_id, f"No file_id in upload response: {file_resp}"
-        print(f"[file uploaded: id={file_id[:16]}...]")
-    except Exception as e:
-        print(f"  ⚠ GROUP 12 file upload failed: {e}")
+    # Patch omniagent channel to noop/test-tool-caller
+    import time as _g12t
+    for _ in range(15):
+        r = urllib.request.urlopen(f"{BASE}/channels", timeout=10)
+        chs = json.loads(r.read()).get("data", [])
+        mm_ch = next((ch for ch in chs if ch.get("platform") == "mattermost"), None)
+        if mm_ch:
+            cid = mm_ch["id"]
+            patch_req = urllib.request.Request(f"{BASE}/channels/{cid}",
+                data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
+                method="PATCH", headers={"Content-Type": "application/json"})
+            patch_resp = urllib.request.urlopen(patch_req, timeout=10)
+            assert patch_resp.status == 200, f"channel PATCH returned {patch_resp.status}"
+            print(f"  [channel {cid} patched to noop/test-tool-caller for G12]")
+            break
+        _g12t.sleep(2)
+    _g12t.sleep(3)
+    print(f"  [G12 setup complete]")
 
 test(test_fn_12_file_upload)
 

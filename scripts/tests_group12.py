@@ -157,9 +157,12 @@ def test_mm12_lorem_lifecycle():
     test_user = "testuser"
     test_pass = "Mattermost_Fresh_Start_1"
 
-    api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-    api_post_body("/plugins/noop/enable", {"source": "bundled"})
-    api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    s1, r1 = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
+    assert s1, f"enable mattermost failed: {r1}"
+    s2, r2 = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    assert s2, f"enable noop failed: {r2}"
+    s3, r3 = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    assert s3, f"enable prompt failed: {r3}"
 
     channel_id = None
     for _ in range(15):
@@ -173,15 +176,14 @@ def test_mm12_lorem_lifecycle():
         time.sleep(2)
     assert channel_id is not None, "No mattermost channel found"
 
-    req = urllib.request.Request(
+    # Patch channel — assert success
+    patch_req = urllib.request.Request(
         f"{BASE}/channels/{channel_id}",
         data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
         method="PATCH", headers={"Content-Type": "application/json"})
-    try:
-        urllib.request.urlopen(req, timeout=10)
-        print("  [channel patched to noop / test-tool-caller]")
-    except urllib.error.HTTPError as e:
-        print(f"  [channel patch: {e.code}]")
+    patch_resp = urllib.request.urlopen(patch_req, timeout=10)
+    assert patch_resp.status == 200, f"channel PATCH returned {patch_resp.status}"
+    print("  [channel patched to noop / test-tool-caller]")
     time.sleep(3)
 
     token = _mm_login(MM, test_user, test_pass)
@@ -230,9 +232,12 @@ def test_mm12_lorem_e2e_mattermost():
     test_user = "testuser"
     test_pass = "Mattermost_Fresh_Start_1"
 
-    api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-    api_post_body("/plugins/noop/enable", {"source": "bundled"})
-    api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    s1, r1 = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
+    assert s1, f"enable mattermost failed: {r1}"
+    s2, r2 = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    assert s2, f"enable noop failed: {r2}"
+    s3, r3 = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    assert s3, f"enable prompt failed: {r3}"
 
     channel_id = None
     for _ in range(15):
@@ -246,15 +251,14 @@ def test_mm12_lorem_e2e_mattermost():
         time.sleep(2)
     assert channel_id is not None, "No mattermost channel found"
 
-    req = urllib.request.Request(
+    # Patch channel — assert success
+    patch_req = urllib.request.Request(
         f"{BASE}/channels/{channel_id}",
         data=json.dumps({"current_provider": "noop", "current_model": "test-tool-caller"}).encode(),
         method="PATCH", headers={"Content-Type": "application/json"})
-    try:
-        urllib.request.urlopen(req, timeout=10)
-        print("  [channel patched to noop / test-tool-caller]")
-    except urllib.error.HTTPError as e:
-        print(f"  [channel patch: {e.code}]")
+    patch_resp = urllib.request.urlopen(patch_req, timeout=10)
+    assert patch_resp.status == 200, f"channel PATCH returned {patch_resp.status}"
+    print("  [channel patched to noop / test-tool-caller]")
     time.sleep(3)
 
     admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()

@@ -230,10 +230,20 @@ class NoopHandler(BaseHTTPRequestHandler):
     def _handle_tool_caller(self, msgs):
         script = _parse_script(msgs)
         if script is None:
-            _log("_handle_tool_caller: no script, fallback to default")
-            return self._handle_default("test-tool-caller", self._last_text(msgs))
+            user_text = self._last_text(msgs)
+            if user_text:
+                _log("_handle_tool_caller: no script but user msg exists, echoing")
+                return self._handle_default("test-tool-caller", user_text)
+            _log("_handle_tool_caller: no script and no user msg, returning plan text")
+            return self._plan_text(msgs), None
         completed, outputs = _count_completed_and_outputs(msgs, script)
         return _generate(script, completed, outputs)
+
+    def _plan_text(self, msgs):
+        """Return a plan-like text when agent sends only system messages (planning phase)."""
+        roles = [m.get("role") for m in msgs]
+        _log(f"_plan_text: roles={roles}")
+        return "Proceed with the next step."
 
     def _handle_default(self, model, user_msg):
         if user_msg is None:

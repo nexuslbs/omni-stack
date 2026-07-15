@@ -5,7 +5,7 @@ tools:
     source: built-in
     config: {}
   prompt:
-    enabled: true
+    enabled: false
     source: built-in
     config: {}
   search:

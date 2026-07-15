@@ -2065,8 +2065,27 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                                     t
                                 }
                                 Err(e) => {
-                                    tracing::warn!("Could not create token: {}. Continuing without token refresh.", e);
-                                    String::new()
+                                    tracing::warn!("Could not create token: {}. Trying to find existing token...", e);
+                                    // List existing tokens and find one for this bot user
+                                    match adm.get_user_tokens(&uid).await {
+                                        Ok(tokens) => {
+                                            let found = tokens.iter()
+                                                .filter_map(|t| t["token"].as_str())
+                                                .next()
+                                                .map(|s| s.to_string());
+                                            if let Some(tok) = found {
+                                                tracing::info!("Found existing token for bot user");
+                                                tok
+                                            } else {
+                                                tracing::warn!("No existing token found for bot user");
+                                                String::new()
+                                            }
+                                        }
+                                        Err(list_err) => {
+                                            tracing::warn!("Failed to list tokens: {}", list_err);
+                                            String::new()
+                                        }
+                                    }
                                 }
                             }
                         }

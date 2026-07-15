@@ -2439,7 +2439,7 @@ def test_mm9_e2e():
             pass
         _time.sleep(1)
     else:
-        print("[WARN: prompt_generate tool not found after 10s]")
+        raise AssertionError("[FAIL] prompt_generate tool not found after 10s — prompt plugin may not be properly enabled")
 
     # 6. Find the omniagent channel created by the setup handler
     channel_id = None
@@ -2455,12 +2455,10 @@ def test_mm9_e2e():
     assert channel_id is not None, "No mattermost channel found in omniagent channels after setup"
 
     # 7. Patch channel to use noop provider
-    req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})
-    try:
-        urllib.request.urlopen(req, timeout=10)
-        print("[channel patched to noop]")
-    except urllib.error.HTTPError as e:
-        print(f"[channel patch: {e.code} {e.read().decode()[:100]}]")
+    patch_req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})
+    patch_resp = urllib.request.urlopen(patch_req, timeout=10)
+    assert patch_resp.status == 200, f"channel PATCH returned {patch_resp.status}"
+    print("[channel patched to noop]")
 
     time.sleep(5)
 
@@ -3080,7 +3078,7 @@ def test_fn_13_non_blocking():
             pass
         time.sleep(2)
     else:
-        print("  ⚠ Timed out waiting for test-python-tool_lorem to register")
+        raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
 
     try:
         admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
@@ -3205,7 +3203,7 @@ def test_fn_14_cancel_task():
             pass
         time.sleep(2)
     else:
-        print("  ⚠ Timed out waiting for test-python-tool_lorem to register")
+        raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
 
     try:
         admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
@@ -3465,7 +3463,7 @@ if __name__ == "__main__":
             pass
         time.sleep(1)
     else:
-        print("  ⚠ Timed out waiting for prompt_compact-messages tool to register")
+        raise AssertionError("Timed out waiting for prompt_compact-messages tool to register — prompt plugin may not be properly enabled")
 
     for fn in [
         test_p1_basic_response_structure,

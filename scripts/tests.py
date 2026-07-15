@@ -3550,11 +3550,6 @@ if __name__ == "__main__":
 
     _check_mm_container()
 
-    # Re-enable the prompt plugin (G11 disabled it at the end of its tests)
-    prompt_success, prompt_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
-    assert prompt_success, f"enable prompt plugin for G12 failed: {prompt_resp}"
-    print("  ✓ Prompt plugin enabled for G12")
-
     # Ensure config is set for mattermost
     config_success, config_resp = api_post_body("/plugins/mattermost/config", {
         "config": {

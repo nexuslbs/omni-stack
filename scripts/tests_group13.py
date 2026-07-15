@@ -323,6 +323,8 @@ if __name__ == "__main__":
             except:
                 pass
             time.sleep(1)
+        else:
+            raise AssertionError("Timed out waiting for lorem tool to register after enable")
     except Exception as e:
         print(f"  ERROR during setup: {e}")
         import traceback

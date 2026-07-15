@@ -3060,12 +3060,14 @@ def test_fn_13_non_blocking():
     import urllib.request, urllib.error, time, uuid
     MM = "http://mattermost:8065"
 
-    # Add test-python-tool: copy from local repo and enable via API
-    ensure_remote_plugin("test-python-tool", "tools")
-    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "remote", "config": {}})
-    success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "remote"}, timeout=15)
+    # Add test-python-tool as bundled plugin and enable via API
+    ensure_bundled_plugin("test-python-tool", "tools")
+    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
+    success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
     if not success:
         print(f"  ⚠ enable failed: {resp}")
+    else:
+        print("[test-python-tool enabled]")
     # Wait for MCP server to register its tools
     for attempt in range(15):
         try:
@@ -3174,12 +3176,14 @@ def test_fn_14_cancel_task():
     import urllib.request, urllib.error, time, uuid
     MM = "http://mattermost:8065"
 
-    # Add test-python-tool: copy from local repo and enable via API
-    ensure_remote_plugin("test-python-tool", "tools")
-    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "remote", "config": {}})
-    success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "remote"}, timeout=15)
+    # Add test-python-tool as bundled plugin and enable via API
+    ensure_bundled_plugin("test-python-tool", "tools")
+    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
+    success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
     if not success:
         print(f"  ⚠ enable failed: {resp}")
+    else:
+        print("[test-python-tool enabled for cancel test]")
     for attempt in range(15):
         try:
             r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)

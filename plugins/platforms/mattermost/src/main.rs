@@ -21,7 +21,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Duration;
-use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
@@ -924,7 +923,7 @@ struct PluginConfig {
     #[serde(default = "default_server_url")]
     server_url: String,
     #[serde(default)]
-    access_token: Option<String>,
+    access_token_name: Option<String>,
     #[serde(default = "default_connection_mode")]
     connection_mode: String,
     #[serde(default = "default_polling_enabled")]
@@ -1116,7 +1115,34 @@ async fn main() -> Result<()> {
     writer.flush().await?;
 
     let server_url = config.server_url;
-    let access_token = config.access_token;
+    let secret_name = config.access_token_name.as_deref().unwrap_or("").to_string();
+    // Resolve access_token from secret name via omniagent secrets API
+    let secrets_http = reqwest::Client::new();
+    let access_token = if !secret_name.is_empty() {
+        match get_agent_secret(&secrets_http, &secret_name).await {
+            Some(tok) => {
+                tracing::info!("Resolved access_token from secret '{}'", secret_name);
+                Some(tok)
+            }
+            None => {
+                tracing::info!("Secret '{}' is empty or not found - will generate during setup", secret_name);
+                None
+            }
+        }
+    } else {
+        tracing::warn!("No access_token_name configured - plugin will not be able to connect");
+        None
+    };
+
+    // In setup mode, access_token_name is mandatory
+    if is_setup_mode && secret_name.is_empty() {
+        let err_resp = make_error(3, -1, "access_token_name is required in plugin config for setup mode. Set it to the name of a secret that will hold the bot access token.");
+        let response_line = serde_json::to_string(&err_resp)?;
+        writer.write_all(response_line.as_bytes()).await?;
+        writer.write_all(b"\n").await?;
+        writer.flush().await?;
+        return Ok(());
+    }
 
     if is_setup_mode {
         //  Setup mode: read setup request, process, exit 
@@ -1269,7 +1295,7 @@ async fn main() -> Result<()> {
             return Ok(());
         };
 
-        let response = handle_setup(id, &client, &server_url, &params, &access_token).await;
+        let response = handle_setup(id, &client, &server_url, &params, &access_token, &secret_name, &secrets_http).await;
         let response_line = serde_json::to_string(&response)?;
         writer.write_all(response_line.as_bytes()).await?;
         writer.write_all(b"\n").await?;
@@ -1349,13 +1375,12 @@ async fn main() -> Result<()> {
                         }
                     };
                     tracing::info!("Auto-recovery: created new access token for '{}'", bot_username);
-                    // Write the new token to .env file
-                    let env_path = &config.env_path;
-                    let existing = fs::read_to_string(env_path).await.unwrap_or_default();
-                    let updated = update_env_var(&existing, "MATTERMOST_ACCESS_TOKEN", &new_token);
-                    match fs::write(env_path, &updated).await {
-                        Ok(_) => tracing::info!("Auto-recovery: updated {} with new access token", env_path),
-                        Err(we) => tracing::warn!("Auto-recovery: failed to write .env file '{}': {}", env_path, we),
+                    // Persist the new token to the omniagent secret store
+                    if !secret_name.is_empty() {
+                        match set_agent_secret(&secrets_http, &secret_name, &new_token).await {
+                            Ok(_) => tracing::info!("Auto-recovery: updated secret '{}' with new access token", secret_name),
+                            Err(we) => tracing::warn!("Auto-recovery: failed to update secret '{}': {:?}", secret_name, we),
+                        }
                     }
                     // Create a new client with the recovered token and verify it
                     let new_client = MattermostClient::new(&server_url, &new_token);
@@ -1806,31 +1831,7 @@ async fn handle_react(
 /// Update or add a variable in a .env-style file.
 /// If the key already exists (e.g. `MATTERMOST_ACCESS_TOKEN=...`), its value is
 /// replaced. Otherwise the new entry is appended with a trailing newline.
-fn update_env_var(content: &str, key: &str, value: &str) -> String {
-    let prefix = format!("{}=", key);
-    let mut found = false;
-    let mut lines: Vec<String> = content
-        .lines()
-        .map(|line| {
-            if line.starts_with(&prefix) {
-                found = true;
-                format!("{}={}", key, value)
-            } else {
-                line.to_string()
-            }
-        })
-        .collect();
-    if !found {
-        lines.push(format!("{}={}", key, value));
-    }
-    lines.push(String::new()); // trailing newline
-    lines.join("\n")
-}
 
-/// Login as admin, returning a client authenticated with a session token.
-///
-/// This function is used during setup to authenticate using the admin
-/// credentials (as opposed to a bot PAT).
 async fn login_admin_client(server_url: &str, admin_user: &str, admin_password: &str) -> Option<MattermostClient> {
     let http_client = reqwest::Client::new();
 
@@ -1905,7 +1906,7 @@ async fn create_first_user(server_url: &str, username: &str, password: &str, ema
 /// Run the Mattermost setup process: create team, channel, users, bot, token.
 /// Validates required config fields, creates resources idempotently,
 /// and returns team_id, channel_id, bot_token, etc.
-async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, params: &SetupParams, access_token: &Option<String>) -> PluginResponse {
+async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, params: &SetupParams, access_token: &Option<String>, secret_name: &str, secrets_http: &reqwest::Client) -> PluginResponse {
     // Validate required fields
     if params.setup_team.is_empty() {
         return make_error(id, -1, "Missing required config: setup_team: set it in the plugin config");
@@ -2106,6 +2107,15 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                 }
             };
 
+            // Persist the bot_token to the omniagent secret store
+            if !bot_token.is_empty() && !secret_name.is_empty() {
+                if let Err(e) = set_agent_secret(&secrets_http, secret_name, &bot_token).await {
+                    tracing::warn!("Failed to persist bot_token to secret '{}': {:?}", secret_name, e);
+                } else {
+                    tracing::info!("Persisted bot_token to secret '{}'", secret_name);
+                }
+            }
+
             let result = serde_json::json!({
                 "success": !bot_token.is_empty(),
                 "team_id": team_id,
@@ -2137,7 +2147,9 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                         let _ = client.add_channel_member(&channel_id, &uid).await;
 
                         match client.setup_bot_token(&uid).await {
-                            Ok(token) => make_success(id, serde_json::json!({
+                            Ok(token) => {
+                                let _ = set_agent_secret(&secrets_http, secret_name, &token).await;
+                                make_success(id, serde_json::json!({
                                 "success": true,
                                 "team_id": team_id,
                                 "team_name": params.setup_team,
@@ -2147,7 +2159,8 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                                 "bot_username": params.bot_user,
                                 "bot_token": token,
                                 "admin_user_id": admin_id,
-                            })),
+                            }))
+                            },
                             Err(e) => make_error(id, -1, &format!("Failed to obtain bot token: {}", e)),
                         }
                     } else {
@@ -2858,6 +2871,62 @@ async fn ws_event_loop(
         tokio::time::sleep(delay).await;
         backoff = backoff.saturating_mul(2);
     }
+}
+
+
+// ---------------------------------------------------------------------------
+// OmniAgent secrets API helpers
+// ---------------------------------------------------------------------------
+
+/// Get the omniagent HTTP API URL from env vars.
+fn agent_api_url() -> String {
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    format!("http://localhost:{}", port)
+}
+
+/// Retrieve a secret value from the omniagent secrets API by name.
+async fn get_agent_secret(http_client: &reqwest::Client, secret_name: &str) -> Option<String> {
+    let url = format!("{}/api/secrets/{}", agent_api_url(), secret_name);
+    let resp = http_client.get(&url).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let body: serde_json::Value = resp.json().await.ok()?;
+    match body.get("data")?.get("current_value")?.as_str() {
+        Some(v) if !v.is_empty() => Some(v.to_string()),
+        _ => None,
+    }
+}
+
+/// Store or update a secret via the omniagent secrets API.
+async fn set_agent_secret(http_client: &reqwest::Client, secret_name: &str, value: &str) -> anyhow::Result<()> {
+    let base = agent_api_url();
+    let payload = serde_json::json!({"value": value});
+
+    let put_url = format!("{}/api/secrets/{}", base, secret_name);
+    let resp = http_client
+        .put(&put_url)
+        .json(&payload)
+        .send()
+        .await
+        .context("Failed to PUT agent secret")?;
+
+    if resp.status().as_u16() == 404 {
+        let post_url = format!("{}/api/secrets", base);
+        let create_body = serde_json::json!({
+            "name": secret_name,
+            "fieldType": "password",
+            "value": value
+        });
+        http_client
+            .post(&post_url)
+            .json(&create_body)
+            .send()
+            .await
+            .context("Failed to POST agent secret")?;
+    }
+
+    Ok(())
 }
 
 fn make_success(id: u64, result: Value) -> PluginResponse {

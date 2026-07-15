@@ -2,17 +2,7 @@ platforms:
   mattermost:
     enabled: true
     source: bundled
-    config:
-      access_token_name: MATTERMOST_ACCESS_TOKEN
-      admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
-      admin_user: omniuser
-      bot_password: $secret:MATTERMOST_BOT_PASSWORD
-      bot_user: omnibot
-      server_url: http://mattermost:8065
-      setup_channel: setup
-      setup_team: omni
-      test_password: $secret:MATTERMOST_TEST_PASSWORD
-      test_user: testuser
+    config: {}
   telegram:
     enabled: true
     source: bundled

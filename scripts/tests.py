@@ -1409,7 +1409,7 @@ OMNI_STACK_DIR = WORKSPACE
 def _git_status(repo_dir):
     """Return unstaged changes as a string, or empty string if clean."""
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
+        ["git", "status", "--porcelain", "--untracked-files=no"],
         cwd=repo_dir,
         capture_output=True,
         text=True,

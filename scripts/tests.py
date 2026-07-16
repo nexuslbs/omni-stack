@@ -365,6 +365,11 @@ def ensure_remote_plugin(name, plugin_type="tools"):
             binary_name = name.replace("-", "_")
             binary_path = f"{remote_dir}/{plugin_type}/{name}/target/release/{binary_name}"
             if not os.path.exists(binary_path):
+                # Also check with hyphens (cargo 1.96+ preserves hyphens)
+                binary_path_hyp = f"{remote_dir}/{plugin_type}/{name}/target/release/{name}"
+                if not os.path.exists(binary_path) and os.path.exists(binary_path_hyp):
+                    binary_path = binary_path_hyp
+            if not os.path.exists(binary_path):
                 print(f"[recompiling {name} — binary missing]")
                 rc = sh(f"cd {remote_dir}/{plugin_type}/{name} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
                 if rc.returncode != 0:

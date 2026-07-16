@@ -3716,6 +3716,170 @@ test(test_fn_14_cancel_task)
 
 print(f"\n{'=' * 60}")
 
+print(f"\n{'=' * 60}")
+print("GROUP 15: Settings API (lower_snake_case)")
+print(f"{'=' * 60}")
+
+def test_fn_15_settings_hardcoded():
+    r = urllib.request.urlopen(f"{BASE}/settings", timeout=10)
+    data = json.loads(r.read())
+    cats = data.get("categories", [])
+    all_settings = {}
+    for cat in cats:
+        for s in cat["settings"]:
+            all_settings[s["name"]] = s["value"]
+
+    assert "max_tokens" in all_settings, f"missing max_tokens, got keys={list(all_settings.keys())[:5]}..."
+    assert "temperature" in all_settings, "missing temperature"
+    assert all_settings["max_tokens"] == "4096", f"max_tokens={all_settings['max_tokens']}"
+    assert all_settings["temperature"] == "0.7", f"temperature={all_settings['temperature']}"
+
+    def find_meta(name):
+        for cat in cats:
+            for s in cat["settings"]:
+                if s["name"] == name:
+                    return s["metadata"]
+        return None
+
+    for b in ["host", "port", "database_url", "omni_dir"]:
+        m = find_meta(b)
+        assert m, f"bootstrap '{b}' not found"
+        assert m.get("readonly") == True, f"{b} should be read-only"
+
+    assert all_settings["host"] != "", "host should be set from env"
+    assert all_settings["port"] != "", "port should be set from env"
+    assert "postgres" in all_settings.get("database_url", ""), "database_url should contain postgres from env"
+    assert all_settings["omni_dir"] != "", "omni_dir should be set from env"
+    print(f"  [hardcoded values OK: max_tokens={all_settings['max_tokens']}, bootstrap={all_settings['host']}:{all_settings['port']}]")
+
+test(test_fn_15_settings_hardcoded)
+
+def test_fn_15_settings_update():
+    test_key = "max_inline_file_kb"
+    original_value = None
+    r = urllib.request.urlopen(f"{BASE}/settings", timeout=10)
+    for cat in json.loads(r.read())["categories"]:
+        for s in cat["settings"]:
+            if s["name"] == test_key:
+                original_value = s["value"]
+                break
+    assert original_value is not None, f"could not find {test_key}"
+
+    new_val = "999" if original_value != "999" else "888"
+    req = urllib.request.Request(
+        f"{BASE}/settings",
+        data=json.dumps({"updates": [{"name": test_key, "value": new_val}]}).encode(),
+        method="PUT",
+        headers={"Content-Type": "application/json"},
+    )
+    put_resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
+    assert put_resp["status"] == "ok", f"PUT failed: {put_resp}"
+
+    r2 = urllib.request.urlopen(f"{BASE}/settings", timeout=10)
+    for cat in json.loads(r2.read())["categories"]:
+        for s in cat["settings"]:
+            if s["name"] == test_key:
+                assert s["value"] == new_val, f"expected {new_val}, got {s['value']}"
+                break
+
+    req2 = urllib.request.Request(
+        f"{BASE}/settings",
+        data=json.dumps({"updates": [{"name": test_key, "value": original_value}]}).encode(),
+        method="PUT",
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(req2, timeout=10)
+    print(f"  [update OK: {test_key} set and restored]")
+
+test(test_fn_15_settings_update)
+
+def test_fn_15_settings_env_ref():
+    req = urllib.request.Request(
+        f"{BASE}/settings",
+        data=json.dumps({"updates": [{"name": "messages_vectorization_api_key", "value": "$env:OMNI_DIR"}]}).encode(),
+        method="PUT",
+        headers={"Content-Type": "application/json"},
+    )
+    put_resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
+    assert put_resp["status"] == "ok", f"PUT failed: {put_resp}"
+
+    r = urllib.request.urlopen(f"{BASE}/settings", timeout=10)
+    for cat in json.loads(r.read())["categories"]:
+        for s in cat["settings"]:
+            if s["name"] == "messages_vectorization_api_key":
+                assert s["value"] == "/opt/omni", f"expected /opt/omni, got '{s['value']}'"
+                break
+
+    req2 = urllib.request.Request(
+        f"{BASE}/settings",
+        data=json.dumps({"updates": [{"name": "messages_vectorization_api_key", "value": ""}]}).encode(),
+        method="PUT",
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(req2, timeout=10)
+    print(f"  [$env: resolution OK: OMNI_DIR -> /opt/omni]")
+
+test(test_fn_15_settings_env_ref)
+
+def test_fn_15_settings_secret_ref():
+    import subprocess as _sps
+    _sps.run(['docker', 'exec', 'omni-postgres-1', 'psql', '-U', 'omniagent', '-d', 'omniagent',
+        '-c', "INSERT INTO secrets (name, current_value) VALUES ('TEST_SETTING_SECRET', 'test-secret-value-42') ON CONFLICT (name) DO UPDATE SET current_value = 'test-secret-value-42'"],
+        capture_output=True, text=True, timeout=10)
+
+    try:
+        req = urllib.request.Request(
+            f"{BASE}/settings",
+            data=json.dumps({"updates": [{"name": "messages_vectorization_api_model", "value": "$secret:TEST_SETTING_SECRET"}]}).encode(),
+            method="PUT",
+            headers={"Content-Type": "application/json"},
+        )
+        put_resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
+        assert put_resp["status"] == "ok", f"PUT failed: {put_resp}"
+
+        r = urllib.request.urlopen(f"{BASE}/settings", timeout=10)
+        for cat in json.loads(r.read())["categories"]:
+            for s in cat["settings"]:
+                if s["name"] == "messages_vectorization_api_model":
+                    assert s["value"] == "test-secret-value-42", f"expected 'test-secret-value-42', got '{s['value']}'"
+                    break
+        print(f"  [$secret: resolution OK: TEST_SETTING_SECRET -> test-secret-value-42]")
+    finally:
+        _sps.run(['docker', 'exec', 'omni-postgres-1', 'psql', '-U', 'omniagent', '-d', 'omniagent',
+            '-c', "DELETE FROM secrets WHERE name = 'TEST_SETTING_SECRET'"],
+            capture_output=True, text=True, timeout=10)
+        req2 = urllib.request.Request(
+            f"{BASE}/settings",
+            data=json.dumps({"updates": [{"name": "messages_vectorization_api_model", "value": ""}]}).encode(),
+            method="PUT",
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req2, timeout=10)
+
+test(test_fn_15_settings_secret_ref)
+
+def test_fn_15_settings_readonly_bootstrap():
+    for bootstrap_key in ["host", "port", "database_url", "omni_dir"]:
+        req = urllib.request.Request(
+            f"{BASE}/settings",
+            data=json.dumps({"updates": [{"name": bootstrap_key, "value": "SHOULD_NOT_WORK"}]}).encode(),
+            method="PUT",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            resp = urllib.request.urlopen(req, timeout=10)
+            body = json.loads(resp.read())
+            assert False, f"{bootstrap_key} PUT should have failed, got {body}"
+        except urllib.error.HTTPError as e:
+            assert e.code == 403, f"{bootstrap_key} expected 403, got {e.code}"
+            body = json.loads(e.read())
+            assert "read-only" in json.dumps(body).lower(), f"expected 'read-only' in error: {body}"
+    print(f"  [bootstrap read-only OK: all 4 settings rejected]")
+
+test(test_fn_15_settings_readonly_bootstrap)
+
+print(f"\n{'=' * 60}")
+
 # Discard any unstaged changes: runs even on failure
 discard_all_changes()
 

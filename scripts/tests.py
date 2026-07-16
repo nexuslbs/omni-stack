@@ -424,14 +424,14 @@ def restart_agent():
     # periodic scanning. No need for process restarts or source file touches.
     # Just wait for the agent to be healthy (in case a previous reload is in progress).
     time.sleep(3)
-    for _ in range(20):
+    for _ in range(15):
         try:
             r = urllib.request.urlopen(f"{BASE}/health", timeout=5)
             if r.status == 200:
                 return
         except Exception as _ex:
             print(f"  [waiting: {_ex}]")
-        time.sleep(2)
+        time.sleep(1)
     raise RuntimeError("Agent not healthy after waiting")
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -589,10 +589,17 @@ def test_b1():
 
 def test_b2():
     """Bundled plugin WITH YAML entry → succeed, YAML + disk removed"""
-    plugin, ptype = "util", "tools"
+    plugin, ptype = "test-b2", "tools"
     plugin_dir = f"{WORKSPACE}/plugins/{ptype}/{plugin}"
+    plugin_json_path = f"{plugin_dir}/plugin.json"
 
-    ensure_bundled_plugin(plugin, ptype)
+    # Create a self-contained test plugin (not tracked in git)
+    mkdir_p(plugin_dir)
+    with open(plugin_json_path, "w") as f:
+        f.write('{"name": "test-b2", "version": "1.0.0", "type": "mcp", '
+                '"description": "Test plugin for b2", '
+                '"entrypoint": {"command": "echo", "args": [], "transport": "stdio"}, '
+                '"config_schema": []}')
 
     backup_plugins_yml()
     try:
@@ -604,6 +611,9 @@ def test_b2():
         assert not exists(plugin_dir), "plugin dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML entry still present"
     finally:
+        # Clean up test plugin directory and YAML
+        if exists(plugin_dir):
+            shutil.rmtree(plugin_dir)
         restore_plugins_yml()
         restart_agent()
 
@@ -1420,7 +1430,7 @@ def _git_discard_all(repo_dir):
     """Restore all tracked files to HEAD — unstages, then restores modified/deleted files.
     Does NOT git clean -fd (preserves compiled Rust binaries under target/)."""
     subprocess.run(["git", "reset", "HEAD", "--", "."], cwd=repo_dir, capture_output=True)
-    subprocess.run(["git", "checkout", "--", "."], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "checkout", "HEAD", "--", "."], cwd=repo_dir, capture_output=True)
     # Intentionally no git clean -fd — that would delete compiled binaries from target/
 
 def check_git_clean():
@@ -1539,7 +1549,7 @@ def test_enable_source(name, source, expected_success=True):
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/enable", {"source": source}, timeout=120)
+    success, resp = api_post_body(f"/plugins/{name}/enable", {"source": source}, timeout=90)
     if expected_success:
         assert success, f"enable {name} source={source} failed: {resp}"
         _assert_yaml_state(name, ptype, expect_enabled=True, expect_source=source)
@@ -1565,7 +1575,7 @@ def test_install_source(name, source, expected_success=True):
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/install", {"source": source}, timeout=120)
+    success, resp = api_post_body(f"/plugins/{name}/install", {"source": source}, timeout=90)
     if expected_success:
         assert success, f"install {name} source={source} failed: {resp}"
         _assert_yaml_state(name, ptype, expect_source=source)
@@ -1578,7 +1588,7 @@ def test_install_source(name, source, expected_success=True):
 def test_reinstall_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/reinstall", {"source": source}, timeout=120)
+    success, resp = api_post_body(f"/plugins/{name}/reinstall", {"source": source}, timeout=90)
     if expected_success:
         assert success, f"reinstall {name} source={source} failed: {resp}"
         _assert_yaml_state(name, ptype, expect_source=source)
@@ -2233,7 +2243,7 @@ def test_t8_add_remote_new():
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin,
             "path": f"{ptype}/test-js-tool",
-        }, timeout=120)
+        }, timeout=90)
         assert success, f"Add remote plugin failed: {resp}"
         assert os.path.exists(remote_dir), f".remote dir not created: {remote_dir}"
         # remote.yml must have changed (plugin added)
@@ -2255,12 +2265,12 @@ def test_t8_add_remote_duplicate():
         s1, r1 = api_post_body("/plugins/install-git", {
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin, "path": f"{ptype}/test-js-tool",
-        }, timeout=120)
+        }, timeout=90)
         assert s1, f"First add failed: {r1}"
         s2, r2 = api_post_body("/plugins/install-git", {
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin, "path": f"{ptype}/test-js-tool",
-        }, timeout=120)
+        }, timeout=90)
         assert s2, f"Duplicate add should succeed (overwrite): {r2}"
         assert remote_yml_has(plugin, ptype), "remote.yml still has entry"
     finally:

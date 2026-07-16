@@ -209,7 +209,8 @@ class NoopHandler(BaseHTTPRequestHandler):
                 _log(f"ERROR: {traceback.format_exc()}")
                 content, tcs = f"Error: {traceback.format_exc()[:200]}", None
         else:
-            content, tcs = self._handle_default(model, msgs)
+            user_text = self._last_text(msgs)
+            content, tcs = self._handle_default(model, user_text)
         resp = {
             "id": f"noop-{uuid.uuid4().hex[:12]}",
             "object": "chat.completion",

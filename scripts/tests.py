@@ -3028,7 +3028,7 @@ def test_fn_12_file_upload():
     import urllib.request, urllib.error, time, uuid
 
     MM = "http://mattermost:8065"
-    admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
+    admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "Mattermost_Fresh_Start_1"}).encode()
     admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
     admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
     team_resp = json.loads(urllib.request.urlopen(
@@ -3154,7 +3154,7 @@ def test_fn_13_non_blocking():
         raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
 
     try:
-        admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
+        admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "Mattermost_Fresh_Start_1"}).encode()
         admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
         admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
         team_resp = json.loads(urllib.request.urlopen(
@@ -3283,7 +3283,7 @@ def test_fn_14_cancel_task():
         raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
 
     try:
-        admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
+        admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "Mattermost_Fresh_Start_1"}).encode()
         admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
         admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
         team_resp = json.loads(urllib.request.urlopen(
@@ -3660,7 +3660,7 @@ if __name__ == "__main__":
 
     # Login as admin and find channel
     MM = "http://mattermost:8065"
-    admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "MTEnivuUVDZ3"}).encode()
+    admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "Mattermost_Fresh_Start_1"}).encode()
     admin_req = urllib.request.Request(f"{MM}/api/v4/users/login", data=admin_data, method="POST", headers={"Content-Type": "application/json"})
     admin_token = urllib.request.urlopen(admin_req, timeout=10).headers.get("Token")
     team_resp = json.loads(urllib.request.urlopen(

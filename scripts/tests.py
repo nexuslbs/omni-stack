@@ -429,8 +429,8 @@ def restart_agent():
             r = urllib.request.urlopen(f"{BASE}/health", timeout=3)
             if r.status == 200:
                 return
-        except:
-            pass
+        except Exception as _ex:
+            print(f"  [waiting: {_ex}]")
         time.sleep(1)
     raise RuntimeError("Agent not healthy after waiting")
 
@@ -2719,8 +2719,8 @@ def _resolve_prompt_channel():
             if r.status == 200:
                 PROMPT_CHANNEL = try_name
                 return
-        except:
-            pass
+        except Exception as _pex:
+            print(f"  [prompt channel '{try_name}' not available: {_pex}]")
     PROMPT_CHANNEL = "mm-setup"  # fallback
 
 def _pp(prompt: str, plan: bool = False) -> dict:
@@ -3137,8 +3137,8 @@ def test_fn_13_non_blocking():
             if any("test-python-tool_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
                 print("[test-python-tool_lorem registered]")
                 break
-        except:
-            pass
+        except Exception as _ex:
+            print(f"  [waiting: {_ex}]")
         time.sleep(2)
     else:
         raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
@@ -3266,8 +3266,8 @@ def test_fn_14_cancel_task():
             if any("test-python-tool_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
                 print("[test-python-tool_lorem registered for cancel test]")
                 break
-        except:
-            pass
+        except Exception as _ex:
+            print(f"  [waiting: {_ex}]")
         time.sleep(2)
     else:
         raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
@@ -3529,10 +3529,8 @@ if __name__ == "__main__":
 
     # Enable the prompt plugin before running its tests (it's disabled by default)
     enable_success, enable_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
-    if not enable_success:
-        print(f"  ⚠ Failed to enable prompt plugin: {enable_resp}")
-    else:
-        print("  ✓ Prompt plugin enabled for GROUP 11")
+    assert enable_success, f"Failed to enable prompt plugin: {enable_resp}"
+    print("  ✓ Prompt plugin enabled for GROUP 11")
 
     # Prompt MCP server needs a restart to spawn after dynamic enable
     # (the agent only starts MCP servers at initial startup, not for newly enabled plugins)
@@ -3545,8 +3543,8 @@ if __name__ == "__main__":
             tools = tools_data if isinstance(tools_data, list) else (tools_data.get("tools") or tools_data.get("data") or [])
             if any("prompt_compact" in (t.get("full_name") or t.get("name") or "") for t in tools):
                 break
-        except:
-            pass
+        except Exception as _ex:
+            print(f"  [waiting: {_ex}]")
         time.sleep(1)
     else:
         raise AssertionError("Timed out waiting for prompt_compact-messages tool to register — prompt plugin may not be properly enabled")
@@ -3649,7 +3647,8 @@ if __name__ == "__main__":
     # Run setup (idempotent: may already exist)
     setup_req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
     setup_resp = json.loads(urllib.request.urlopen(setup_req, timeout=30).read())
-    print(f"  [setup response: {json.dumps(setup_resp)[:100]}]")
+    assert setup_resp.get("success"), f"setup failed: {setup_resp.get('error', 'unknown')}"
+    print(f"  [setup complete: {json.dumps(setup_resp.get('data', {}))[:100]}]")
 
     # Login as admin and find channel
     MM = "http://mattermost:8065"

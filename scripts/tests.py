@@ -3408,6 +3408,11 @@ if __name__ == "__main__":
     # If a previous run left the repo dirty, fail fast instead of hiding it.
     check_git_clean()
 
+    # Mark repo as safe for git (container runs as root, host runs as hermes)
+    import subprocess as _git_sp
+    _git_sp.run(["git", "config", "--global", "--add", "safe.directory", "/opt/workspace/omni-stack"],
+                 capture_output=True, timeout=10)
+
     # Verify API is accessible
     try:
         r = urllib.request.urlopen(f"{BASE}/health", timeout=5)
@@ -3681,7 +3686,7 @@ if __name__ == "__main__":
     ds_s, ds_r = api_post_body("/plugins/mattermost/disable", {"source": "bundled"})
     assert ds_s, f"G12: disable mattermost failed: {ds_r}"
     _g12t2.sleep(1)
-    en_s, en_r = api_post_body("/plugins/mattermost/enable", {"source": "bundled")
+    en_s, en_r = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
     assert en_s, f"G12: re-enable mattermost failed: {en_r}"
     _g12t2.sleep(3)
 

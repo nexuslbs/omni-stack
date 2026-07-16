@@ -589,7 +589,7 @@ def test_b1():
 
 def test_b2():
     """Bundled plugin WITH YAML entry → succeed, YAML + disk removed"""
-    plugin, ptype = "prompt", "tools"
+    plugin, ptype = "util", "tools"
     plugin_dir = f"{WORKSPACE}/plugins/{ptype}/{plugin}"
 
     ensure_bundled_plugin(plugin, ptype)
@@ -667,7 +667,7 @@ def test_c1():
 
 def test_d1():
     """Bundled provider WITH YAML entry → succeed, YAML + disk removed"""
-    plugin, ptype = "noop", "providers"
+    plugin, ptype = "noop-full", "providers"
     plugin_dir = f"{WORKSPACE}/plugins/{ptype}/{plugin}"
 
     ensure_bundled_plugin(plugin, ptype)

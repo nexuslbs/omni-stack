@@ -2439,14 +2439,14 @@ def test_mm9_e2e():
     #    to the mattermost binary's setup mode, which creates team, channel,
     #    users, and bot token.
     #    Passwords use $secret: notation which resolves from the secrets table.
-    #    Users: admin=omniuser, bot=omnibot, test=testuser (default names).
+    #    Users: admin=lucasbasquerotto, bot=omnibot, test=testuser (default names).
     success, resp = api_post_body("/plugins/mattermost/config", {
         "config": {
             "server_url": "http://mattermost:8065",
             "access_token_name": "MATTERMOST_ACCESS_TOKEN",
             "setup_team": "omni",
             "setup_channel": "setup",
-            "admin_user": "omniuser",
+            "admin_user": "lucasbasquerotto",
             "admin_password": "$secret:MATTERMOST_ADMIN_PASSWORD",
             "test_user": "testuser",
             "test_password": "$secret:MATTERMOST_TEST_PASSWORD",
@@ -3631,7 +3631,7 @@ if __name__ == "__main__":
             "access_token_name": "MATTERMOST_ACCESS_TOKEN",
             "setup_team": "omni",
             "setup_channel": "setup",
-            "admin_user": "omniuser",
+            "admin_user": "lucasbasquerotto",
             "admin_password": "$secret:MATTERMOST_ADMIN_PASSWORD",
             "test_user": "testuser",
             "test_password": "$secret:MATTERMOST_TEST_PASSWORD",

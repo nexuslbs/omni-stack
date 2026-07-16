@@ -1119,16 +1119,35 @@ async fn main() -> Result<()> {
     // Resolve access_token from secret name via omniagent secrets API
     let secrets_http = reqwest::Client::new();
     let access_token = if !secret_name.is_empty() {
-        match get_agent_secret(&secrets_http, &secret_name).await {
-            Some(tok) => {
-                tracing::info!("Resolved access_token from secret '{}'", secret_name);
-                Some(tok)
+        let mut tok_val = get_agent_secret(&secrets_http, &secret_name).await;
+        if tok_val.as_ref().map_or(true, |s| s.is_empty()) {
+            let env_name = format!("{}_ACCESS_TOKEN", "MATTERMOST");
+            if let Ok(env_tok) = std::env::var(&env_name) {
+                if !env_tok.is_empty() {
+                    tracing::info!("Resolved access_token from env var '{}'", env_name);
+                    tok_val = Some(env_tok);
+                }
             }
-            None => {
-                tracing::info!("Secret '{}' is empty or not found - will generate during setup", secret_name);
-                None
+            if tok_val.as_ref().map_or(true, |s| s.is_empty()) {
+                if let Ok(env_tok) = std::env::var(&secret_name) {
+                    if !env_tok.is_empty() {
+                        tracing::info!("Resolved access_token from env var '{}'", secret_name);
+                        tok_val = Some(env_tok);
+                    }
+                }
             }
         }
+        if let Some(ref tok) = tok_val {
+            if !tok.is_empty() {
+                tracing::info!("Resolved access_token for '{}'", secret_name);
+            } else {
+                tracing::info!("Secret '{}' is empty - will generate during setup", secret_name);
+                tok_val = None;
+            }
+        } else {
+            tracing::info!("Secret '{}' not found - will generate during setup", secret_name);
+        }
+        tok_val
     } else {
         tracing::warn!("No access_token_name configured - plugin will not be able to connect");
         None

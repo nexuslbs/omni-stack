@@ -424,14 +424,14 @@ def restart_agent():
     # periodic scanning. No need for process restarts or source file touches.
     # Just wait for the agent to be healthy (in case a previous reload is in progress).
     time.sleep(3)
-    for _ in range(10):
+    for _ in range(20):
         try:
-            r = urllib.request.urlopen(f"{BASE}/health", timeout=3)
+            r = urllib.request.urlopen(f"{BASE}/health", timeout=5)
             if r.status == 200:
                 return
         except Exception as _ex:
             print(f"  [waiting: {_ex}]")
-        time.sleep(1)
+        time.sleep(2)
     raise RuntimeError("Agent not healthy after waiting")
 
 # ═══════════════════════════════════════════════════════════════════════

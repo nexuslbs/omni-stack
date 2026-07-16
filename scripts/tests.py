@@ -2362,7 +2362,7 @@ def _ensure_secret_exists(name):
 
 
 def _check_mm_container():
-    rc = sh("curl -s --unix-socket /var/run/docker.sock http://localhost/containers/omni-mattermost-1/json 2>/dev/null | python3 -c 'import sys,json;d=json.load(sys.stdin);exit(0 if d["State"]["Running"] else 1)'")
+    rc = sh("curl -s --unix-socket /var/run/docker.sock http://localhost/containers/omni-mattermost-1/json 2>/dev/null | grep -q '\"Running\":true'")
     assert rc.returncode == 0, "Mattermost container (omni-mattermost-1) is not running"
 
 def _mm_login(base_url, username, password):

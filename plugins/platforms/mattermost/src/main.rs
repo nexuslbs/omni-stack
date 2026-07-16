@@ -1485,7 +1485,7 @@ async fn main() -> Result<()> {
                 let mut processed_posts: HashMap<String, HashSet<String>> = HashMap::new();
 
                 for ch_id in &current_ids {
-                    init_channel_cursor(&poll_client, ch_id, &mut last_create_at).await;
+                    init_channel_cursor(&poll_client, ch_id, &bot_id, &mut last_create_at).await;
                 }
 
                 let mut refresh_counter: u64 = 0;
@@ -1508,7 +1508,7 @@ async fn main() -> Result<()> {
                                     ch_id
                                 );
                                 if !last_create_at.contains_key(ch_id.as_str()) {
-                                    init_channel_cursor(&poll_client, ch_id, &mut last_create_at).await;
+                                    init_channel_cursor(&poll_client, ch_id, &bot_id, &mut last_create_at).await;
                                 }
                             }
                         }
@@ -2442,19 +2442,27 @@ async fn poll_channel(
     count
 }
 
-/// Initialize the cursor for a single channel: store the latest post timestamp.
+/// Initialize the cursor for a single channel: use latest HUMAN post timestamp.
+/// Bot posts are skipped by poll_channel, so using them as cursor would miss
+/// human posts made before the bot reply (create_at <= cursor).
 async fn init_channel_cursor(
     client: &MattermostClient,
     ch_id: &str,
+    bot_id: &str,
     last_create_at: &mut HashMap<String, i64>,
 ) {
-    match client.get_channel_posts(ch_id, 0, 1).await {
+    match client.get_channel_posts(ch_id, 0, 60).await {
         Ok(posts) => {
-            if let Some(latest) = posts.first() {
-                // Subtract 1 to ensure we pick up posts that arrived at the same
-                // millisecond (cursor-based polling uses create_at > last_create_at)
-                last_create_at.insert(ch_id.to_string(), latest.create_at - 1);
+            for post in posts.iter() {
+                if post.user_id != *bot_id {
+                    last_create_at.insert(ch_id.to_string(), post.create_at - 1);
+                    return;
+                }
             }
+            tracing::warn!(
+                "No human posts in channel {}, polling from 0",
+                ch_id
+            );
         }
         Err(e) => {
             tracing::error!(
@@ -2633,7 +2641,7 @@ async fn ws_event_loop(
                 };
                 for ch_id in &channels {
                     if !last_create_at.contains_key(ch_id.as_str()) {
-                        init_channel_cursor(&client, ch_id, &mut last_create_at).await;
+                        init_channel_cursor(&client, ch_id, &bot_id, &mut last_create_at).await;
                     }
                 }
                 // Do a full poll for all known channels (catches missed messages)
@@ -2718,7 +2726,7 @@ async fn ws_event_loop(
 
                                     // Initialize cursor lazily for new channels
                                     if !last_create_at.contains_key(&ch_id) {
-                                        init_channel_cursor(&client, &ch_id, &mut last_create_at).await;
+                                        init_channel_cursor(&client, &ch_id, &bot_id, &mut last_create_at).await;
                                     }
 
                                     // Trigger cursor-based processing for this channel

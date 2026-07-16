@@ -2425,7 +2425,14 @@ def test_mm9_e2e():
     print(f"[noop status=enabled]")
 
     # 3. Ensure the access token secret exists (empty, to be filled by setup)
-    _ensure_secret_exists("MATTERMOST_ACCESS_TOKEN")
+    # Create all mattermost secrets needed by the setup handler
+    for name, val in [
+        ("MATTERMOST_ACCESS_TOKEN", ""),
+        ("MATTERMOST_ADMIN_PASSWORD", "Mattermost_Fresh_Start_1"),
+        ("MATTERMOST_BOT_PASSWORD", "Mattermost_Fresh_Start_1"),
+        ("MATTERMOST_TEST_PASSWORD", "Mattermost_Fresh_Start_1"),
+    ]:
+        _ensure_secret_exists(name)
 
     # 4. Set mattermost config with setup params BEFORE running setup.
     #    The setup API reads these from the plugin config and passes them
@@ -3608,8 +3615,14 @@ if __name__ == "__main__":
     assert prompt_success, f"enable prompt plugin for G12 failed: {prompt_resp}"
     print("  ✓ Prompt plugin enabled for G12")
 
-    # Ensure the MATTERMOST_ACCESS_TOKEN secret exists
-    _ensure_secret_exists("MATTERMOST_ACCESS_TOKEN")
+    # Ensure all mattermost secrets exist
+    for name, val in [
+        ("MATTERMOST_ACCESS_TOKEN", ""),
+        ("MATTERMOST_ADMIN_PASSWORD", "Mattermost_Fresh_Start_1"),
+        ("MATTERMOST_BOT_PASSWORD", "Mattermost_Fresh_Start_1"),
+        ("MATTERMOST_TEST_PASSWORD", "Mattermost_Fresh_Start_1"),
+    ]:
+        _ensure_secret_exists(name)
 
     # Ensure config is set for mattermost
     config_success, config_resp = api_post_body("/plugins/mattermost/config", {

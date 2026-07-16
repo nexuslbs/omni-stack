@@ -120,6 +120,91 @@ docker exec omni-omniagent-1 python3 /tmp/tests.py
 
 Running from the host (Hermes container) will produce false failures because `/opt/omni/` filesystem checks target the local Hermes data, not the omniagent container's data.
 
+### G13/G14 Debugging: Noop Provider & Test Substring Pitfalls
+
+The G13 (non-blocking tasks) and G14 (cancel task) tests use the `test-tool-caller` model in the noop provider to simulate LLM-driven multi-step tool execution. This section documents hard-learned debugging findings.
+
+#### How test-tool-caller Works
+
+1. The first user message is parsed as a JSON array of tool call definitions (name, tool, arguments)
+2. `$`{name.field} placeholders in arguments are resolved from prior step outputs
+3. Each turn: the model counts completed assistant tool calls, returns the next unsolved step as tool_calls, or a summary when all steps complete
+4. The summary format is: `"All **N** tool call batch(es)."` (with markdown bold)
+
+#### Root Cause: G13/G14 Were Always Passing on the Backend
+
+The noop provider and omniagent **were working correctly** — the summary was being produced and posted to Mattermost. The bug was a **substring mismatch** in the test assertions:
+
+- **Summary text:** `All **4** tool call batch(es) completed.`
+- **Test check:** `"4 tool call" in msg` → **False** because the `**` markdown bold syntax sits between `4` and ` tool call`
+- **Fix:** Changed to `"**4** tool call batch" in msg`
+
+Same for G14 (checking `"**3** tool call batch" in msg`).
+
+#### Documented Rule for Test Checks
+
+**Always match the actual message text, not a mental model of it.** When verifying LLM-generated text in tests:
+1. First capture the actual message being posted (via Mattermost API or logs)
+2. Copy-paste the exact substring that identifies it
+3. If the LLM uses markdown formatting (`**bold**`, `_italic_`, `` `code` ``), include those characters in your check
+4. When debugging: query the actual Mattermost posts before assuming the backend is broken
+
+```python
+# ❌ WRONG — missing markdown chars
+if "4 tool call" in msg:
+    ...
+
+# ✅ CORRECT — matches actual text including bold markers  
+if "**4** tool call batch" in msg:
+    ...
+```
+
+#### How to Debug G13/G14 Test Failures
+
+1. **Check Mattermost posts directly** to see if the response was actually delivered:
+   ```python
+   posts = json.loads(urllib.request.urlopen(
+       f"{MM}/api/v4/channels/{channel_id}/posts",
+       headers={"Authorization": f"Bearer {admin_token}"}
+   ).read())
+   for pid, post in posts.get("posts", {}).items():
+       print(post.get("message", "")[:200])
+   ```
+
+2. **Check noop provider logs** — the noop provider logs every request with `[noop-debug]`:
+   ```bash
+   docker compose logs noop-provider | grep "noop-debug"
+   ```
+   Key log lines: `_parse_script: found N items`, `_count: M/N completed`, `_generate: finish=stop`
+
+3. **Check omniagent logs** for deliver requests:
+   ```bash
+   docker compose logs omniagent | grep "method=deliver"
+   ```
+
+4. **Check the output of `_count_completed_and_outputs`** to verify tool call counting. The counting maps assistant tool_call IDs to tool result IDs positionally (step 0 → tc_ids[0], etc.).
+
+5. **If a test times out** but `_parse_script` shows the script was found and `_count` shows all steps completed, the issue is likely in how the test checks for the response — not in the provider or agent.
+
+#### Placaholder Resolution (`${name.field}`)
+
+The noop provider resolves `${step_name.field_name}` placeholders by looking up `outputs[step_name][field_name]`. The `outputs` dict is built from tool results:
+
+```python
+# In _count_completed_and_outputs:
+outputs["long_run"] = tool_result  # e.g. {"task_id": "task_34_3", ...}
+```
+
+**Critical:** If the tool result is plain text (not JSON), it's stored as `{"text": raw_string}`. This means `${long_run.task_id}` would look for `outputs["long_run"]["task_id"]` — which exists only if the tool returned JSON with that key. For `test-python-tool_lorem`, the initial response IS JSON (with `task_id`), so resolution works for the 4-step G13 script.
+
+#### Avoiding the Loop Bug
+
+When omniagent calls the model and receives a `finish_reason: "stop"` response with content, it posts that content to the channel and **should not call the model again** until a new user message arrives. If it does call again (fresh context), the noop re-executes from step 0, creating an infinite loop. The noop has a guard (`_generate` checks if the last assistant message already has the summary) but this only triggers when the conversation context is preserved — not on fresh calls.
+
+If you see infinite noop loops, check whether:
+- Planning phase is disabled for test-tool-caller (`"plan": False` in the channel PATCH)
+- Omniagent is making redundant model calls after receiving `finish_reason: "stop"`
+
 ### Erroneous Plugin Copies (Binary-Only)
 
 The following directories in `plugins/mcp/` are **erroneous copies** of built-in plugins, containing only binaries (no source code: no `Cargo.toml`, no `src/`):

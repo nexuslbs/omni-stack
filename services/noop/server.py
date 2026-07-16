@@ -106,7 +106,7 @@ def _count_completed_and_outputs(messages, script):
     return completed, outputs
 
 
-def _generate(script, completed, outputs):
+def _generate(script, completed, outputs, msgs=None):
     if not script:
         return "No valid script found. Send a JSON array of tool calls.", None
     total_steps = 0
@@ -117,6 +117,16 @@ def _generate(script, completed, outputs):
             total_steps += 1
     _log(f"_generate: {completed}/{total_steps} steps done")
     if completed >= total_steps:
+        # If the summary was already returned (last assistant message contains it),
+        # don't return it again — return empty to stop the loop.
+        if msgs:
+            for msg in reversed(msgs):
+                if msg.get("role") == "assistant":
+                    last_content = msg.get("content", "") or ""
+                    if "All **" in last_content and "** tool call batch(es) completed" in last_content:
+                        _log("_generate: summary already returned, returning empty stop")
+                        return "", None
+                    break
         parts = []
         for item in script:
             if isinstance(item, list):
@@ -238,7 +248,7 @@ class NoopHandler(BaseHTTPRequestHandler):
             _log("_handle_tool_caller: no script and no user msg, returning plan text")
             return self._plan_text(msgs), None
         completed, outputs = _count_completed_and_outputs(msgs, script)
-        return _generate(script, completed, outputs)
+        return _generate(script, completed, outputs, msgs)
 
     def _plan_text(self, msgs):
         """Return a plan-like text when agent sends only system messages (planning phase)."""

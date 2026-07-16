@@ -3508,6 +3508,18 @@ if __name__ == "__main__":
     print("GROUP 11: Prompt Plugin Tests")
     print(f"{'=' * 60}")
 
+    # Ensure prompt MCP binary exists (may have been cleaned from /target/)
+    prompt_binary = "/target/release/mcp-server-prompt"
+    if not os.path.exists(prompt_binary):
+        src_dir = "/app/plugins/tools/prompt"
+        if os.path.exists(f"{src_dir}/Cargo.toml"):
+            print(f"  [building prompt MCP server binary...]")
+            rc = sh(f"cd {src_dir} && CARGO_TARGET_DIR=/target cargo build --release 2>&1")
+            if rc.returncode != 0:
+                print(f"  [WARN: prompt build failed, continuing anyway: {rc.stdout[-200:]}]")
+        else:
+            print(f"  [WARN: prompt source not found at {src_dir}]")
+
     # Enable the prompt plugin before running its tests (it's disabled by default)
     enable_success, enable_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
     if not enable_success:
@@ -3515,9 +3527,11 @@ if __name__ == "__main__":
     else:
         print("  ✓ Prompt plugin enabled for GROUP 11")
 
-    # Wait for prompt MCP server to register its tools
+    # Prompt MCP server needs a restart to spawn after dynamic enable
+    # (the agent only starts MCP servers at initial startup, not for newly enabled plugins)
     import time
-    for attempt in range(10):
+    # Wait for prompt MCP server to register its tools
+    for attempt in range(15):
         try:
             r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)
             tools_data = json.loads(r.read())

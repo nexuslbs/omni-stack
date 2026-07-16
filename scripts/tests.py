@@ -2479,30 +2479,7 @@ def test_mm9_e2e():
     assert mm_channel_id, "Setup did not return a channel_id"
     print(f"[setup complete: channel_id={mm_channel_id}]")
 
-    # 5a. After setup, force-respawn mattermost in normal (non-setup) mode.
-    #     The agent sets a restart flag after setup but doesn't actually
-    #     respawn the binary, leaving only zombie processes. Disable + re-enable
-    #     forces a fresh live instance that polls Mattermost for messages.
-    ds_s, ds_r = api_post_body("/plugins/mattermost/disable", {"source": "bundled"})
-    assert ds_s, f"disable mattermost after setup failed: {ds_r}"
-    time.sleep(1)
-    en_s, en_r = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-    assert en_s, f"re-enable mattermost after setup failed: {en_r}"
-    time.sleep(3)
-    # Verify binary is alive (not defunct)
-    import subprocess as _sp
-    alive = _sp.run(["ps", "aux"], capture_output=True, text=True, timeout=5)
-    mm_procs = [l for l in alive.stdout.split("\n") if "mattermost-plat" in l and "defunct" not in l and "grep" not in l]
-    if mm_procs:
-        print(f"[mattermost binary alive: {mm_procs[0].strip()[:80]}]")
-    else:
-        time.sleep(3)
-        alive = _sp.run(["ps", "aux"], capture_output=True, text=True, timeout=5)
-        mm_procs = [l for l in alive.stdout.split("\n") if "mattermost-plat" in l and "defunct" not in l and "grep" not in l]
-        assert mm_procs, "mattermost platform binary not running after re-enable"
-        print(f"[mattermost binary alive: {mm_procs[0].strip()[:80]}]")
-
-    # 5b. Ensure prompt plugin is enabled
+    # 5. Ensure prompt plugin is enabled
     prompt_success, prompt_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
     assert prompt_success, f"enable prompt plugin failed: {prompt_resp}"
     import time as _time
@@ -3680,15 +3657,11 @@ if __name__ == "__main__":
     noop_s, noop_r = api_post_body("/plugins/noop/enable", {"source": "bundled"})
     assert noop_s, f"enable noop failed: {noop_r}"
 
-    # Setup was already done by G9 — just force-respawn mattermost binary
-    # in normal mode so it can handle messages.
-    import time as _g12t2
-    ds_s, ds_r = api_post_body("/plugins/mattermost/disable", {"source": "bundled"})
-    assert ds_s, f"G12: disable mattermost failed: {ds_r}"
-    _g12t2.sleep(1)
-    en_s, en_r = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-    assert en_s, f"G12: re-enable mattermost failed: {en_r}"
-    _g12t2.sleep(3)
+    # Run setup (idempotent: may already exist)
+    setup_req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
+    setup_resp = json.loads(urllib.request.urlopen(setup_req, timeout=120).read())
+    assert setup_resp.get("success"), f"setup failed: {setup_resp.get('error', 'unknown')}"
+    print(f"  [setup complete: {json.dumps(setup_resp.get('data', {}))[:100]}]")
 
     # Login as admin and find channel
     MM = "http://mattermost:8065"

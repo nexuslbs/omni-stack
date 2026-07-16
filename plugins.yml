@@ -5,7 +5,7 @@ platforms:
     config:
       access_token_name: MATTERMOST_ACCESS_TOKEN
       admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
-      admin_user: omniuser
+      admin_user: lucasbasquerotto
       bot_password: $secret:MATTERMOST_BOT_PASSWORD
       bot_user: omnibot
       server_url: http://mattermost:8065

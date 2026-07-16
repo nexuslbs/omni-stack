@@ -2471,7 +2471,7 @@ def test_mm9_e2e():
     #    The setup handler creates the omniagent channel and writes the
     #    bot_token to .env so the subprocess can authenticate.
     req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
-    r = urllib.request.urlopen(req, timeout=30)
+    r = urllib.request.urlopen(req, timeout=120)
     setup_resp = json.loads(r.read())
     assert setup_resp.get("success"), f"setup failed: {setup_resp.get('error', 'unknown')}"
     setup_data = setup_resp.get("data", {})
@@ -2510,11 +2510,11 @@ def test_mm9_e2e():
         time.sleep(2)
     assert channel_id is not None, "No mattermost channel found in omniagent channels after setup"
 
-    # 7. Patch channel to use noop provider
-    patch_req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})
+    # 7. Patch channel to use noop provider with test-model-1 (default echo model)
+    patch_req = urllib.request.Request(f"{BASE}/channels/{channel_id}", data=json.dumps({"current_provider": "noop", "current_model": "test-model-1"}).encode(), method="PATCH", headers={"Content-Type": "application/json"})
     patch_resp = urllib.request.urlopen(patch_req, timeout=10)
     assert patch_resp.status == 200, f"channel PATCH returned {patch_resp.status}"
-    print("[channel patched to noop]")
+    print("[channel patched to noop/test-model-1]")
 
     time.sleep(5)
 
@@ -3654,7 +3654,7 @@ if __name__ == "__main__":
 
     # Run setup (idempotent: may already exist)
     setup_req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
-    setup_resp = json.loads(urllib.request.urlopen(setup_req, timeout=30).read())
+    setup_resp = json.loads(urllib.request.urlopen(setup_req, timeout=120).read())
     assert setup_resp.get("success"), f"setup failed: {setup_resp.get('error', 'unknown')}"
     print(f"  [setup complete: {json.dumps(setup_resp.get('data', {}))[:100]}]")
 

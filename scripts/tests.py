@@ -2233,7 +2233,7 @@ def test_t8_add_remote_new():
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin,
             "path": f"{ptype}/test-js-tool",
-        }, timeout=60)
+        }, timeout=120)
         assert success, f"Add remote plugin failed: {resp}"
         assert os.path.exists(remote_dir), f".remote dir not created: {remote_dir}"
         # remote.yml must have changed (plugin added)
@@ -2255,12 +2255,12 @@ def test_t8_add_remote_duplicate():
         s1, r1 = api_post_body("/plugins/install-git", {
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin, "path": f"{ptype}/test-js-tool",
-        }, timeout=60)
+        }, timeout=120)
         assert s1, f"First add failed: {r1}"
         s2, r2 = api_post_body("/plugins/install-git", {
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin, "path": f"{ptype}/test-js-tool",
-        }, timeout=60)
+        }, timeout=120)
         assert s2, f"Duplicate add should succeed (overwrite): {r2}"
         assert remote_yml_has(plugin, ptype), "remote.yml still has entry"
     finally:

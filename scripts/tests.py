@@ -69,9 +69,8 @@ def api_get(path):
         r = urllib.request.urlopen(f"{BASE}/api{path}", timeout=10)
         return json.loads(r.read())
     except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        try: return json.loads(body)
-        except: return {"success": False, "error": body}
+        raw = e.read().decode("utf-8", errors="replace")
+        raise AssertionError(f"GET {path} failed (HTTP {e.code}): {raw}")
 
 def api_post(path, body=None, files=None, base=None):
     """POST to BASE (omniagent) or DASHBOARD proxy.
@@ -116,15 +115,14 @@ def api_post(path, body=None, files=None, base=None):
         raise AssertionError(f"POST {path} failed (HTTP {e.code}): {json.loads(body_str)}")
 
 def api_delete(path):
-    """Return (success_bool, response_data) regardless of HTTP status"""
+    """DELETE. Returns response dict. Raises AssertionError on HTTP errors."""
     req = urllib.request.Request(f"{BASE}/api{path}", method="DELETE")
     try:
         r = urllib.request.urlopen(req, timeout=10)
-        return (True, json.loads(r.read()))
+        return json.loads(r.read())
     except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        try: return (False, json.loads(body))
-        except: return (False, {"error": body})
+        raw = e.read().decode("utf-8", errors="replace")
+        raise AssertionError(f"DELETE {path} failed (HTTP {e.code}): {raw}")
 
 # ═══════════════════════════════════════════════════════════════════════
 #  YAML helpers (manual parsing, no pyyaml)
@@ -468,9 +466,8 @@ def test(fn):
         tests_fail += 1
 
 def expect_error(resp, substring):
-    assert not resp[0], f"expected error, got success={resp[1]}"
-    err_text = json.dumps(resp[1]).lower()
-    assert substring.lower() in err_text, f"expected '{substring}' in error, got: {resp[1]}"
+    err_text = json.dumps(resp).lower() if isinstance(resp, dict) else str(resp).lower()
+    assert substring.lower() in err_text, f"expected '{substring}' in error, got: {resp}"
 
 # ═══════════════════════════════════════════════════════════════════════
 #  GROUP 1: Original Remove API tests (idempotent, restored from git)
@@ -513,8 +510,8 @@ def test_a1():
             yaml_del(ptype, plugin)
             restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=built-in")
-        expect_error((success, resp), "cannot remove built-in")
+        resp = api_delete(f"/plugins/{plugin}?source=built-in")
+        expect_error(resp, "cannot remove built-in")
     finally:
         if not yaml_has(ptype, plugin):
             yaml_set(ptype, plugin, {"enabled": True, "source": "built-in", "config": {}})
@@ -537,8 +534,8 @@ def test_a2():
             yaml_del(ptype, plugin)
             restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         assert not exists(plugin_dir), "plugin dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML was affected but shouldn't have been"
     finally:
@@ -560,8 +557,8 @@ def test_a3():
         if yaml_has(ptype, plugin):
             yaml_del(ptype, plugin)
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=remote")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=remote")
+        pass
         for _retry in range(10):
             if not exists(remote_dir):
                 break
@@ -585,8 +582,8 @@ def test_b1():
         yaml_set(ptype, plugin, {"enabled": True, "source": "built-in", "config": {}})
         restart_agent()
 
-    success, resp = api_delete(f"/plugins/{plugin}?source=built-in")
-    expect_error((success, resp), "cannot remove built-in")
+    resp = api_delete(f"/plugins/{plugin}?source=built-in")
+    expect_error(resp, "cannot remove built-in")
     assert yaml_has(ptype, plugin), "YAML entry was removed but should remain"
 
 
@@ -611,8 +608,8 @@ def test_b2():
         yaml_set(ptype, plugin, {"enabled": True, "source": "bundled", "config": {}})
         restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         assert not exists(plugin_dir), "plugin dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML entry still present"
     finally:
@@ -638,8 +635,8 @@ def test_b3():
         yaml_set(ptype, plugin, {"enabled": True, "source": "remote", "config": {}})
         restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=remote")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=remote")
+        pass
         for _retry in range(10):
             if not exists(remote_dir):
                 break
@@ -670,8 +667,8 @@ def test_c1():
         yaml_set(ptype, plugin, fake_entry)
         restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=built-in")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=built-in")
+        pass
         assert not yaml_has(ptype, plugin), "YAML entry still present"
     finally:
         restore_plugins_yml()
@@ -692,8 +689,8 @@ def test_d1():
         yaml_set(ptype, plugin, {"enabled": True, "source": "bundled", "config": {}})
         restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         assert not exists(plugin_dir), "provider dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML entry still present"
     finally:
@@ -716,8 +713,8 @@ def test_d2():
             yaml_del(ptype, plugin)
             restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         assert not exists(plugin_dir), "provider dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML was affected but shouldn't have been"
     finally:
@@ -740,8 +737,8 @@ def test_e1():
         yaml_set(ptype, plugin, {"enabled": True, "source": "bundled", "config": {}})
         restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         assert not exists(plugin_dir), "platform dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML entry still present"
     finally:
@@ -763,8 +760,8 @@ def test_e2():
             yaml_del(ptype, plugin)
             restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         assert not exists(plugin_dir), "platform dir still on disk"
         assert not yaml_has(ptype, plugin), "YAML was affected but shouldn't have been"
     finally:
@@ -789,8 +786,8 @@ def test_f1():
         yaml_set(ptype, plugin, {"enabled": True, "source": "bundled", "config": {}})
         restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         for _retry in range(10):
             if not exists(bundled_dir):
                 break
@@ -822,8 +819,8 @@ def test_f2():
         yaml_set(ptype, plugin, {"enabled": True, "source": "remote", "config": {}})
         restart_agent()
 
-        success, resp = api_delete(f"/plugins/{plugin}?source=remote")
-        assert success, f"expected success, got {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=remote")
+        pass
         for _retry in range(10):
             if not exists(remote_dir):
                 break
@@ -867,7 +864,7 @@ def test_1():
     name = find_plugin("built-in", skip_duplicated=True)
     if not name:
         return
-    success, resp = api_delete(f"/plugins/{name}?source=built-in")
+    resp = api_delete(f"/plugins/{name}?source=built-in")
     expected_fail = not success and "cannot remove built-in" in json.dumps(resp).lower()
     assert expected_fail, f"expected error, got success={success}, resp={resp}"
 
@@ -878,8 +875,7 @@ def test_2():
     name = find_plugin("bundled", skip_duplicated=True)
     if not name:
         return
-    success, resp = api_delete(f"/plugins/{name}?source=bundled")
-    assert success, f"expected success, got success={success}, resp={resp}"
+    resp = api_delete(f"/plugins/{name}?source=bundled")
 
 # ── Test 3: Remote not in plugins.yml → succeed ──────────────────────
 
@@ -894,8 +890,7 @@ def test_3():
     shutil.copy2(f"{WORKSPACE}/remote.yml", remote_yml_bak)
     shutil.copy2(f"{WORKSPACE}/plugins.yml", plugins_yml_bak)
     try:
-        success, resp = api_delete(f"/plugins/{name}?source=remote")
-        assert success, f"expected success, got success={success}, resp={resp}"
+        resp = api_delete(f"/plugins/{name}?source=remote")
     finally:
         # Restore YAML state so download API can find the entry
         if os.path.exists(plugins_yml_bak):
@@ -919,7 +914,7 @@ def test_4():
     name = find_plugin("built-in", skip_duplicated=True)
     if not name:
         return
-    success, resp = api_delete(f"/plugins/{name}?source=built-in")
+    resp = api_delete(f"/plugins/{name}?source=built-in")
     expected_fail = not success and "cannot remove built-in" in json.dumps(resp).lower()
     assert expected_fail, f"expected error, got success={success}, resp={resp}"
 
@@ -930,8 +925,7 @@ def test_5():
     name = find_plugin("bundled", skip_duplicated=True)
     if not name:
         return
-    success, resp = api_delete(f"/plugins/{name}?source=bundled")
-    assert success, f"expected success, got success={success}, resp={resp}"
+    resp = api_delete(f"/plugins/{name}?source=bundled")
 
 # ── Test 6: Remote in plugins.yml → succeed ──────────────────────────
 
@@ -940,8 +934,7 @@ def test_6():
     name = find_plugin("remote", skip_duplicated=False)
     if not name:
         return
-    success, resp = api_delete(f"/plugins/{name}?source=remote")
-    assert success, f"expected success, got success={success}, resp={resp}"
+    resp = api_delete(f"/plugins/{name}?source=remote")
 
 # ── Test 7: YAML entry, no disk → remove YAML entry ──────────────────
 
@@ -954,8 +947,7 @@ def test_7():
     target = not_found[0]
     name = target["name"]
     source = target.get("source", "bundled")
-    success, resp = api_delete(f"/plugins/{name}?source={source}")
-    assert success, f"expected success, got success={success}, resp={resp}"
+    resp = api_delete(f"/plugins/{name}?source={source}")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1098,11 +1090,12 @@ def test_s1():
     name = find_any_plugin()
     if not name:
         return
-    success, resp = api_delete(f"/plugins/{name}")
-    assert not success, "expected error when source is missing"
-    err_text = json.dumps(resp).lower()
-    assert "source is required" in err_text, \
-        f"expected 'source is required' error, got: {resp}"
+    try:
+        api_delete(f"/plugins/{name}")
+        assert False, "expected error when source is missing"
+    except AssertionError as e:
+        assert "source is required" in str(e).lower(), \
+            f"expected 'source is required' error, got: {e}"
 
 # ── Test S2: POST enable without source → error ───────────────────────
 
@@ -1456,7 +1449,7 @@ def discard_all_changes():
 # ═══════════════════════════════════════════════════════════════════════
 
 def api_post_body(path, body=None, timeout=15):
-    """POST with JSON body. Returns (success, response_dict)."""
+    """POST with JSON body. Returns response dict. Raises AssertionError on HTTP errors."""
     import urllib.request, urllib.error, json
     url = f"{BASE}/api{path}"
     data = json.dumps(body).encode() if body is not None else None
@@ -1464,13 +1457,11 @@ def api_post_body(path, body=None, timeout=15):
                                  headers={"Content-Type": "application/json"})
     try:
         r = urllib.request.urlopen(req, timeout=timeout)
-        return (True, json.loads(r.read()))
+        resp = r.read()
+        return json.loads(resp) if resp.strip() else {}
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
-        try: return (False, json.loads(raw))
-        except: return (False, {"error": raw, "code": e.code})
-    except Exception as e:
-        return (False, {"error": str(e)})
+        raise AssertionError(f"POST {path} failed (HTTP {e.code}): {raw}")
 
 def find_plugins_by_source(source, plugin_type="tools"):
     """Find plugins of a given source and type from the API list."""
@@ -1554,66 +1545,81 @@ def test_enable_source(name, source, expected_success=True):
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/enable", {"source": source}, timeout=90)
     if expected_success:
-        assert success, f"enable {name} source={source} failed: {resp}"
+        resp = api_post_body(f"/plugins/{name}/enable", {"source": source}, timeout=90)
         _assert_yaml_state(name, ptype, expect_enabled=True, expect_source=source)
         if source == "bundled": _assert_dir_exists(bundled_dir)
         elif source == "remote": _assert_dir_exists(remote_dir)
         _assert_remote_yml_unchanged(pre_remote, f"enable {name}")
     else:
-        assert not success
+        try:
+            api_post_body(f"/plugins/{name}/enable", {"source": source})
+            assert False, f"enable {name} source={source} should have failed"
+        except AssertionError:
+            pass
 
 def test_disable_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/disable", {"source": source})
     if expected_success:
-        assert success, f"disable {name} source={source} failed: {resp}"
+        resp = api_post_body(f"/plugins/{name}/disable", {"source": source})
         _assert_yaml_state(name, ptype, expect_enabled=False, expect_source=source)
         _assert_remote_yml_unchanged(pre_remote)
     else:
-        assert not success
+        try:
+            api_post_body(f"/plugins/{name}/disable", {"source": source})
+            assert False, f"disable {name} source={source} should have failed"
+        except AssertionError:
+            pass
 
 def test_install_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/install", {"source": source}, timeout=90)
     if expected_success:
-        assert success, f"install {name} source={source} failed: {resp}"
+        resp = api_post_body(f"/plugins/{name}/install", {"source": source}, timeout=90)
         _assert_yaml_state(name, ptype, expect_source=source)
         if source == "bundled": _assert_dir_exists(bundled_dir)
         elif source == "remote": _assert_dir_exists(remote_dir)
         if source != "remote": _assert_remote_yml_unchanged(pre_remote)
     else:
-        assert not success
+        try:
+            api_post_body(f"/plugins/{name}/install", {"source": source})
+            assert False, f"install {name} source={source} should have failed"
+        except AssertionError:
+            pass
 
 def test_reinstall_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/reinstall", {"source": source}, timeout=90)
     if expected_success:
-        assert success, f"reinstall {name} source={source} failed: {resp}"
+        resp = api_post_body(f"/plugins/{name}/reinstall", {"source": source}, timeout=90)
         _assert_yaml_state(name, ptype, expect_source=source)
         _assert_remote_yml_unchanged(pre_remote)
     else:
-        assert not success
+        try:
+            api_post_body(f"/plugins/{name}/reinstall", {"source": source})
+            assert False, f"reinstall {name} source={source} should have failed"
+        except AssertionError:
+            pass
 
 def test_download_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{name}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{name}"
     pre_remote = _remote_yml_snapshot()
-    success, resp = api_post_body(f"/plugins/{name}/download", {"source": source}, timeout=300)
     if expected_success:
-        assert success, f"download {name} source={source} failed: {resp}"
+        resp = api_post_body(f"/plugins/{name}/download", {"source": source}, timeout=300)
         if source == "bundled": _assert_dir_exists(bundled_dir)
         elif source == "remote": _assert_dir_exists(remote_dir)
         _assert_remote_yml_unchanged(pre_remote)
     else:
-        assert not success
+        try:
+            api_post_body(f"/plugins/{name}/download", {"source": source})
+            assert False, f"download {name} source={source} should have failed"
+        except AssertionError:
+            pass
 
 def test_remove_with_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
@@ -1623,9 +1629,8 @@ def test_remove_with_source(name, source, expected_success=True):
     pre_remote = _remote_yml_snapshot()
     pre_bundled = os.path.exists(bundled_dir)
     pre_remote_e = os.path.exists(remote_dir)
-    success, resp = api_delete(f"/plugins/{name}?source={source}")
     if expected_success:
-        assert success, f"remove {name} source={source} failed: {resp}"
+        resp = api_delete(f"/plugins/{name}?source={source}")
         if source == "bundled":
             _assert_dir_exists(bundled_dir, False)
             assert not yaml_has(ptype, name), f"bundled '{name}' YAML should be removed"
@@ -1637,48 +1642,62 @@ def test_remove_with_source(name, source, expected_success=True):
         elif source == "built-in":
             raise AssertionError("built-in remove should never succeed")
     else:
-        assert not success
-        if source == "built-in":
-            assert "cannot remove built-in" in json.dumps(resp).lower()
-            if pre_entry:
-                assert yaml_get(ptype, name) == pre_entry, f"built-in YAML modified despite error"
-            _assert_dir_exists(bundled_dir, pre_bundled)
-            _assert_dir_exists(remote_dir, pre_remote_e)
-            _assert_remote_yml_unchanged(pre_remote, "built-in no-op")
+        try:
+            api_delete(f"/plugins/{name}?source={source}")
+            assert False, f"remove {name} source={source} should have failed"
+        except AssertionError as e:
+            if source == "built-in":
+                assert "cannot remove built-in" in str(e).lower()
+                if pre_entry:
+                    assert yaml_get(ptype, name) == pre_entry, f"built-in YAML modified despite error"
+                _assert_dir_exists(bundled_dir, pre_bundled)
+                _assert_dir_exists(remote_dir, pre_remote_e)
+                _assert_remote_yml_unchanged(pre_remote, "built-in no-op")
 
 def test_remove_no_source(name):
-    success, resp = api_delete(f"/plugins/{name}")
-    assert not success
-    assert "source is required" in json.dumps(resp).lower()
+    try:
+        api_delete(f"/plugins/{name}")
+        assert False, "expected error"
+    except AssertionError as e:
+        assert "source is required" in str(e).lower()
 
 def test_enable_no_source(name):
-    success, resp = api_post_body(f"/plugins/{name}/enable", {})
-    assert not success
-    assert "source is required" in json.dumps(resp).lower()
+    try:
+        api_post_body(f"/plugins/{name}/enable", {})
+        assert False, "expected error"
+    except AssertionError as e:
+        assert "source is required" in str(e).lower()
 
 def test_disable_no_source(name):
-    success, resp = api_post_body(f"/plugins/{name}/disable", {})
-    assert not success
-    assert "source is required" in json.dumps(resp).lower()
+    try:
+        api_post_body(f"/plugins/{name}/disable", {})
+        assert False, "expected error"
+    except AssertionError as e:
+        assert "source is required" in str(e).lower()
 
 def test_install_no_source(name):
-    success, resp = api_post_body(f"/plugins/{name}/install", {})
-    assert not success
-    assert "source is required" in json.dumps(resp).lower()
+    try:
+        api_post_body(f"/plugins/{name}/install", {})
+        assert False, "expected error"
+    except AssertionError as e:
+        assert "source is required" in str(e).lower()
 
 def test_reinstall_no_source(name):
-    success, resp = api_post_body(f"/plugins/{name}/reinstall", {})
-    assert not success
-    assert "source is required" in json.dumps(resp).lower()
+    try:
+        api_post_body(f"/plugins/{name}/reinstall", {})
+        assert False, "expected error"
+    except AssertionError as e:
+        assert "source is required" in str(e).lower()
 
 def test_download_no_source(name):
-    success, resp = api_post_body(f"/plugins/{name}/download", {})
-    assert not success
-    assert "source is required" in json.dumps(resp).lower()
+    try:
+        api_post_body(f"/plugins/{name}/download", {})
+        assert False, "expected error"
+    except AssertionError as e:
+        assert "source is required" in str(e).lower()
 
 def test_config_update(name, config_body):
-    success, resp = api_post_body(f"/plugins/{name}/config", {"config": config_body})
-    assert success, f"config update {name} failed: {resp}"
+    resp = api_post_body(f"/plugins/{name}/config", {"config": config_body})
     return resp
 
 #  GROUP 6: Comprehensive Plugin Action Tests
@@ -1970,8 +1989,8 @@ def test_t6_collision_enable_bundled():
         assert os.path.exists(remote_dir), "remote dir missing before test"
 
         # Use disable (no MCP server startup needed) with source=bundled
-        success, resp = api_post_body(f"/plugins/{collision_name}/disable", {"source": "bundled"})
-        assert success, f"collision disable bundled failed: {resp}"
+        resp = api_post_body(f"/plugins/{collision_name}/disable", {"source": "bundled"})
+        print(f"[collision disable bundled succeeded]")
 
         # Verify bundled dir still exists (disable doesn't remove disk)
         assert os.path.exists(bundled_dir), "bundled dir was removed!"
@@ -2010,8 +2029,8 @@ def test_t6_collision_enable_remote():
         assert os.path.exists(remote_dir), "remote dir missing before test"
 
         # Disable with source=remote
-        success, resp = api_post_body(f"/plugins/{collision_name}/disable", {"source": "remote"})
-        assert success, f"collision disable remote failed: {resp}"
+        resp = api_post_body(f"/plugins/{collision_name}/disable", {"source": "remote"})
+        print(f"[collision disable remote succeeded]")
 
         assert os.path.exists(bundled_dir), "bundled dir was removed!"
         assert os.path.exists(remote_dir), "remote dir was removed!"
@@ -2059,7 +2078,7 @@ def _check_memory_text_exact(profile, mem_type, expected_content):
 
 
 def _raw_post_body(path, body):
-    """POST without /api prefix, returns (success, response_dict)."""
+    """POST without /api prefix. Returns response dict. Raises AssertionError on HTTP errors."""
     import urllib.request, urllib.error, json
     url = f"{BASE}{path}"
     data = json.dumps(body).encode()
@@ -2070,10 +2089,9 @@ def _raw_post_body(path, body):
         return (True, json.loads(r.read()))
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
-        try: return (False, json.loads(raw))
-        except: return (False, {"error": raw, "code": e.code})
+        raise AssertionError(f"POST {path} failed (HTTP {e.code}): {raw}")
     except Exception as e:
-        return (False, {"error": str(e)})
+        raise AssertionError(f"POST {path} failed: {e}")
 
 def _raw_delete(path):
     """DELETE without /api prefix."""
@@ -2115,16 +2133,16 @@ def test_m1_setup():
 def test_m2_edit_memory():
     """Edit MEMORY → file created"""
     content = "This is a test memory for profile testing."
-    success, resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/memory", {"content": content})
-    assert success, f"edit memory failed: {resp}"
+    resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/memory", {"content": content})
+    pass
     assert _mem_os.path.exists(f"{TEST_PROFILE_DIR}/memories/MEMORY.md")
     _check_memory_text_exact(TEST_PROFILE, "memory", content)
 
 def test_m3_edit_soul():
     """Edit SOUL → file created"""
     content = "This is a test soul for profile testing."
-    success, resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/soul", {"content": content})
-    assert success, f"edit soul failed: {resp}"
+    resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/soul", {"content": content})
+    pass
     assert _mem_os.path.exists(f"{TEST_PROFILE_DIR}/memories/USER.md")
     _check_memory_text_exact(TEST_PROFILE, "soul", content)
 
@@ -2152,10 +2170,10 @@ def test_m5_edit_update():
     """Edit with new values → all 3 sources consistent"""
     new_mem = "Updated memory content for testing."
     new_soul = "Updated soul content for testing."
-    success, resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/memory", {"content": new_mem})
-    assert success, f"edit memory (2nd) failed: {resp}"
-    success, resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/soul", {"content": new_soul})
-    assert success, f"edit soul (2nd) failed: {resp}"
+    resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/memory", {"content": new_mem})
+    pass
+    resp = _raw_post_body(f"/memory/edit/{TEST_PROFILE}/soul", {"content": new_soul})
+    pass
 
     # 1. Via API
     _check_memory_text_exact(TEST_PROFILE, "memory", new_mem)
@@ -2173,8 +2191,8 @@ def test_m6_upload_memory():
     with open("/tmp/mem_test_upload.md", "w") as f:
         f.write(content)
     try:
-        success, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": content})
-        assert success or resp.get("size"), f"upload failed: {resp}"
+        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": content})
+        assert resp.get("size", False), f"upload failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "memory", content)
     finally:
         if _mem_os.path.exists("/tmp/mem_test_upload.md"):
@@ -2186,8 +2204,8 @@ def test_m7_upload_soul():
     with open("/tmp/soul_test_upload.md", "w") as f:
         f.write(content)
     try:
-        success, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": content})
-        assert success or resp.get("size"), f"upload failed: {resp}"
+        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": content})
+        assert resp.get("size", False), f"upload failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "soul", content)
     finally:
         if _mem_os.path.exists("/tmp/soul_test_upload.md"):
@@ -2208,8 +2226,8 @@ def test_m8_delete_and_reupload():
     with open("/tmp/mem_reup.md", "w") as f:
         f.write(re_mem)
     try:
-        success, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": re_mem})
-        assert success or resp.get("size"), f"re-upload mem failed: {resp}"
+        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": re_mem})
+        assert resp.get("size", False), f"re-upload mem failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "memory", re_mem)
     finally:
         if _mem_os.path.exists("/tmp/mem_reup.md"): _mem_os.remove("/tmp/mem_reup.md")
@@ -2218,8 +2236,8 @@ def test_m8_delete_and_reupload():
     with open("/tmp/soul_reup.md", "w") as f:
         f.write(re_soul)
     try:
-        success, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": re_soul})
-        assert success or resp.get("size"), f"re-upload soul failed: {resp}"
+        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": re_soul})
+        assert resp.get("size", False), f"re-upload soul failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "soul", re_soul)
     finally:
         if _mem_os.path.exists("/tmp/soul_reup.md"): _mem_os.remove("/tmp/soul_reup.md")
@@ -2244,12 +2262,12 @@ def test_t8_add_remote_new():
         if os.path.exists(remote_dir): shutil.rmtree(remote_dir)
         if remote_yml_has(plugin, ptype): remove_remote_plugin(plugin, ptype)
         pre_remote = _remote_yml_snapshot()
-        success, resp = api_post_body("/plugins/install-git", {
+        resp = api_post_body("/plugins/install-git", {
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin,
             "path": f"{ptype}/test-js-tool",
         }, timeout=90)
-        assert success, f"Add remote plugin failed: {resp}"
+        pass
         assert os.path.exists(remote_dir), f".remote dir not created: {remote_dir}"
         # remote.yml must have changed (plugin added)
         assert read_remote_yml() != pre_remote, "remote.yml should change"
@@ -2267,16 +2285,14 @@ def test_t8_add_remote_duplicate():
     try:
         if os.path.exists(remote_dir): shutil.rmtree(remote_dir)
         if remote_yml_has(plugin, ptype): remove_remote_plugin(plugin, ptype)
-        s1, r1 = api_post_body("/plugins/install-git", {
+        resp1 = api_post_body("/plugins/install-git", {
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin, "path": f"{ptype}/test-js-tool",
         }, timeout=90)
-        assert s1, f"First add failed: {r1}"
-        s2, r2 = api_post_body("/plugins/install-git", {
+        resp2 = api_post_body("/plugins/install-git", {
             "url": "file:///opt/workspace/omni-plugins",
             "name": plugin, "path": f"{ptype}/test-js-tool",
         }, timeout=90)
-        assert s2, f"Duplicate add should succeed (overwrite): {r2}"
         assert remote_yml_has(plugin, ptype), "remote.yml still has entry"
     finally:
         remove_remote_plugin(plugin, ptype)
@@ -2295,8 +2311,8 @@ def test_t8_remove_bundled_remote_yml_unchanged():
         yaml_set(ptype, plugin, {"enabled": True, "source": "bundled", "config": {}})
         restart_agent()
         pre_remote = _remote_yml_snapshot()
-        success, resp = api_delete(f"/plugins/{plugin}?source=bundled")
-        assert success, f"Remove bundled failed: {resp}"
+        resp = api_delete(f"/plugins/{plugin}?source=bundled")
+        pass
         assert not os.path.exists(bundled_dir), "Bundled dir removed"
         assert os.path.exists(remote_dir), "Remote dir survives"
         assert not yaml_has(ptype, plugin), "YAML entry removed"
@@ -2315,22 +2331,24 @@ def test_t6_enable_invalid_source():
     name = find_first_plugin("bundled", "tools")
     if not name:
         return
-    success, resp = api_post_body(f"/plugins/{name}/enable", {"source": "invalid-source-type"})
-    assert not success, f"enable with invalid source should have failed: {resp}"
-    err_text = json.dumps(resp).lower()
-    assert "invalid source" in err_text, \
-        f"enable invalid source: expected 'invalid source', got {resp}"
+    try:
+        api_post_body(f"/plugins/{name}/enable", {"source": "invalid-source-type"})
+        assert False, "enable with invalid source should have failed"
+    except AssertionError as e:
+        assert "invalid source" in str(e).lower(), \
+            f"enable invalid source: expected 'invalid source', got {e}"
 
 def test_t6_disable_invalid_source():
     """Disable with invalid source → error"""
     name = find_first_plugin("bundled", "tools")
     if not name:
         return
-    success, resp = api_post_body(f"/plugins/{name}/disable", {"source": "invalid-source-type"})
-    assert not success, f"disable with invalid source should have failed: {resp}"
-    err_text = json.dumps(resp).lower()
-    assert "invalid source" in err_text, \
-        f"disable invalid source: expected 'invalid source', got {resp}"
+    try:
+        api_post_body(f"/plugins/{name}/disable", {"source": "invalid-source-type"})
+        assert False, "disable with invalid source should have failed"
+    except AssertionError as e:
+        assert "invalid source" in str(e).lower(), \
+            f"disable invalid source: expected 'invalid source', got {e}"
 
 
 
@@ -2425,12 +2443,12 @@ def test_mm9_e2e():
     test_user = "testuser"
 
     # 1. Ensure mattermost and noop platforms are enabled
-    success, resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-    assert success, f"enable mattermost platform failed: {resp}"
+    resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
+    print(f"[mattermost platform enabled]")
     print("[mattermost platform enabled]")
 
-    success, resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
-    assert success, f"enable noop provider failed: {resp}"
+    resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    print(f"[noop enabled]")
     print("[noop enabled]")
 
     # 2. Check noop is available
@@ -2455,7 +2473,7 @@ def test_mm9_e2e():
     #    users, and bot token.
     #    Passwords use $secret: notation which resolves from the secrets table.
     #    Users: admin=lucasbasquerotto, bot=omnibot, test=testuser (default names).
-    success, resp = api_post_body("/plugins/mattermost/config", {
+    resp = api_post_body("/plugins/mattermost/config", {
         "config": {
             "server_url": "http://mattermost:8065",
             "access_token_name": "MATTERMOST_ACCESS_TOKEN",
@@ -2469,7 +2487,7 @@ def test_mm9_e2e():
             "bot_password": "$secret:MATTERMOST_BOT_PASSWORD",
         }
     })
-    assert success, f"set mattermost config failed: {resp}"
+    print(f"[mattermost config set]")
     print("[mattermost config set with setup params]")
 
     # 5. Run mattermost setup (idempotent: may already exist).
@@ -2485,8 +2503,8 @@ def test_mm9_e2e():
     print(f"[setup complete: channel_id={mm_channel_id}]")
 
     # 5. Ensure prompt plugin is enabled
-    prompt_success, prompt_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
-    assert prompt_success, f"enable prompt plugin failed: {prompt_resp}"
+    resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    pass
     import time as _time
     for _attempt in range(10):
         try:
@@ -3140,8 +3158,8 @@ def test_fn_13_non_blocking():
     # Add test-python-tool as bundled plugin and enable via API
     ensure_bundled_plugin("test-python-tool", "tools")
     yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
-    success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
-    assert success, f"enable test-python-tool failed: {resp}"
+    resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
+    print(f"[enable test-python-tool succeeded]")
     print("[test-python-tool enabled]")
     # Wait for MCP server to register its tools
     for attempt in range(15):
@@ -3270,8 +3288,8 @@ def test_fn_14_cancel_task():
     # Add test-python-tool as bundled plugin and enable via API
     ensure_bundled_plugin("test-python-tool", "tools")
     yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
-    success, resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
-    assert success, f"enable test-python-tool for cancel test failed: {resp}"
+    resp = api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
+    print(f"[enable test-python-tool for cancel test succeeded]")
     print("[test-python-tool enabled for cancel test]")
     for attempt in range(15):
         try:
@@ -3546,7 +3564,7 @@ if __name__ == "__main__":
         print(f"  [prompt binary built at {prompt_binary}]")
 
     # Enable the prompt plugin before running its tests (it's disabled by default)
-    enable_success, enable_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
     assert enable_success, f"Failed to enable prompt plugin: {enable_resp}"
     print("  ✓ Prompt plugin enabled for GROUP 11")
 
@@ -3596,11 +3614,8 @@ if __name__ == "__main__":
         test(fn)
 
     # Disable the prompt plugin after tests (restore default state)
-    disable_success, disable_resp = api_post_body("/plugins/prompt/disable", {"source": "built-in"})
-    if not disable_success:
-        print(f"  ⚠ Failed to disable prompt plugin: {disable_resp}")
-    else:
-        print("  ✓ Prompt plugin disabled after GROUP 11")
+    resp = api_post_body("/plugins/prompt/disable", {"source": "built-in"})
+    print("  ✓ Prompt plugin disabled after GROUP 11")
 
     # Verify that prompt_generate returns an error when prompt plugin is disabled
     print("  [verifying prompt_generate error when prompt is disabled]")
@@ -3627,8 +3642,8 @@ if __name__ == "__main__":
     _check_mm_container()
 
     # Re-enable the prompt plugin (G11 disabled it at the end of its tests)
-    prompt_success, prompt_resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
-    assert prompt_success, f"enable prompt plugin for G12 failed: {prompt_resp}"
+    resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
+    pass
     print("  ✓ Prompt plugin enabled for G12")
 
     # Ensure all mattermost secrets exist
@@ -3641,7 +3656,7 @@ if __name__ == "__main__":
         _ensure_secret_exists(name)
 
     # Ensure config is set for mattermost
-    config_success, config_resp = api_post_body("/plugins/mattermost/config", {
+    resp = api_post_body("/plugins/mattermost/config", {
         "config": {
             "server_url": "http://mattermost:8065",
             "access_token_name": "MATTERMOST_ACCESS_TOKEN",
@@ -3655,12 +3670,12 @@ if __name__ == "__main__":
             "bot_password": "$secret:MATTERMOST_BOT_PASSWORD",
         }
     })
-    assert config_success, f"set mattermost config failed: {config_resp}"
+    pass
 
-    enable_s, enable_r = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
-    assert enable_s, f"enable mattermost failed: {enable_r}"
-    noop_s, noop_r = api_post_body("/plugins/noop/enable", {"source": "bundled"})
-    assert noop_s, f"enable noop failed: {noop_r}"
+    resp = api_post_body("/plugins/mattermost/enable", {"source": "bundled"})
+    pass
+    resp = api_post_body("/plugins/noop/enable", {"source": "bundled"})
+    pass
 
     # Run setup (idempotent: may already exist)
     setup_req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")

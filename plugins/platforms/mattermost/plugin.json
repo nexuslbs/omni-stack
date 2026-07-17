@@ -23,12 +23,12 @@
       "description": "Base URL of the Mattermost server."
     },
     {
-      "key": "access_token",
+      "key": "access_token_name",
       "label": "Access Token Name",
-      "type": "secret",
+      "type": "string",
       "required": false,
-      "secret": true,
-      "description": "Name of the Mattermost personal access token to use (generated during setup)."
+      "description": "Name of the Mattermost personal access token to use (generated during setup).",
+      "default": ""
     },
     {
       "key": "polling_enabled",
@@ -49,20 +49,15 @@
       "description": "How often to poll for new messages (only used in polling mode)"
     },
     {
-      "key": "bot_username",
-      "label": "Bot Username",
-      "type": "string",
-      "required": false,
-      "default": "omniagent",
-      "description": "Username of the Mattermost bot account"
-    },
-    {
       "key": "connection_mode",
       "label": "Connection Mode",
       "type": "enum",
       "required": false,
       "default": "websocket",
-      "allowed_values": ["polling", "websocket"],
+      "allowed_values": [
+        "polling",
+        "websocket"
+      ],
       "description": "How to detect new messages: 'polling' or 'websocket' (real-time)"
     },
     {
@@ -83,7 +78,7 @@
     },
     {
       "key": "bot_user",
-      "label": "Bot Username (Setup)",
+      "label": "Bot Username",
       "type": "string",
       "required": false,
       "default": "omniagent",

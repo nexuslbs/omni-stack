@@ -39,11 +39,24 @@ tools:
     source: remote
     config: {}
 providers:
+  deepseek:
+    enabled: true
+    source: bundled
+    config:
+      api_key: $secret:DEEPSEEK_API_KEY
   noop:
     enabled: true
     source: bundled
     config: {}
   noop-full:
+    enabled: true
+    source: bundled
+    config: {}
+  openai:
+    enabled: false
+    source: bundled
+    config: {}
+  opencode-go:
     enabled: true
     source: bundled
     config: {}

@@ -943,8 +943,6 @@ struct PluginConfig {
     admin_user: Option<String>,
     #[serde(default)]
     admin_password: Option<String>,
-    #[serde(default = "default_bot_username")]
-    bot_username: String,
     #[serde(default)]
     test_user: String,
     #[serde(default)]
@@ -963,9 +961,6 @@ fn default_polling_interval() -> u64 {
     15
 }
 
-fn default_bot_username() -> String {
-    "omniagent".to_string()
-}
 
 fn default_server_url() -> String {
     "http://mattermost:8065".to_string()
@@ -1372,7 +1367,7 @@ async fn main() -> Result<()> {
                             break 'recover None;
                         }
                     };
-                    let bot_username = &config.bot_username;
+                    let bot_username = &config.bot_user;
                     tracing::info!("Auto-recovery: finding bot user '{}'", bot_username);
                     let (bot_user_id, _) = match admin_client.find_user_by_username(bot_username).await {
                         Ok(Some(result)) => result,
@@ -2142,7 +2137,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                 "channel_id": channel_id,
                 "channel_name": params.setup_channel,
                 "bot_user_id": uid,
-                "bot_username": params.bot_user,
+                "bot_user": params.bot_user,
                 "bot_token": bot_token,
                 "admin_user_id": admin_id,
             });
@@ -2175,7 +2170,7 @@ async fn handle_setup(id: u64, client: &MattermostClient, server_url: &str, para
                                 "channel_id": channel_id,
                                 "channel_name": params.setup_channel,
                                 "bot_user_id": uid,
-                                "bot_username": params.bot_user,
+                                "bot_user": params.bot_user,
                                 "bot_token": token,
                                 "admin_user_id": admin_id,
                             }))

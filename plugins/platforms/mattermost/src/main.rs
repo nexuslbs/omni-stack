@@ -1223,6 +1223,14 @@ async fn main() -> Result<()> {
                 );
             }
 
+                // 1b. Try empty password fallback - handles case where a previous
+                //     buggy test run created admin user with empty password.
+                if let Some(adm) =
+                    login_admin_client(&server_url, &params.admin_user, "").await
+                {
+                    tracing::info!("Logged in as admin '{}' with empty password fallback", params.admin_user);
+                    break 'client adm;
+                }
             //  2. Try access token (bot PAT: valid auth but limited privileges) 
             if let Some(token) = &access_token {
                 let test_client = MattermostClient::new(&server_url, token);

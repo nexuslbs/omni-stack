@@ -24,11 +24,11 @@
     },
     {
       "key": "access_token",
-      "label": "Personal Access Token",
+      "label": "Access Token Name",
       "type": "secret",
       "required": false,
       "secret": true,
-      "description": "Mattermost personal access token for the bot account."
+      "description": "Name of the Mattermost personal access token to use (generated during setup)."
     },
     {
       "key": "polling_enabled",

@@ -252,6 +252,64 @@ def _git_discard_all(repo_dir):
 - The binary survives `git checkout -- .` cleanup (only tracked files are restored)
 - Compiling takes ~2.5 min on first build, faster with cached deps
 
+### Plugin Config via `configure` Message (Not Env Vars)
+
+Plugins receive their configuration via the MCP `configure` message after initialization — NOT from environment variables. The `mcp-server-util` library provides `run_server_with_config()` which accepts an `on_configure` callback that receives the plugin's resolved config values from `plugins.yaml`:
+
+```rust
+use mcp_server_util::*;
+
+let tools = vec![...];
+let on_configure = Some(move |params: Value| {
+    // params contains resolved config keys/values
+    let new_config = MyPluginConfig::from_json(&params);
+    // store in shared state for tools to use
+});
+
+run_server_with_config(server_info, tools, on_configure).await
+```
+
+**Key rules:**
+- Plugins define their config schema in `plugin.json` under `config_schema` (type, default, description)
+- Users set values in `plugins.yaml` under the plugin's `config:` section
+- Users MAY use `$env:VAR_NAME` in `plugins.yaml` values to source from env vars
+- Plugins themselves NEVER read `std::env::var()` for config values (only bootstrap vars like `DATABASE_URL` and `OMNI_DIR` are acceptable)
+- Each config key in `plugin.json` config_schema gets sent as a key/value pair in the `configure` params
+
+### Prompt Plugin Config Reference
+
+The `prompt` plugin (`mcp-server-prompt`) has the following config_schema fields in `plugins/tools/prompt/plugin.json`:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `planning_complexity_max_chars` | integer | 60 | Max char count for simple prompts (greetings, short commands): these get no plan |
+| `planning_complexity_keywords` | string | (long comma-separated list) | Keywords that trigger planning mode |
+| `prompt_plan_max_tokens` | integer | 2048 | Max tokens for the planning LLM call |
+| `memory_max_chars` | integer | 5000 | Max characters for the memory section in the system prompt |
+| `soul_max_chars` | integer | 1000 | Max characters for the user profile section in the system prompt |
+| `tokenizer_encoding` | string | "" | Tokenizer encoding for budget calculations (e.g. `cl100k_base`). Empty = use char counts |
+| `char_budget_soft` | integer | 350000 | Soft char budget: triggers condensation when exceeded + enough iterations elapsed |
+| `char_budget_hard` | integer | 500000 | Hard char budget: condensation triggers immediately when exceeded |
+| `token_budget_soft` | integer | 200000 | Soft token budget (used when tokenizer_encoding is set) |
+| `token_budget_hard` | integer | 350000 | Hard token budget (used when tokenizer_encoding is set) |
+| `old_message_char_budget` | integer | 100000 | Threshold for trimming old assistant messages during condensation |
+| `condense_keep_turns` | integer | 4 | Number of most recent assistant turns to preserve when condensing |
+
+The `tokenizer_encoding` field controls whether budgets are in characters (when empty/`None`) or tokens (when set to an encoding like `cl100k_base`). When using tokens, the character count is divided by 4 as a rough token estimate.
+
+These values are read from `plugins.yaml` under the prompt plugin's config, NOT from environment variables. Example:
+
+```yaml
+plugins:
+  tools:
+    - name: prompt
+      enabled: true
+      config:
+        char_budget_soft: 250000
+        char_budget_hard: 400000
+        tokenizer_encoding: "cl100k_base"
+```
+
 ### Run Tests Inside the Container (as Root)
 
 The test runner MUST run inside the omniagent container, which runs as root. Running from the host causes false failures:

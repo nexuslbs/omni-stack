@@ -18,6 +18,10 @@ platforms:
     source: bundled
     config: {}
 tools:
+  cron:
+    enabled: false
+    source: built-in
+    config: {}
   hindsight:
     enabled: true
     source: built-in

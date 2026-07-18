@@ -133,7 +133,7 @@ The G13 (non-blocking tasks) and G14 (cancel task) tests use the `test-tool-call
 
 #### Root Cause: G13/G14 Were Always Passing on the Backend
 
-The noop provider and omniagent **were working correctly** — the summary was being produced and posted to Mattermost. The bug was a **substring mismatch** in the test assertions:
+The noop provider and omniagent **were working correctly** : the summary was being produced and posted to Mattermost. The bug was a **substring mismatch** in the test assertions:
 
 - **Summary text:** `All **4** tool call batch(es) completed.`
 - **Test check:** `"4 tool call" in msg` → **False** because the `**` markdown bold syntax sits between `4` and ` tool call`
@@ -150,11 +150,11 @@ Same for G14 (checking `"**3** tool call batch" in msg`).
 4. When debugging: query the actual Mattermost posts before assuming the backend is broken
 
 ```python
-# ❌ WRONG — missing markdown chars
+# ❌ WRONG : missing markdown chars
 if "4 tool call" in msg:
     ...
 
-# ✅ CORRECT — matches actual text including bold markers  
+# ✅ CORRECT : matches actual text including bold markers  
 if "**4** tool call batch" in msg:
     ...
 ```
@@ -171,7 +171,7 @@ if "**4** tool call batch" in msg:
        print(post.get("message", "")[:200])
    ```
 
-2. **Check noop provider logs** — the noop provider logs every request with `[noop-debug]`:
+2. **Check noop provider logs** : the noop provider logs every request with `[noop-debug]`:
    ```bash
    docker compose logs noop-provider | grep "noop-debug"
    ```
@@ -184,7 +184,7 @@ if "**4** tool call batch" in msg:
 
 4. **Check the output of `_count_completed_and_outputs`** to verify tool call counting. The counting maps assistant tool_call IDs to tool result IDs positionally (step 0 → tc_ids[0], etc.).
 
-5. **If a test times out** but `_parse_script` shows the script was found and `_count` shows all steps completed, the issue is likely in how the test checks for the response — not in the provider or agent.
+5. **If a test times out** but `_parse_script` shows the script was found and `_count` shows all steps completed, the issue is likely in how the test checks for the response : not in the provider or agent.
 
 #### Placaholder Resolution (`${name.field}`)
 
@@ -195,11 +195,11 @@ The noop provider resolves `${step_name.field_name}` placeholders by looking up 
 outputs["long_run"] = tool_result  # e.g. {"task_id": "task_34_3", ...}
 ```
 
-**Critical:** If the tool result is plain text (not JSON), it's stored as `{"text": raw_string}`. This means `${long_run.task_id}` would look for `outputs["long_run"]["task_id"]` — which exists only if the tool returned JSON with that key. For `test-python-tool_lorem`, the initial response IS JSON (with `task_id`), so resolution works for the 4-step G13 script.
+**Critical:** If the tool result is plain text (not JSON), it's stored as `{"text": raw_string}`. This means `${long_run.task_id}` would look for `outputs["long_run"]["task_id"]` : which exists only if the tool returned JSON with that key. For `test-python-tool_lorem`, the initial response IS JSON (with `task_id`), so resolution works for the 4-step G13 script.
 
 #### Avoiding the Loop Bug
 
-When omniagent calls the model and receives a `finish_reason: "stop"` response with content, it posts that content to the channel and **should not call the model again** until a new user message arrives. If it does call again (fresh context), the noop re-executes from step 0, creating an infinite loop. The noop has a guard (`_generate` checks if the last assistant message already has the summary) but this only triggers when the conversation context is preserved — not on fresh calls.
+When omniagent calls the model and receives a `finish_reason: "stop"` response with content, it posts that content to the channel and **should not call the model again** until a new user message arrives. If it does call again (fresh context), the noop re-executes from step 0, creating an infinite loop. The noop has a guard (`_generate` checks if the last assistant message already has the summary) but this only triggers when the conversation context is preserved : not on fresh calls.
 
 If you see infinite noop loops, check whether:
 - Planning phase is disabled for test-tool-caller (`"plan": False` in the channel PATCH)
@@ -230,15 +230,15 @@ These have `plugin.json` and a compiled binary but no source code. They show wit
 
 ### Test Cleanup: Use `git checkout` Only, Never `git clean`
 
-The `_git_discard_all()` function MUST restore tracked files via `git checkout -- .` but MUST NOT run `git clean -fd`. The clean step deletes compiled binary directories (like `target/` for the mattermost platform plugin). Only tracked files should be restored — build artifacts and compiled binaries must be preserved.
+The `_git_discard_all()` function MUST restore tracked files via `git checkout -- .` but MUST NOT run `git clean -fd`. The clean step deletes compiled binary directories (like `target/` for the mattermost platform plugin). Only tracked files should be restored : build artifacts and compiled binaries must be preserved.
 
 ```python
-# CORRECT — restores tracked files only, preserves build artifacts
+# CORRECT : restores tracked files only, preserves build artifacts
 def _git_discard_all(repo_dir):
     subprocess.run(["git", "checkout", "--", "."], cwd=repo_dir, capture_output=True)
-    # Do NOT add git clean -fd — it deletes compiled binaries
+    # Do NOT add git clean -fd : it deletes compiled binaries
 
-# WRONG — git clean -fd deletes target/ and other build artifacts
+# WRONG : git clean -fd deletes target/ and other build artifacts
 def _git_discard_all(repo_dir):
     subprocess.run(["git", "checkout", "--", "."], cwd=repo_dir, capture_output=True)
     subprocess.run(["git", "clean", "-fd"], cwd=repo_dir, capture_output=True)  # ❌
@@ -248,13 +248,13 @@ def _git_discard_all(repo_dir):
 
 - Source tracked in omni-stack at `plugins/platforms/mattermost/`
 - Compiled binary at `plugins/platforms/mattermost/target/release/mattermost-platform`
-- `_ensure_mm_platform_binary()` checks if binary exists and compiles if missing — called at start of `test_mm9_e2e`
+- `_ensure_mm_platform_binary()` checks if binary exists and compiles if missing : called at start of `test_mm9_e2e`
 - The binary survives `git checkout -- .` cleanup (only tracked files are restored)
 - Compiling takes ~2.5 min on first build, faster with cached deps
 
 ### Plugin Config via `configure` Message (Not Env Vars)
 
-Plugins receive their configuration via the MCP `configure` message after initialization — NOT from environment variables. The `mcp-server-util` library provides `run_server_with_config()` which accepts an `on_configure` callback that receives the plugin's resolved config values from `plugins.yaml`:
+Plugins receive their configuration via the MCP `configure` message after initialization : NOT from environment variables. The `mcp-server-util` library provides `run_server_with_config()` which accepts an `on_configure` callback that receives the plugin's resolved config values from `plugins.yaml`:
 
 ```rust
 use mcp_server_util::*;
@@ -321,6 +321,6 @@ docker exec -e PYTHONUNBUFFERED=1 omni-omniagent-1 \
 
 **Host vs container differences that cause false failures:**
 - `git checkout -- .` hits "Permission denied" on root-owned files if run from the host
-- When `git checkout -- .` fails (even silently), no tracked files are restored — the working tree remains dirty
+- When `git checkout -- .` fails (even silently), no tracked files are restored : the working tree remains dirty
 - Do NOT run `git checkout -- .` or any git operations on omni-stack from the host for cleanup
 - If the repo needs cleaning, do it from inside the container or use `docker exec` to run git commands as root

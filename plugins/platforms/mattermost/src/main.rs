@@ -125,6 +125,25 @@ impl MattermostClient {
         }
     }
 
+    /// Send typing indicator (shows "bot is typing..." in the channel/thread).
+    async fn send_typing(&self, channel_id: &str, parent_id: Option<&str>) -> Result<bool> {
+        let mut body = serde_json::json!({});
+        if let Some(pid) = parent_id {
+            body["parent_id"] = serde_json::json!(pid);
+        }
+        let resp = self
+            .http_client
+            .post(format!(
+                "{}/api/v4/channels/{}/typing",
+                self.api_base, channel_id
+            ))
+            .header("Authorization", &self.auth_header)
+            .json(&body)
+            .send()
+            .await?;
+        Ok(resp.status().is_success())
+    }
+
     /// Add a reaction (emoji) to a post.
     async fn create_reaction(&self, post_id: &str, user_id: &str, emoji: &str) -> Result<bool> {
         let body = serde_json::json!({
@@ -888,6 +907,14 @@ struct DeleteParams {
     external_id: String,
 }
 
+/// Parameters for the typing indicator method.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct TypingParams {
+    resource_identifier: String,
+    #[serde(default)]
+    parent_id: Option<String>,
+}
+
 /// Parameters for the react method.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ReactParams {
@@ -1640,6 +1667,18 @@ async fn main() -> Result<()> {
                     make_error(req_id, -1, "Missing params for react")
                 }
             }
+            "typing" => {
+                if let Some(params) = request.params {
+                    match serde_json::from_value::<TypingParams>(params) {
+                        Ok(p) => handle_typing(req_id, &client, &p).await,
+                        Err(e) => {
+                            make_error(req_id, -1, &format!("Invalid typing params: {}", e))
+                        }
+                    }
+                } else {
+                    make_error(req_id, -1, "Missing params for typing")
+                }
+            }
             _ => make_error(
                 req_id,
                 -1,
@@ -1830,6 +1869,20 @@ async fn handle_delete(
     match client.delete_post(&params.external_id).await {
         Ok(_) => make_success(id, serde_json::json!({"deleted": true})),
         Err(e) => make_error(id, -1, &format!("Failed to delete message: {}", e)),
+    }
+}
+
+async fn handle_typing(
+    id: u64,
+    client: &MattermostClient,
+    params: &TypingParams,
+) -> PluginResponse {
+    match client
+        .send_typing(&params.resource_identifier, params.parent_id.as_deref())
+        .await
+    {
+        Ok(sent) => make_success(id, serde_json::json!({"typing": sent})),
+        Err(e) => make_error(id, -1, &format!("Failed to send typing: {}", e)),
     }
 }
 

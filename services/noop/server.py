@@ -118,7 +118,7 @@ def _generate(script, completed, outputs, msgs=None):
     _log(f"_generate: {completed}/{total_steps} steps done")
     if completed >= total_steps:
         # If the summary was already returned (last assistant message contains it),
-        # don't return it again — return empty to stop the loop.
+        # don't return it again : return empty to stop the loop.
         if msgs:
             for msg in reversed(msgs):
                 if msg.get("role") == "assistant":

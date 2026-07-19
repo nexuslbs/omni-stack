@@ -1796,7 +1796,10 @@ def test_t6_install_bundled_tool():
 
 def test_t6_install_remote_tool():
     """Install a remote tool plugin -> success"""
+    # Ensure plugin source and YAML entry exist before attempting install
     ensure_remote_plugin("test-rust-tool", "tools")
+    yaml_set("tools", "test-rust-tool", {"enabled": True, "source": "remote", "config": {}})
+    restart_agent()
     test_install_source("test-rust-tool", "remote")
 
 def test_t6_reinstall_bundled_tool():
@@ -1809,6 +1812,8 @@ def test_t6_reinstall_bundled_tool():
 def test_t6_reinstall_remote_tool():
     """Reinstall a remote tool plugin -> success"""
     ensure_remote_plugin("test-rust-tool", "tools")
+    yaml_set("tools", "test-rust-tool", {"enabled": True, "source": "remote", "config": {}})
+    restart_agent()
     test_reinstall_source("test-rust-tool", "remote")
 
 def test_t6_download_bundled_tool():

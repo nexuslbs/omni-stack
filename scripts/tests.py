@@ -397,10 +397,17 @@ def ensure_remote_plugin(name, plugin_type="tools"):
     if os.path.exists(cargo_toml):
         sh(f"cd {dest_base}/{plugin_type}/{name} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
 
-    # Register in remote.yml
+    # Register in remote.yml (skip if already exists)
     remote_yml_path = f"{WORKSPACE}/remote.yml"
-    with open(remote_yml_path, "a") as f:
-        f.write(f"\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
+    if os.path.exists(remote_yml_path):
+        with open(remote_yml_path) as f:
+            existing = f.read()
+        if f"  {name}:" not in existing:
+            with open(remote_yml_path, "a") as f:
+                f.write(f"\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
+    else:
+        with open(remote_yml_path, "a") as f:
+            f.write(f"\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
 
 def remove_remote_plugin(name, plugin_type="tools"):
     """Remove a remote plugin we installed temporarily."""
@@ -3528,10 +3535,17 @@ def test_fn_16_tool_message_formats():
             msgs = [msgs] if msgs else []
         msgs_sorted = sorted(msgs, key=lambda m: m.get("id", 0))
 
-        # Check if completed
-        summaries = [m for m in msgs_sorted if m.get("msg_type") == "summary"]
-        if not any("**2** tool call batch" in (m.get("content") or "") for m in summaries):
-            continue
+        # Check if completed: look for all 4 expected messages (2 tool + 2 tool-result)
+        # or any summary mentioning tool call batch
+        tool_msgs = [m for m in msgs_sorted if m.get("msg_type") in ("tool", "tool-result")]
+        tool_call_msgs_count = len([m for m in tool_msgs if m.get("msg_type") == "tool"])
+        tool_result_msgs_count = len([m for m in tool_msgs if m.get("msg_type") == "tool-result"])
+        if tool_call_msgs_count >= 2 and tool_result_msgs_count >= 2:
+            pass
+        else:
+            summaries = [m for m in msgs_sorted if m.get("msg_type") == "summary"]
+            if not any("tool call" in (m.get("content") or "") for m in summaries):
+                continue
 
         tool_msgs = [m for m in msgs_sorted if m.get("msg_type") in ("tool", "tool-result")]
         print(f"[found {len(tool_msgs)} tool/tool-result messages]")

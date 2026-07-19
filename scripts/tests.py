@@ -44,6 +44,9 @@ import os, sys, json, shutil, subprocess, time, re
 import urllib.request, urllib.error
 import uuid
 
+# Test timing accumulator
+test_timings = []
+
 # ═══════════════════════════════════════════════════════════════════════
 #  Config
 # ═══════════════════════════════════════════════════════════════════════
@@ -114,15 +117,17 @@ def api_post(path, body=None, files=None, base=None):
         body_str = raw.decode("utf-8", errors="replace")
         raise AssertionError(f"POST {path} failed (HTTP {e.code}): {json.loads(body_str)}")
 
-def api_delete(path):
-    """DELETE. Returns response dict. Raises AssertionError on HTTP errors."""
+def api_delete(path, raise_on_error=True):
+    """DELETE. Returns response dict. Raises AssertionError on HTTP errors unless raise_on_error=False."""
     req = urllib.request.Request(f"{BASE}/api{path}", method="DELETE")
     try:
         r = urllib.request.urlopen(req, timeout=10)
         return json.loads(r.read())
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
-        raise AssertionError(f"DELETE {path} failed (HTTP {e.code}): {raw}")
+        if raise_on_error:
+            raise AssertionError(f"DELETE {path} failed (HTTP {e.code}): {raw}")
+        return {"error": raw}
 
 # ═══════════════════════════════════════════════════════════════════════
 #  YAML helpers (manual parsing, no pyyaml)
@@ -450,20 +455,27 @@ def test(fn):
     tests_run += 1
     name = fn.__name__.replace("test_", "Test ").replace("_", " ")
     print(f"\n--- {name} ", end="", flush=True)
+    t0 = time.time()
     try:
         fn()
-        print("✓ PASS", flush=True)
+        elapsed = time.time() - t0
+        print(f"✓ PASS ({elapsed:.1f}s)", flush=True)
         tests_pass += 1
+        test_timings.append((name, elapsed))
     except AssertionError as e:
-        print(f"✗ FAIL: {e}", flush=True)
+        elapsed = time.time() - t0
+        print(f"✗ FAIL ({elapsed:.1f}s): {e}", flush=True)
         import traceback
         traceback.print_exc()
         tests_fail += 1
+        test_timings.append((name, elapsed))
     except Exception as e:
-        print(f"✗ ERROR: {e}", flush=True)
+        elapsed = time.time() - t0
+        print(f"✗ ERROR ({elapsed:.1f}s): {e}", flush=True)
         import traceback
         traceback.print_exc()
         tests_fail += 1
+        test_timings.append((name, elapsed))
 
 def expect_error(resp, substring):
     err_text = json.dumps(resp).lower() if isinstance(resp, dict) else str(resp).lower()
@@ -510,7 +522,7 @@ def test_a1():
             yaml_del(ptype, plugin)
             restart_agent()
 
-        resp = api_delete(f"/plugins/{plugin}?source=built-in")
+        resp = api_delete(f"/plugins/{plugin}?source=built-in", raise_on_error=False)
         expect_error(resp, "cannot remove built-in")
     finally:
         if not yaml_has(ptype, plugin):
@@ -582,7 +594,7 @@ def test_b1():
         yaml_set(ptype, plugin, {"enabled": True, "source": "built-in", "config": {}})
         restart_agent()
 
-    resp = api_delete(f"/plugins/{plugin}?source=built-in")
+    resp = api_delete(f"/plugins/{plugin}?source=built-in", raise_on_error=False)
     expect_error(resp, "cannot remove built-in")
     assert yaml_has(ptype, plugin), "YAML entry was removed but should remain"
 
@@ -864,9 +876,9 @@ def test_1():
     name = find_plugin("built-in", skip_duplicated=True)
     if not name:
         return
-    resp = api_delete(f"/plugins/{name}?source=built-in")
-    expected_fail = not success and "cannot remove built-in" in json.dumps(resp).lower()
-    assert expected_fail, f"expected error, got success={success}, resp={resp}"
+    resp = api_delete(f"/plugins/{name}?source=built-in", raise_on_error=False)
+    err_text = json.dumps(resp).lower()
+    assert "cannot remove built-in" in err_text, f"expected error, got resp={resp}"
 
 # ── Test 2: Bundled not in plugins.yml → succeed ─────────────────────
 
@@ -914,9 +926,9 @@ def test_4():
     name = find_plugin("built-in", skip_duplicated=True)
     if not name:
         return
-    resp = api_delete(f"/plugins/{name}?source=built-in")
-    expected_fail = not success and "cannot remove built-in" in json.dumps(resp).lower()
-    assert expected_fail, f"expected error, got success={success}, resp={resp}"
+    resp = api_delete(f"/plugins/{name}?source=built-in", raise_on_error=False)
+    err_text = json.dumps(resp).lower()
+    assert "cannot remove built-in" in err_text, f"expected error, got resp={resp}"
 
 # ── Test 5: Bundled in plugins.yml → succeed ─────────────────────────
 
@@ -1555,8 +1567,10 @@ def test_enable_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{name}/enable", {"source": source})
             assert False, f"enable {name} source={source} should have failed"
-        except AssertionError:
-            pass
+        except AssertionError as e:
+            err = str(e).lower()
+            assert "invalid source" in err or "already" in err or "not found" in err, \
+                f"enable should have failed with expected error, got: {e}"
 
 def test_disable_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
@@ -1569,8 +1583,10 @@ def test_disable_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{name}/disable", {"source": source})
             assert False, f"disable {name} source={source} should have failed"
-        except AssertionError:
-            pass
+        except AssertionError as e:
+            err = str(e).lower()
+            assert "invalid source" in err or "already" in err or "not found" in err, \
+                f"disable should have failed with expected error, got: {e}"
 
 def test_install_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
@@ -1587,8 +1603,10 @@ def test_install_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{name}/install", {"source": source})
             assert False, f"install {name} source={source} should have failed"
-        except AssertionError:
-            pass
+        except AssertionError as e:
+            err = str(e).lower()
+            assert "invalid source" in err or "already" in err or "not found" in err, \
+                f"install should have failed with expected error, got: {e}"
 
 def test_reinstall_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
@@ -1601,8 +1619,10 @@ def test_reinstall_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{name}/reinstall", {"source": source})
             assert False, f"reinstall {name} source={source} should have failed"
-        except AssertionError:
-            pass
+        except AssertionError as e:
+            err = str(e).lower()
+            assert "invalid source" in err or "already" in err or "not found" in err, \
+                f"reinstall should have failed with expected error, got: {e}"
 
 def test_download_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
@@ -1618,8 +1638,10 @@ def test_download_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{name}/download", {"source": source})
             assert False, f"download {name} source={source} should have failed"
-        except AssertionError:
-            pass
+        except AssertionError as e:
+            err = str(e).lower()
+            assert "invalid source" in err or "already" in err or "not found" in err or "already installed" in err, \
+                f"download should have failed with expected error, got: {e}"
 
 def test_remove_with_source(name, source, expected_success=True):
     ptype = _get_plugin_type(name)
@@ -2191,8 +2213,8 @@ def test_m6_upload_memory():
     with open("/tmp/mem_test_upload.md", "w") as f:
         f.write(content)
     try:
-        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": content})
-        assert resp.get("size", False), f"upload failed: {resp}"
+        _, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": content})
+        assert resp.get("data", {}).get("size", False), f"upload failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "memory", content)
     finally:
         if _mem_os.path.exists("/tmp/mem_test_upload.md"):
@@ -2204,8 +2226,8 @@ def test_m7_upload_soul():
     with open("/tmp/soul_test_upload.md", "w") as f:
         f.write(content)
     try:
-        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": content})
-        assert resp.get("size", False), f"upload failed: {resp}"
+        _, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": content})
+        assert resp.get("data", {}).get("size", False), f"upload failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "soul", content)
     finally:
         if _mem_os.path.exists("/tmp/soul_test_upload.md"):
@@ -2226,8 +2248,8 @@ def test_m8_delete_and_reupload():
     with open("/tmp/mem_reup.md", "w") as f:
         f.write(re_mem)
     try:
-        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": re_mem})
-        assert resp.get("size", False), f"re-upload mem failed: {resp}"
+        _, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/memory", {"content": re_mem})
+        assert resp.get("data", {}).get("size", False), f"re-upload mem failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "memory", re_mem)
     finally:
         if _mem_os.path.exists("/tmp/mem_reup.md"): _mem_os.remove("/tmp/mem_reup.md")
@@ -2236,8 +2258,8 @@ def test_m8_delete_and_reupload():
     with open("/tmp/soul_reup.md", "w") as f:
         f.write(re_soul)
     try:
-        resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": re_soul})
-        assert resp.get("size", False), f"re-upload soul failed: {resp}"
+        _, resp = _raw_post_body(f"/memory/upload/{TEST_PROFILE}/soul", {"content": re_soul})
+        assert resp.get("data", {}).get("size", False), f"re-upload soul failed: {resp}"
         _check_memory_text_exact(TEST_PROFILE, "soul", re_soul)
     finally:
         if _mem_os.path.exists("/tmp/soul_reup.md"): _mem_os.remove("/tmp/soul_reup.md")
@@ -3349,13 +3371,15 @@ def test_fn_14_cancel_task():
 
         assert channel_set, "Could not set channel to noop/test-tool-caller. Ensure: 1) noop provider is enabled, 2) test-tool-caller is in allowed_values, 3) channel exists"
 
-        # 3-step cancel script:
+        # 4-step cancel script with read-task-logs:
         # 1. lorem(30) starts a long bg task
         # 2. cancel_task cancels it immediately
-        # 3. poll_task confirms cancellation
+        # 3. read-task-logs verifies cancellation message in logs
+        # 4. poll_task confirms cancellation status
         script = json.dumps([
             {"name": "long_run", "tool": "test-python-tool_lorem", "arguments": {"seconds": 30}},
             {"name": "cancel", "tool": "builtin_cancel-task", "arguments": {"task_id": "${long_run.task_id}"}},
+            {"name": "read_logs", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
             {"name": "poll", "tool": "builtin_poll-task", "arguments": {"task_id": "${long_run.task_id}"}},
         ])
 
@@ -3382,13 +3406,13 @@ def test_fn_14_cancel_task():
             last_posts = posts
             for pid, post in posts.get("posts", {}).items():
                 msg = post.get("message", "")
-                if "**3** tool call batch" in msg and "completed" in msg:
+                if "**4** tool call batch" in msg and "completed" in msg:
                     print(f"[cancel test: task was cancelled successfully]")
                     return
         # Broader match on last poll
         for pid, post in last_posts.get("posts", {}).items():
             msg = post.get("message", "")
-            if "**3** tool call batch" in msg:
+            if "**4** tool call batch" in msg:
                 print(f"[cancel test: found cancelled signal in reply]")
                 return
         assert False, "Cancellation confirmation not found within 35s"
@@ -3397,6 +3421,153 @@ def test_fn_14_cancel_task():
         yaml_del("tools", "test-python-tool")
         remove_remote_plugin("test-python-tool", "tools")
         print("[test-python-tool cleaned up after cancel test]")
+
+# ── GROUP 16: Message type / timing format verification ──────────────
+def test_fn_16_tool_message_formats():
+    """Verify tool/tool-result message types and timing fields.
+
+    Uses test-python-tool_lorem with 2 single-tool steps via test-tool-caller.
+    Checks messages/events API for correct msg_type, duration_ms > 0,
+    token_usage present, and raw output format (no {tool,input,output} wrapping).
+    """
+    import urllib.request, urllib.error, time, json
+
+    MM = "http://mattermost:8065"
+    ensure_bundled_plugin("test-python-tool", "tools")
+    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
+    api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
+    print("[test-python-tool enabled]")
+
+    for attempt in range(15):
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)
+            tools_data = json.loads(r.read())
+            tools = tools_data if isinstance(tools_data, list) else (
+                tools_data.get("tools") or tools_data.get("data") or [])
+            if any("test-python-tool_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
+                print("[test-python-tool_lorem registered]")
+                break
+        except Exception:
+            pass
+        time.sleep(2)
+    else:
+        raise AssertionError("Timed out waiting for test-python-tool_lorem")
+
+    # Find mattermost-setup channel (created by mm9 setup)
+    channels_resp = json.loads(urllib.request.urlopen(
+        urllib.request.Request(f"{BASE}/channels"), timeout=10).read())
+    channels = channels_resp.get("data") or channels_resp.get("channels") or []
+    mm_channel = None
+    for ch in channels:
+        if ch.get("platform") == "mattermost" and ch.get("name") == "mattermost-setup":
+            mm_channel = ch
+            break
+    if not mm_channel:
+        # Fallback: use any mattermost channel
+        for ch in channels:
+            if ch.get("platform") == "mattermost":
+                mm_channel = ch
+                break
+    assert mm_channel, "No mattermost channel found — run GROUP 9 (mm9) first"
+
+    cid = mm_channel["id"]
+    mm_channel_ext = mm_channel.get("external_id") or mm_channel.get("resource_identifier") or ""
+
+    # Set to noop/test-tool-caller, no planning
+    channel_set = False
+    for _ in range(10):
+        try:
+            patch_data = json.dumps({
+                "current_provider": "noop", "current_model": "test-tool-caller", "plan": False,
+            }).encode()
+            req = urllib.request.Request(
+                f"{BASE}/channels/{cid}", data=patch_data, method="PATCH",
+                headers={"Content-Type": "application/json"})
+            rr = urllib.request.urlopen(req, timeout=10)
+            updated = json.loads(rr.read())
+            upd_model = updated.get("current_model") or (
+                updated.get("data") or {}).get("current_model")
+            if upd_model == "test-tool-caller":
+                print(f"[channel {cid} set to noop/test-tool-caller]")
+                channel_set = True
+                break
+        except Exception:
+            pass
+        time.sleep(2)
+    assert channel_set, "Could not set channel to noop/test-tool-caller"
+
+    # 2-step single-tool script via Mattermost
+    script = json.dumps([
+        {"name": "step1", "tool": "test-python-tool_lorem", "arguments": {"seconds": 2}},
+        {"name": "step2", "tool": "test-python-tool_lorem", "arguments": {"seconds": 2}},
+    ])
+
+    test_token = _mm_login(MM, "testuser", "Mattermost_Fresh_Start_1")
+    msg_data = json.dumps({"channel_id": mm_channel_ext, "message": script}).encode()
+    msg_req = urllib.request.Request(
+        f"{MM}/api/v4/posts", data=msg_data, method="POST",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {test_token}"},
+    )
+    json.loads(urllib.request.urlopen(msg_req, timeout=10).read())
+    print(f"[msg format test: message sent to MM channel {mm_channel_ext[:20]}]")
+
+        # Poll messages/events API for completion
+    deadline = time.time() + 60
+    last_error = ""
+    while time.time() < deadline:
+        time.sleep(3)
+        try:
+            events_url = f"{BASE}/messages/events?channel_id={cid}&limit=50"
+            events_resp = json.loads(urllib.request.urlopen(events_url, timeout=10).read())
+        except Exception as e:
+            last_error = f"API error: {e}"
+            continue
+        msgs = events_resp.get("data") or events_resp.get("messages") or events_resp.get("events") or []
+        msgs_sorted = sorted(msgs, key=lambda m: m.get("id", 0))
+
+        # Check if completed
+        summaries = [m for m in msgs_sorted if m.get("msg_type") == "summary"]
+        if not any("**2** tool call batch" in (m.get("content") or "") for m in summaries):
+            continue
+
+        tool_msgs = [m for m in msgs_sorted if m.get("msg_type") in ("tool", "tool-result")]
+        print(f"[found {len(tool_msgs)} tool/tool-result messages]")
+
+        # Verify tool messages (2 expected, one per step)
+        tool_call_msgs = [m for m in tool_msgs if m.get("msg_type") == "tool"]
+        assert len(tool_call_msgs) == 2, (
+            f"Expected 2 tool msgs, got {len(tool_call_msgs)}")
+        for tc in tool_call_msgs:
+            dur = tc.get("duration_ms")
+            assert dur is not None and isinstance(dur, int) and dur > 0, (
+                f"tool msg duration_ms > 0 expected, got {dur}")
+            tok = tc.get("token_usage")
+            assert tok and tok != {} and tok != "{}", (
+                f"tool msg missing token_usage, got {tok}")
+            content = tc.get("content", "")
+            assert "test-python-tool_lorem" in content, (
+                f"tool msg should reference tool name, got: {content[:80]}")
+            print(f"  ✅ tool msg: duration_ms={dur}, token_usage present")
+
+        # Verify tool-result messages have RAW output (not wrapped {tool,input,output})
+        result_msgs = [m for m in tool_msgs if m.get("msg_type") == "tool-result"]
+        assert len(result_msgs) == 2, (
+            f"Expected 2 tool-result msgs, got {len(result_msgs)}")
+        for tr in result_msgs:
+            content = tr.get("content", "")
+            assert not content.strip().startswith('{"tool"'), (
+                f"Single tool-result should be raw, not wrapped: {content[:100]}")
+            # Tool results should have NO token_usage (only tool calls do)
+            tok = tr.get("token_usage")
+            assert tok is None or tok == {} or tok == "{}", (
+                f"Tool result should NOT have token_usage, got {tok}")
+            print(f"  ✅ tool-result: raw output, no token_usage")
+
+        print("[GROUP 16 PASSED]")
+        return
+    assert False, f"Timed out waiting for completion (60s) — last error: {last_error}" 
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -3565,7 +3736,7 @@ if __name__ == "__main__":
 
     # Enable the prompt plugin before running its tests (it's disabled by default)
     resp = api_post_body("/plugins/prompt/enable", {"source": "built-in"})
-    assert enable_success, f"Failed to enable prompt plugin: {enable_resp}"
+    assert resp is not None, f"Failed to enable prompt plugin: {resp}"
     print("  ✓ Prompt plugin enabled for GROUP 11")
 
     # Prompt MCP server needs a restart to spawn after dynamic enable
@@ -3809,9 +3980,10 @@ def test_fn_15_settings_update():
 test(test_fn_15_settings_update)
 
 def test_fn_15_settings_env_ref():
+    # Use max_tokens (writable, non-bootstrap) to test $env: resolution
     req = urllib.request.Request(
         f"{BASE}/settings",
-        data=json.dumps({"updates": [{"name": "messages_vectorization_api_key", "value": "$env:OMNI_DIR"}]}).encode(),
+        data=json.dumps({"updates": [{"name": "max_tokens", "value": "$env:OMNI_DIR"}]}).encode(),
         method="PUT",
         headers={"Content-Type": "application/json"},
     )
@@ -3821,13 +3993,14 @@ def test_fn_15_settings_env_ref():
     r = urllib.request.urlopen(f"{BASE}/settings", timeout=10)
     for cat in json.loads(r.read())["categories"]:
         for s in cat["settings"]:
-            if s["name"] == "messages_vectorization_api_key":
+            if s["name"] == "max_tokens":
                 assert s["value"] == "/opt/omni", f"expected /opt/omni, got '{s['value']}'"
                 break
 
+    # Restore original value
     req2 = urllib.request.Request(
         f"{BASE}/settings",
-        data=json.dumps({"updates": [{"name": "messages_vectorization_api_key", "value": ""}]}).encode(),
+        data=json.dumps({"updates": [{"name": "max_tokens", "value": "4096"}]}).encode(),
         method="PUT",
         headers={"Content-Type": "application/json"},
     )
@@ -3836,16 +4009,33 @@ def test_fn_15_settings_env_ref():
 
 test(test_fn_15_settings_env_ref)
 
+
 def test_fn_15_settings_secret_ref():
-    import subprocess as _sps
-    _sps.run(['docker', 'exec', 'omni-postgres-1', 'psql', '-U', 'omniagent', '-d', 'omniagent',
-        '-c', "INSERT INTO secrets (name, current_value) VALUES ('TEST_SETTING_SECRET', 'test-secret-value-42') ON CONFLICT (name) DO UPDATE SET current_value = 'test-secret-value-42'"],
-        capture_output=True, text=True, timeout=10)
+    # Create secret via API; only 409 (already exists) is acceptable
+    req = urllib.request.Request(
+        f"{BASE}/secrets",
+        data=json.dumps({"name": "TEST_SETTING_SECRET", "fieldType": "password", "value": "test-secret-value-42"}).encode(),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=10)
+    except urllib.error.HTTPError as e:
+        if e.code != 409:
+            raise  # any unexpected error — fail the test
+        # Secret already exists — update it via PUT
+        req2 = urllib.request.Request(
+            f"{BASE}/secrets/TEST_SETTING_SECRET",
+            data=json.dumps({"fieldType": "password", "value": "test-secret-value-42"}).encode(),
+            method="PUT",
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req2, timeout=10)
 
     try:
         req = urllib.request.Request(
             f"{BASE}/settings",
-            data=json.dumps({"updates": [{"name": "messages_vectorization_api_model", "value": "$secret:TEST_SETTING_SECRET"}]}).encode(),
+            data=json.dumps({"updates": [{"name": "max_tokens", "value": "$secret:TEST_SETTING_SECRET"}]}).encode(),
             method="PUT",
             headers={"Content-Type": "application/json"},
         )
@@ -3855,21 +4045,27 @@ def test_fn_15_settings_secret_ref():
         r = urllib.request.urlopen(f"{BASE}/settings", timeout=10)
         for cat in json.loads(r.read())["categories"]:
             for s in cat["settings"]:
-                if s["name"] == "messages_vectorization_api_model":
+                if s["name"] == "max_tokens":
                     assert s["value"] == "test-secret-value-42", f"expected 'test-secret-value-42', got '{s['value']}'"
                     break
         print(f"  [$secret: resolution OK: TEST_SETTING_SECRET -> test-secret-value-42]")
     finally:
-        _sps.run(['docker', 'exec', 'omni-postgres-1', 'psql', '-U', 'omniagent', '-d', 'omniagent',
-            '-c', "DELETE FROM secrets WHERE name = 'TEST_SETTING_SECRET'"],
-            capture_output=True, text=True, timeout=10)
+        # Cleanup via secrets API
+        try:
+            req_del = urllib.request.Request(f"{BASE}/secrets/TEST_SETTING_SECRET", method="DELETE")
+            urllib.request.urlopen(req_del, timeout=10)
+        except urllib.error.HTTPError:
+            pass  # cleanup: OK if already gone
         req2 = urllib.request.Request(
             f"{BASE}/settings",
-            data=json.dumps({"updates": [{"name": "messages_vectorization_api_model", "value": ""}]}).encode(),
+            data=json.dumps({"updates": [{"name": "max_tokens", "value": "4096"}]}).encode(),
             method="PUT",
             headers={"Content-Type": "application/json"},
         )
-        urllib.request.urlopen(req2, timeout=10)
+        try:
+            urllib.request.urlopen(req2, timeout=10)
+        except urllib.error.HTTPError as _ce:
+            print(f"  [cleanup: settings reset failed: {_ce}]")
 
 test(test_fn_15_settings_secret_ref)
 
@@ -3894,6 +4090,22 @@ def test_fn_15_settings_readonly_bootstrap():
 test(test_fn_15_settings_readonly_bootstrap)
 
 print(f"\n{'=' * 60}")
+print("GROUP 16: Tool/multi-tool/tool-result message format verification")
+print(f"{'=' * 60}")
+
+test(test_fn_16_tool_message_formats)
+
+print(f"\n{'=' * 60}")
+print(f"\nTest Timing Summary:")
+print(f"{'─' * 50}")
+if test_timings:
+    test_timings.sort(key=lambda x: x[1], reverse=True)
+    for i, (tname, telapsed) in enumerate(test_timings, 1):
+        print(f"  {i:2d}. {tname:<50s} {telapsed:6.1f}s")
+    print(f"{'─' * 50}")
+    total = sum(t for _, t in test_timings)
+    print(f"  Total test time: {total:.1f}s")
+    print(f"  Tests run: {tests_run} | Pass: {tests_pass} | Fail: {tests_fail}")
 
 # Discard any unstaged changes: runs even on failure
 discard_all_changes()

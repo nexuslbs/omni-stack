@@ -26,7 +26,27 @@ tools:
     enabled: true
     source: built-in
     config: {}
+  kanban:
+    enabled: true
+    source: built-in
+    config: {}
+  memory:
+    enabled: true
+    source: built-in
+    config: {}
+  metrics:
+    enabled: true
+    source: built-in
+    config: {}
+  plugin-manager:
+    enabled: true
+    source: built-in
+    config: {}
   prompt:
+    enabled: true
+    source: built-in
+    config: {}
+  query:
     enabled: true
     source: built-in
     config: {}

@@ -3519,7 +3519,13 @@ def test_fn_16_tool_message_formats():
         except Exception as e:
             last_error = f"API error: {e}"
             continue
-        msgs = events_resp.get("data") or events_resp.get("messages") or events_resp.get("events") or []
+        raw_data = events_resp.get("data", {})
+        if isinstance(raw_data, dict):
+            msgs = raw_data.get("messages", [])
+        else:
+            msgs = events_resp.get("messages") or events_resp.get("events") or []
+        if not isinstance(msgs, list):
+            msgs = [msgs] if msgs else []
         msgs_sorted = sorted(msgs, key=lambda m: m.get("id", 0))
 
         # Check if completed

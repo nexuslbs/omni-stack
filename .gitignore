@@ -42,3 +42,7 @@ profiles/default/tmp/
 plugins/mcp/.remote/
 plugins/tools/.remote/
 plugins/.remote/
+
+# ── Python bytecode cache ──
+__pycache__/
+*.pyc

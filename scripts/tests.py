@@ -3803,8 +3803,10 @@ if __name__ == "__main__":
         resp = json.loads(r.read())
         assert not resp.get("success"), f"Expected prompt_generate to fail when prompt is disabled, but it succeeded: {resp}"
         print("  ✓ prompt_generate correctly returns error when prompt plugin is disabled")
-    except (urllib.error.HTTPError, Exception) as e:
-        print(f"  ✓ prompt_generate correctly raised error: {e}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        assert e.code in (400, 404, 500), f"Unexpected HTTP {e.code} calling disabled prompt_generate: {body[:200]}"
+        print(f"  ✓ prompt_generate correctly returned HTTP {e.code}: {body[:100]}")
 
     print(f"\n{'=' * 60}")
     print("GROUP 12: File Upload via Mattermost + test-tool-caller")

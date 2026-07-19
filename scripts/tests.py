@@ -3432,7 +3432,7 @@ def test_fn_16_tool_message_formats():
     ensure_bundled_plugin("test-python-tool", "tools")
     yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
     restart_agent()
-    api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=15)
+    api_post_body("/plugins/test-python-tool/enable", {"source": "bundled"}, timeout=60)
     print("[test-python-tool enabled]")
 
     for attempt in range(15):

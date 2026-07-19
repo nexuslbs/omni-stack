@@ -1795,13 +1795,9 @@ def test_t6_install_bundled_tool():
     test_install_source(name, "bundled")
 
 def test_t6_install_remote_tool():
-    """Install a remote tool plugin → success"""
-    name = find_first_plugin("remote", "tools")
-    if not name:
-        # Ensure the remote test plugin source is available for install
-        ensure_remote_plugin("test-rust-tool", "tools")
-        name = "test-rust-tool"
-    test_install_source(name, "remote")
+    """Install a remote tool plugin -> success"""
+    ensure_remote_plugin("test-rust-tool", "tools")
+    test_install_source("test-rust-tool", "remote")
 
 def test_t6_reinstall_bundled_tool():
     """Reinstall a bundled tool plugin → success"""
@@ -1811,14 +1807,9 @@ def test_t6_reinstall_bundled_tool():
     test_reinstall_source(name, "bundled")
 
 def test_t6_reinstall_remote_tool():
-    """Reinstall a remote tool plugin → success"""
-    name = find_first_plugin("remote", "tools")
-    if not name:
-        return
-    test_reinstall_source(name, "remote")
-
-
-# ── 6.3: Tool download for each source variant ────────────────────────
+    """Reinstall a remote tool plugin -> success"""
+    ensure_remote_plugin("test-rust-tool", "tools")
+    test_reinstall_source("test-rust-tool", "remote")
 
 def test_t6_download_bundled_tool():
     """Download a bundled tool plugin → error (download only supports remote)"""

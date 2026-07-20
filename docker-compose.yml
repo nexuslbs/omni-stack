@@ -48,7 +48,7 @@ services:
       PORT: 8080
       WORKSPACE_DIR: /opt/workspace/omni-stack
       HINDSIGHT_URL: http://hindsight:8888
-      OMNI_DIR: /opt/omni
+      OMNI_DIR: ${OMNI_DIR:-/opt/omni}
       DEFAULT_PROFILE: omni
     volumes:
       - /opt/workspace/omniagent:/app:rw
@@ -76,7 +76,7 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGUSER: omniagent
       PGHOST: postgres
-      OMNI_DIR: /opt/omni
+      OMNI_DIR: ${OMNI_DIR:-/opt/omni}
       EXPLORER_DIR: ${EXPLORER_DIR:-/opt}
     volumes:
       - /opt/workspace/omni-stack/:/opt/omni/:rw
@@ -108,7 +108,7 @@ services:
       S3_ENDPOINT: ${S3_ENDPOINT}
       S3_REGION: ${S3_REGION}
       S3_BUCKET: ${S3_BUCKET}
-      S3_PATH: omni
+      S3_PATH: ${S3_PATH:-omni}
       CRON_BACKUP: ${BACKUP_CRON_SCHEDULE}
       CRON_CHECKPOINT: ${CHECKOUT_CRON_SCHEDULE}
     volumes:

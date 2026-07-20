@@ -437,9 +437,6 @@ def ensure_remote_plugin(name, plugin_type="tools"):
 
     # Register in remote.yml under the correct type section
     _write_remote_entry(name, plugin_type)
-    else:
-        with open(remote_yml_path, "a") as f:
-            f.write(f"\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
 
 def remove_remote_plugin(name, plugin_type="tools"):
     """Remove a remote plugin we installed temporarily."""

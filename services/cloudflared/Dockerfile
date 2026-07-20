@@ -1,1 +1,3 @@
-FROM cloudflare/cloudflared:2026.7.1
+ARG CLOUDFLARED_IMAGE
+
+FROM ${CLOUDFLARED_IMAGE}

@@ -306,8 +306,6 @@ services:
     networks:
       - default
       - obs-net
-    ports:
-      - "127.0.0.1:3000:3000"
     depends_on:
       loki:
         condition: service_started

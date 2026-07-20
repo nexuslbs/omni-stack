@@ -2457,7 +2457,7 @@ MM_BINARY = f"{MM_PLATFORM_DIR}/target/release/mattermost-platform"
 
 def _ensure_mm_platform_binary():
     """Compile mattermost platform binary from omniagent workspace if missing."""
-    binary = "/app/target/release/mattermost-platform"
+    binary = "/target/release/mattermost-platform"
     if not os.path.exists(binary):
         print("[compiling mattermost platform from omniagent workspace...]")
         rc = sh("cd /app && cargo build -p mattermost-platform --release 2>&1")

@@ -38,7 +38,7 @@ services:
       driver: journald
 
   omniagent:
-    image: omniagent-dev:latest
+    image: ${OMNIAGENT_IMAGE:-omniagent-dev:latest}
     build:
       dockerfile: Dockerfile.dev
       context: /opt/workspace/omniagent
@@ -49,7 +49,7 @@ services:
         condition: service_started
         required: false
     environment:
-      DATABASE_URL: postgres://omniagent:***@postgres:5432/omniagent
+      DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD:-}@postgres:5432/omniagent
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
       QDRANT_URL: http://qdrant:6333
@@ -266,6 +266,8 @@ services:
     build:
       context: services/prometheus
       dockerfile: Dockerfile
+      args:
+        PROMETHEUS_IMAGE: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.5}
     container_name: omni-prometheus
     restart: unless-stopped
     user: root
@@ -316,6 +318,8 @@ services:
     build:
       context: services/cloudflared
       dockerfile: Dockerfile
+      args:
+        CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.7.1}
     restart: unless-stopped
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}

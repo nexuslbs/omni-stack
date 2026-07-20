@@ -1,3 +1,5 @@
-FROM prom/prometheus:v3.5.5
+ARG PROMETHEUS_IMAGE
+
+FROM ${PROMETHEUS_IMAGE}
 
 COPY prometheus.yml /etc/prometheus/prometheus.yml

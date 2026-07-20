@@ -369,7 +369,7 @@ def ensure_remote_plugin(name, plugin_type="tools"):
             "path": f"{plugin_type}/{name}"
         }, timeout=120)
         print(f"  [ensure_remote_plugin: registered '{name}' via install-git API]")
-    except AssertionError as e:
+    except Exception as e:
         err = str(e).lower()
         if "already" in err:
             print(f"  [ensure_remote_plugin: '{name}' already registered, skipping]")
@@ -388,7 +388,7 @@ def remove_remote_plugin(name, plugin_type="tools"):
     try:
         api_delete(f"/plugins/{plugin_type}/remote/{name}")
         print(f"  [remove_remote_plugin: API delete succeeded for '{name}']")
-    except AssertionError as e:
+    except Exception as e:
         err = str(e).lower()
         if "not found" in err or "404" in err:
             print(f"  [remove_remote_plugin: plugin '{name}' not found via API, ignoring]")
@@ -432,7 +432,7 @@ def test(fn):
         print(f"✓ PASS ({elapsed:.1f}s)", flush=True)
         tests_pass += 1
         test_timings.append((name, elapsed))
-    except AssertionError as e:
+    except Exception as e:
         elapsed = time.time() - t0
         print(f"✗ FAIL ({elapsed:.1f}s): {e}", flush=True)
         import traceback
@@ -1078,7 +1078,7 @@ def test_s1():
     try:
         api_delete(f"/plugins/tools/invalid/{name}")
         assert False, "expected error when source is missing"
-    except AssertionError as e:
+    except Exception as e:
         assert "source is required" in str(e).lower() or "invalid source" in str(e).lower(), \
             f"expected 'source is required' or 'invalid source' error, got: {e}"
 
@@ -1578,7 +1578,7 @@ def test_enable_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{ptype}/{source}/{name}/enable", {})
             assert False, f"enable {name} source={source} should have failed"
-        except AssertionError as e:
+        except Exception as e:
             err = str(e).lower()
             assert "invalid source" in err or "already" in err or "not found" in err, \
                 f"enable should have failed with expected error, got: {e}"
@@ -1594,7 +1594,7 @@ def test_disable_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{ptype}/{source}/{name}/disable", {})
             assert False, f"disable {name} source={source} should have failed"
-        except AssertionError as e:
+        except Exception as e:
             err = str(e).lower()
             assert "invalid source" in err or "already" in err or "not found" in err, \
                 f"disable should have failed with expected error, got: {e}"
@@ -1633,7 +1633,7 @@ def test_install_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{ptype}/{source}/{name}/install", {})
             assert False, f"install {name} source={source} should have failed"
-        except AssertionError as e:
+        except Exception as e:
             err = str(e).lower()
             assert "invalid source" in err or "already" in err or "not found" in err, \
                 f"install should have failed with expected error, got: {e}"
@@ -1649,7 +1649,7 @@ def test_reinstall_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{ptype}/{source}/{name}/reinstall", {})
             assert False, f"reinstall {name} source={source} should have failed"
-        except AssertionError as e:
+        except Exception as e:
             err = str(e).lower()
             assert "invalid source" in err or "already" in err or "not found" in err, \
                 f"reinstall should have failed with expected error, got: {e}"
@@ -1668,7 +1668,7 @@ def test_download_source(name, source, expected_success=True):
         try:
             api_post_body(f"/plugins/{ptype}/{source}/{name}/download", {})
             assert False, f"download {name} source={source} should have failed"
-        except AssertionError as e:
+        except Exception as e:
             err = str(e).lower()
             assert "invalid source" in err or "already" in err or "not found" in err or "already installed" in err, \
                 f"download should have failed with expected error, got: {e}"
@@ -1697,7 +1697,7 @@ def test_remove_with_source(name, source, expected_success=True):
         try:
             api_delete(f"/plugins/{ptype}/{source}/{name}")
             assert False, f"remove {name} source={source} should have failed"
-        except AssertionError as e:
+        except Exception as e:
             if source == "built-in":
                 assert "cannot delete built-in" in str(e).lower()
                 if pre_entry:
@@ -1711,7 +1711,7 @@ def test_remove_no_source(name):
     try:
         api_delete(f"/plugins/{ptype}/invalid/{name}")
         assert False, "expected error"
-    except AssertionError as e:
+    except Exception as e:
         msg = str(e).lower()
         assert "source is required" in msg or "invalid source" in msg or "not found" in msg
 
@@ -1720,7 +1720,7 @@ def test_enable_no_source(name):
     try:
         api_post_body(f"/plugins/{ptype}/invalid/{name}/enable", {})
         assert False, "expected error"
-    except AssertionError as e:
+    except Exception as e:
         msg = str(e).lower()
         assert "source is required" in msg or "invalid source" in msg
 
@@ -1729,7 +1729,7 @@ def test_disable_no_source(name):
     try:
         api_post_body(f"/plugins/{ptype}/invalid/{name}/disable", {})
         assert False, "expected error"
-    except AssertionError as e:
+    except Exception as e:
         msg = str(e).lower()
         assert "source is required" in msg or "invalid source" in msg
 
@@ -1738,7 +1738,7 @@ def test_install_no_source(name):
     try:
         api_post_body(f"/plugins/{ptype}/invalid/{name}/install", {})
         assert False, "expected error"
-    except AssertionError as e:
+    except Exception as e:
         msg = str(e).lower()
         assert "source is required" in msg or "invalid source" in msg
 
@@ -1747,7 +1747,7 @@ def test_reinstall_no_source(name):
     try:
         api_post_body(f"/plugins/{ptype}/invalid/{name}/reinstall", {})
         assert False, "expected error"
-    except AssertionError as e:
+    except Exception as e:
         msg = str(e).lower()
         assert "source is required" in msg or "invalid source" in msg
 
@@ -1756,7 +1756,7 @@ def test_download_no_source(name):
     try:
         api_post_body(f"/plugins/{ptype}/invalid/{name}/download", {})
         assert False, "expected error"
-    except AssertionError as e:
+    except Exception as e:
         msg = str(e).lower()
         assert "source is required" in msg or "invalid source" in msg
 
@@ -2401,7 +2401,7 @@ def test_t6_enable_invalid_source():
     try:
         api_post_body(f"/plugins/tools/invalid-source-type/{name}/enable", {})
         assert False, "enable with invalid source should have failed"
-    except AssertionError as e:
+    except Exception as e:
         assert "invalid source" in str(e).lower(), \
             f"enable invalid source: expected 'invalid source', got {e}"
 
@@ -2413,7 +2413,7 @@ def test_t6_disable_invalid_source():
     try:
         api_post_body(f"/plugins/tools/invalid-source-type/{name}/disable", {})
         assert False, "disable with invalid source should have failed"
-    except AssertionError as e:
+    except Exception as e:
         assert "invalid source" in str(e).lower(), \
             f"disable invalid source: expected 'invalid source', got {e}"
 

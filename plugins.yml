@@ -1,7 +1,7 @@
 platforms:
   mattermost:
     enabled: true
-    source: bundled
+    source: built-in
     config:
       access_token_name: MATTERMOST_ACCESS_TOKEN
       admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
@@ -20,19 +20,19 @@ platforms:
 tools:
   actions:
     enabled: false
-    source: bundled
+    source: built-in
     config: {}
   fetch:
     enabled: true
-    source: bundled
+    source: built-in
     config: {}
   filesystem:
     enabled: true
-    source: bundled
+    source: built-in
     config: {}
   git:
     enabled: false
-    source: bundled
+    source: built-in
     config: {}
   cron:
     enabled: false
@@ -72,7 +72,7 @@ tools:
     config: {}
   skills:
     enabled: true
-    source: bundled
+    source: built-in
     config: {}
   test-rust-tool:
     enabled: true

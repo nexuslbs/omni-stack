@@ -6,6 +6,7 @@ networks:
     internal: true
 
 services:
+
   #  Core (always running) 
 
   postgres:
@@ -24,16 +25,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    logging:
-      driver: journald
-
-  qdrant:
-    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}
-    profiles: ["memory", "all"]
-    volumes:
-      - qdrant_data:/qdrant/storage
-    expose:
-      - "6333"
     logging:
       driver: journald
 
@@ -99,7 +90,6 @@ services:
     logging:
       driver: journald
 
-  #  Toolbox: always-running utility with backup/cron + dev tools 
   toolbox:
     image: ${TOOLBOX_IMAGE:-ghcr.io/nexuslbs/omni-stack-toolbox:latest}
     build:
@@ -129,29 +119,20 @@ services:
     logging:
       driver: journald
 
-  #  Noop Provider (profile: noop) 
-  noop-provider:
-    profiles: ["noop", "all"]
+  #  Observability: Cloudflare Tunnel 
+  cloudflared:
+    profiles: ["tunnel", "all"]
+    container_name: omni-cloudflared
     build:
-      context: services/noop
+      context: services/cloudflared
       dockerfile: Dockerfile
+      args:
+        CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.7.1}
     restart: unless-stopped
-    expose:
-      - "9090"
-    logging:
-      driver: journald
-
-  #  Memory: Hindsight (profile: memory) 
-  hindsight:
-    image: ${HINDSIGHT_IMAGE:-ghcr.io/vectorize-io/hindsight:0.7.2}
-    profiles: ["memory", "all"]
-    restart: unless-stopped
-    expose:
-      - "8888"
-      - "9999"
-    volumes:
-      - hindsight-data:/home/hindsight/.pg0
-    mem_limit: 2G
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+    mem_limit: 200M
     logging:
       driver: journald
 
@@ -200,6 +181,69 @@ services:
     logging:
       driver: journald
 
+  #  Memory: Hindsight (profile: memory) 
+  qdrant:
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}
+    profiles: ["memory", "all"]
+    volumes:
+      - qdrant_data:/qdrant/storage
+    expose:
+      - "6333"
+    logging:
+      driver: journald
+
+  hindsight:
+    image: ${HINDSIGHT_IMAGE:-ghcr.io/vectorize-io/hindsight:0.7.2}
+    profiles: ["memory", "all"]
+    restart: unless-stopped
+    expose:
+      - "8888"
+      - "9999"
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+    mem_limit: 2G
+    logging:
+      driver: journald
+
+  #  Observability: Metrics: cAdvisor → Prometheus 
+  cadvisor:
+    profiles: ["cadvisor", "all"]
+    image: ${CADVISOR_IMAGE:-ghcr.io/google/cadvisor:v0.57.0}
+    container_name: omni-cadvisor
+    restart: unless-stopped
+    privileged: true
+    command:
+      - "--docker_only"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    mem_limit: 200M
+    logging:
+      driver: journald
+
+  prometheus:
+    profiles: ["monitor", "cadvisor", "all"]
+    build:
+      context: services/prometheus
+      dockerfile: Dockerfile
+      args:
+        PROMETHEUS_IMAGE: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.5}
+    container_name: omni-prometheus
+    restart: unless-stopped
+    user: root
+    entrypoint:
+      - '/bin/prometheus'
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.path=/prometheus'
+    volumes:
+      - omni-prometheus-vol:/prometheus:rw
+    mem_limit: 500M
+    logging:
+      driver: journald
+
   #  Observability: Log Pipeline: Vector → Loki 
   vector:
     profiles: ["logs", "all"]
@@ -243,45 +287,6 @@ services:
     logging:
       driver: journald
 
-  #  Observability: Metrics: cAdvisor → Prometheus 
-  cadvisor:
-    profiles: ["cadvisor", "all"]
-    image: ${CADVISOR_IMAGE:-ghcr.io/google/cadvisor:v0.57.0}
-    container_name: omni-cadvisor
-    restart: unless-stopped
-    privileged: true
-    command:
-      - "--docker_only"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-    mem_limit: 200M
-    logging:
-      driver: journald
-
-  prometheus:
-    profiles: ["monitor", "cadvisor", "all"]
-    build:
-      context: services/prometheus
-      dockerfile: Dockerfile
-      args:
-        PROMETHEUS_IMAGE: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.5}
-    container_name: omni-prometheus
-    restart: unless-stopped
-    user: root
-    entrypoint:
-      - '/bin/prometheus'
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.retention.time=7d'
-      - '--storage.tsdb.path=/prometheus'
-    volumes:
-      - omni-prometheus-vol:/prometheus:rw
-    mem_limit: 500M
-    logging:
-      driver: journald
-
   #  Observability: Dashboards 
   grafana:
     profiles: ["logs", "monitor", "cadvisor", "all"]
@@ -311,22 +316,18 @@ services:
     logging:
       driver: journald
 
-  #  Observability: Cloudflare Tunnel 
-  cloudflared:
-    profiles: ["tunnel", "all"]
-    container_name: omni-cloudflared
+  #  Noop Provider (profile: noop) 
+  noop-provider:
+    profiles: ["noop", "all"]
     build:
-      context: services/cloudflared
+      context: services/noop
       dockerfile: Dockerfile
-      args:
-        CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.7.1}
     restart: unless-stopped
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
-    command: tunnel --no-autoupdate run
-    mem_limit: 200M
+    expose:
+      - "9090"
     logging:
       driver: journald
+
 
 volumes:
   postgres_data:

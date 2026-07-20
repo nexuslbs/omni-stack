@@ -10,8 +10,6 @@ services:
     env_file: []
     environment:
       CARGO_TARGET_DIR: /target
-      # Resolved from .env: cargo needs this for sql_forge! compile-time verification
-      DATABASE_URL: ${DATABASE_URL}
     volumes:
       - /opt/workspace/omniagent:/app:rw
       - cargo-registry:/usr/local/cargo/registry

@@ -643,7 +643,7 @@ def test_b2():
 
 def test_b3():
     """Remote plugin WITH YAML entry → succeed, YAML + .remote/ removed"""
-    plugin, ptype = "test-python-tool", "tools"
+    plugin, ptype = "test-python", "tools"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{plugin}"
 
     ensure_remote_plugin(plugin, ptype)
@@ -825,7 +825,7 @@ def test_f1():
 
 def test_f2():
     """Same name bundled+remote, YAML source=remote → removes remote only"""
-    plugin, ptype = "test-python-tool", "tools"
+    plugin, ptype = "test-python", "tools"
     bundled_dir = f"{WORKSPACE}/plugins/{ptype}/{plugin}"
     remote_dir = f"{WORKSPACE}/plugins/{ptype}/.remote/{plugin}"
 
@@ -2109,7 +2109,7 @@ def test_t6_collision_enable_bundled():
 
 def test_t6_collision_enable_remote():
     """Name collision: enable with source=remote → targets remote only"""
-    collision_name = "test-python-tool"
+    collision_name = "test-python"
     bundled_dir = f"{WORKSPACE}/plugins/tools/{collision_name}"
     remote_dir = f"{WORKSPACE}/plugins/tools/.remote/{collision_name}"
 
@@ -3244,35 +3244,35 @@ def test_fn_12_file_upload():
 def test_fn_13_non_blocking():
     """Test lorem/poll_task/wait_task/read_task_logs lifecycle via test-tool-caller.
 
-    Adds test-python-tool for lorem, runs a 4-step script via Mattermost.
+    Adds test-python for lorem, runs a 4-step script via Mattermost.
     The test-tool-caller model processes one step per iteration, resolving
     ${name.field} placeholders across steps.
     Total execution should be ~6s (the lorem duration), not 120s (wait timeout).
-    Cleans up test-python-tool after.
+    Cleans up test-python after.
     """
     import urllib.request, urllib.error, time, uuid
     MM = "http://mattermost:8065"
 
-    # Add test-python-tool as bundled plugin and enable via API
-    ensure_bundled_plugin("test-python-tool", "tools")
-    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
-    resp = api_post_body("/plugins/tools/bundled/test-python-tool/enable", {}, timeout=15)
-    print(f"[enable test-python-tool succeeded]")
-    print("[test-python-tool enabled]")
+    # Add test-python as bundled plugin and enable via API
+    ensure_bundled_plugin("test-python", "tools")
+    yaml_set("tools", "test-python", {"enabled": False, "source": "bundled", "config": {}})
+    resp = api_post_body("/plugins/tools/bundled/test-python/enable", {}, timeout=15)
+    print(f"[enable test-python succeeded]")
+    print("[test-python enabled]")
     # Wait for MCP server to register its tools
     for attempt in range(15):
         try:
             r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)
             tools_data = json.loads(r.read())
             tools = tools_data if isinstance(tools_data, list) else (tools_data.get("tools") or tools_data.get("data") or [])
-            if any("test-python-tool_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
-                print("[test-python-tool_lorem registered]")
+            if any("test-python_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
+                print("[test-python_lorem registered]")
                 break
         except Exception as _ex:
             print(f"  [waiting: {_ex}]")
         time.sleep(2)
     else:
-        raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
+        raise AssertionError("Timed out waiting for test-python_lorem to register — tool was not available after enable")
 
     try:
         admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "Mattermost_Fresh_Start_1"}).encode()
@@ -3319,12 +3319,12 @@ def test_fn_13_non_blocking():
         assert channel_set, "Could not set channel to noop/test-tool-caller. Ensure: 1) noop provider is enabled, 2) test-tool-caller is in allowed_values, 3) channel exists"
 
         # 4-step script (lorem=6s to exceed 5s short_timeout and trigger background mode):
-        # 1. test-python-tool_lorem(6) named "long_run" → returns {task_id, status:processing}
+        # 1. test-python_lorem(6) named "long_run" → returns {task_id, status:processing}
         # 2. builtin_read_task_logs with task_id from step 1
         # 3. builtin_wait_task with task_id from step 1 (timeout 120s, but returns in ~6s)
         # 4. builtin_read-task-logs again to verify summary
         script = json.dumps([
-            {"name": "long_run", "tool": "test-python-tool_lorem", "arguments": {"seconds": 6}},
+            {"name": "long_run", "tool": "test-python_lorem", "arguments": {"seconds": 6}},
             {"name": "logs1", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
             {"name": "wait", "tool": "builtin_wait-task", "arguments": {"task_id": "${long_run.task_id}", "timeout_secs": 120}},
             {"name": "logs2", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
@@ -3363,45 +3363,46 @@ def test_fn_13_non_blocking():
                     return
         assert False, "No completion message within 60s"
     finally:
-        # Cleanup: remove test-python-tool remote plugin
-        yaml_del("tools", "test-python-tool")
-        remove_remote_plugin("test-python-tool", "tools")
-        print("[test-python-tool cleaned up]")
+        # Cleanup: remove test-python bundled and remote plugin
+        yaml_del("tools", "test-python")
+        remove_bundled_plugin("test-python", "tools")
+        remove_remote_plugin("test-python", "tools")
+        print("[test-python cleaned up]")
 
 
 # ── GROUP 14: Cancel Task via test-tool-caller ─────────────────────
 def test_fn_14_cancel_task():
     """Test cancelling a long-running lorem task via test-tool-caller.
 
-    Adds test-python-tool for lorem, runs a 3-step script:
-    1. test-python-tool_lorem(30) named "long_run" → returns {task_id, status:processing}
+    Adds test-python for lorem, runs a 3-step script:
+    1. test-python_lorem(30) named "long_run" → returns {task_id, status:processing}
     2. builtin_cancel_task with task_id from step 1 → returns {status: cancelled}
     3. builtin_poll_task with task_id from step 1 → should confirm cancelled
 
-    Cleans up test-python-tool after.
+    Cleans up test-python after.
     """
     import urllib.request, urllib.error, time, uuid
     MM = "http://mattermost:8065"
 
-    # Add test-python-tool as bundled plugin and enable via API
-    ensure_bundled_plugin("test-python-tool", "tools")
-    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
-    resp = api_post_body("/plugins/tools/bundled/test-python-tool/enable", {}, timeout=15)
-    print(f"[enable test-python-tool for cancel test succeeded]")
-    print("[test-python-tool enabled for cancel test]")
+    # Add test-python as bundled plugin and enable via API
+    ensure_bundled_plugin("test-python", "tools")
+    yaml_set("tools", "test-python", {"enabled": False, "source": "bundled", "config": {}})
+    resp = api_post_body("/plugins/tools/bundled/test-python/enable", {}, timeout=15)
+    print(f"[enable test-python for cancel test succeeded]")
+    print("[test-python enabled for cancel test]")
     for attempt in range(15):
         try:
             r = urllib.request.urlopen(urllib.request.Request(f"{BASE}/mcp/tools"), timeout=5)
             tools_data = json.loads(r.read())
             tools = tools_data if isinstance(tools_data, list) else (tools_data.get("tools") or tools_data.get("data") or [])
-            if any("test-python-tool_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
-                print("[test-python-tool_lorem registered for cancel test]")
+            if any("test-python_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
+                print("[test-python_lorem registered for cancel test]")
                 break
         except Exception as _ex:
             print(f"  [waiting: {_ex}]")
         time.sleep(2)
     else:
-        raise AssertionError("Timed out waiting for test-python-tool_lorem to register — tool was not available after enable")
+        raise AssertionError("Timed out waiting for test-python_lorem to register — tool was not available after enable")
 
     try:
         admin_data = json.dumps({"login_id": "lucasbasquerotto", "password": "Mattermost_Fresh_Start_1"}).encode()
@@ -3453,7 +3454,7 @@ def test_fn_14_cancel_task():
         # 3. read-task-logs verifies cancellation message in logs
         # 4. poll_task confirms cancellation status
         script = json.dumps([
-            {"name": "long_run", "tool": "test-python-tool_lorem", "arguments": {"seconds": 30}},
+            {"name": "long_run", "tool": "test-python_lorem", "arguments": {"seconds": 30}},
             {"name": "cancel", "tool": "builtin_cancel-task", "arguments": {"task_id": "${long_run.task_id}"}},
             {"name": "read_logs", "tool": "builtin_read-task-logs", "arguments": {"task_id": "${long_run.task_id}", "cursor": 0}},
             {"name": "poll", "tool": "builtin_poll-task", "arguments": {"task_id": "${long_run.task_id}"}},
@@ -3493,27 +3494,28 @@ def test_fn_14_cancel_task():
                 return
         assert False, "Cancellation confirmation not found within 35s"
     finally:
-        # Cleanup: remove test-python-tool remote plugin
-        yaml_del("tools", "test-python-tool")
-        remove_remote_plugin("test-python-tool", "tools")
-        print("[test-python-tool cleaned up after cancel test]")
+        # Cleanup: remove test-python bundled and remote plugin
+        yaml_del("tools", "test-python")
+        remove_bundled_plugin("test-python", "tools")
+        remove_remote_plugin("test-python", "tools")
+        print("[test-python cleaned up after cancel test]")
 
 # ── GROUP 16: Message type / timing format verification ──────────────
 def test_fn_16_tool_message_formats():
     """Verify tool/tool-result message types and timing fields.
 
-    Uses test-python-tool_lorem with 2 single-tool steps via test-tool-caller.
+    Uses test-python_lorem with 2 single-tool steps via test-tool-caller.
     Checks messages/events API for correct msg_type, duration_ms > 0,
     token_usage present, and raw output format (no {tool,input,output} wrapping).
     """
     import urllib.request, urllib.error, time, json
 
     MM = "http://mattermost:8065"
-    ensure_bundled_plugin("test-python-tool", "tools")
-    yaml_set("tools", "test-python-tool", {"enabled": False, "source": "bundled", "config": {}})
+    ensure_bundled_plugin("test-python", "tools")
+    yaml_set("tools", "test-python", {"enabled": False, "source": "bundled", "config": {}})
     restart_agent()
-    api_post_body("/plugins/tools/bundled/test-python-tool/enable", {}, timeout=60)
-    print("[test-python-tool enabled]")
+    api_post_body("/plugins/tools/bundled/test-python/enable", {}, timeout=60)
+    print("[test-python enabled]")
 
     for attempt in range(15):
         try:
@@ -3521,14 +3523,14 @@ def test_fn_16_tool_message_formats():
             tools_data = json.loads(r.read())
             tools = tools_data if isinstance(tools_data, list) else (
                 tools_data.get("tools") or tools_data.get("data") or [])
-            if any("test-python-tool_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
-                print("[test-python-tool_lorem registered]")
+            if any("test-python_lorem" in (t.get("full_name") or t.get("name") or "") for t in tools):
+                print("[test-python_lorem registered]")
                 break
         except Exception:
             pass
         time.sleep(2)
     else:
-        raise AssertionError("Timed out waiting for test-python-tool_lorem")
+        raise AssertionError("Timed out waiting for test-python_lorem")
 
     # Find mattermost-setup channel (created by mm9 setup)
     channels_resp = json.loads(urllib.request.urlopen(
@@ -3575,8 +3577,8 @@ def test_fn_16_tool_message_formats():
 
     # 2-step single-tool script via Mattermost
     script = json.dumps([
-        {"name": "step1", "tool": "test-python-tool_lorem", "arguments": {"seconds": 2}},
-        {"name": "step2", "tool": "test-python-tool_lorem", "arguments": {"seconds": 2}},
+        {"name": "step1", "tool": "test-python_lorem", "arguments": {"seconds": 2}},
+        {"name": "step2", "tool": "test-python_lorem", "arguments": {"seconds": 2}},
     ])
 
     test_token = _mm_login(MM, "testuser", "Mattermost_Fresh_Start_1")
@@ -3600,13 +3602,21 @@ def test_fn_16_tool_message_formats():
                 headers={"Authorization": f"Bearer {mm_test_token}"}), timeout=10).read())
             for pid, post in posts.get("posts", {}).items():
                 msg = post.get("message", "")
-                if "**2** tool call" in msg or "test-python-tool_lorem" in msg:
+                if "**2** tool call" in msg or "test-python_lorem" in msg:
                     print(f"[found tool call reply in Mattermost post {pid[:12]}...]")
                     print("[GROUP 16 PASSED - tool message format verified via Mattermost]")
+                    # Cleanup test-python temp files
+                    yaml_del("tools", "test-python")
+                    remove_bundled_plugin("test-python", "tools")
+                    remove_remote_plugin("test-python", "tools")
                     return
         except Exception as e:
             last_error = f"MM API error: {e}"
             continue
+    # Cleanup test-python temp files on failure
+    yaml_del("tools", "test-python")
+    remove_bundled_plugin("test-python", "tools")
+    remove_remote_plugin("test-python", "tools")
     assert False, f"Timed out waiting for tool call reply (120s) - last error: {last_error}"# ═══════════════════════════════════════════════════════════════════════
 #  Main
 # ═══════════════════════════════════════════════════════════════════════

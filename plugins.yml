@@ -18,6 +18,22 @@ platforms:
     source: bundled
     config: {}
 tools:
+  actions:
+    enabled: false
+    source: bundled
+    config: {}
+  fetch:
+    enabled: true
+    source: bundled
+    config: {}
+  filesystem:
+    enabled: true
+    source: bundled
+    config: {}
+  git:
+    enabled: false
+    source: bundled
+    config: {}
   cron:
     enabled: false
     source: built-in

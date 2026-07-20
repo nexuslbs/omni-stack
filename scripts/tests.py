@@ -529,7 +529,7 @@ def test_a1():
             yaml_del(ptype, plugin)
             restart_agent()
 
-        resp = api_delete(f"/plugins/{ptype}/bundled/{plugin}", raise_on_error=False)
+        resp = api_delete(f"/plugins/{ptype}/built-in/{plugin}", raise_on_error=False)
         expect_error(resp, "cannot delete built-in")
     finally:
         if not yaml_has(ptype, plugin):
@@ -601,7 +601,7 @@ def test_b1():
         yaml_set(ptype, plugin, {"enabled": True, "source": "built-in", "config": {}})
         restart_agent()
 
-    resp = api_delete(f"/plugins/{ptype}/bundled/{plugin}", raise_on_error=False)
+    resp = api_delete(f"/plugins/{ptype}/built-in/{plugin}", raise_on_error=False)
     expect_error(resp, "cannot delete built-in")
     assert yaml_has(ptype, plugin), "YAML entry was removed but should remain"
 
@@ -1501,12 +1501,25 @@ def find_plugins_by_source(source, plugin_type="tools", status=None):
 
 def find_first_plugin(source, plugin_type="tools"):
     """Find first non-duplicated plugin by source and type."""
-    # For tool plugins, prefer disabled ones (can be enabled) over error ones (no binary)
-    if source in ("built-in", "bundled") and plugin_type == "tools":
-        matches = find_plugins_by_source(source, plugin_type, status="disabled")
-        if matches:
-            return matches[0]["name"]
+    # For tool plugins, skip ones without a working MCP binary
     matches = find_plugins_by_source(source, plugin_type)
+    for p in matches:
+        name = p["name"]
+        ptype = source
+        import os as _os
+        # Check convention paths for bundled/built-in tools
+        # Built-in convention: /target/release/mcp-server-{name}
+        # Bundled convention: /opt/omni/plugins/tools/{name}/target/release/mcp-server-{name}
+        builtin_path = f"/target/release/mcp-server-{name}"
+        bundled_path = f"/opt/omni/plugins/tools/{name}/target/release/mcp-server-{name}"
+        if _os.path.exists(builtin_path) and _os.access(builtin_path, _os.X_OK):
+            return name
+        if _os.path.exists(bundled_path) and _os.access(bundled_path, _os.X_OK):
+            return name
+        # Also check /app convention for built-in tools
+        app_path = f"/app/plugins/tools/{name}/target/release/mcp-server-{name}"
+        if _os.path.exists(app_path) and _os.access(app_path, _os.X_OK):
+            return name
     return matches[0]["name"] if matches else None
 
 def get_plugin_source_from_api(name):

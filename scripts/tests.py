@@ -2456,23 +2456,16 @@ MM_PLATFORM_DIR = f"{WORKSPACE}/plugins/platforms/mattermost"
 MM_BINARY = f"{MM_PLATFORM_DIR}/target/release/mattermost-platform"
 
 def _ensure_mm_platform_binary():
-    """Compile mattermost platform binary if missing (target/ is gitignored and may be absent)."""
-    if not os.path.exists(MM_BINARY):
-        # Source may have been deleted by a prior test's cleanup that rm -rf'd the
-        # plugin directory. Check for Cargo.toml to distinguish "no source" from
-        # "uncompiled but source present".
-        if not os.path.exists(f"{MM_PLATFORM_DIR}/Cargo.toml"):
-            print("[restoring mattermost platform source from git...]")
-            sh(f"cd {WORKSPACE} && git checkout -- plugins/platforms/mattermost 2>&1")
-            assert os.path.exists(f"{MM_PLATFORM_DIR}/Cargo.toml"), \
-                f"git restore failed: Cargo.toml still missing in {MM_PLATFORM_DIR}"
-        print("[compiling mattermost platform binary...]")
-        rc = sh(f"cd {MM_PLATFORM_DIR} && CARGO_TARGET_DIR=target cargo build --release 2>&1")
+    """Compile mattermost platform binary from omniagent workspace if missing."""
+    binary = "/app/target/release/mattermost-platform"
+    if not os.path.exists(binary):
+        print("[compiling mattermost platform from omniagent workspace...]")
+        rc = sh("cd /app && cargo build -p mattermost-platform --release 2>&1")
         if rc.returncode != 0:
             print(f"  ⚠ compilation output (last 20 lines):\n" + "\n".join(rc.stdout.split("\n")[-20:]))
             raise RuntimeError(f"mattermost platform build failed (exit {rc.returncode})")
-        assert os.path.exists(MM_BINARY), "Binary still missing after build"
-        print(f"[mattermost platform binary compiled: {MM_BINARY}]")
+        assert os.path.exists(binary), "Binary still missing after build"
+        print(f"[mattermost platform binary compiled: {binary}]")
 
 
 def _ensure_secret_exists(name):
@@ -2541,7 +2534,7 @@ def test_mm9_e2e():
     test_user = "testuser"
 
     # 1. Ensure mattermost and noop platforms are enabled
-    resp = api_post_body("/plugins/platforms/bundled/mattermost/enable", {})
+    resp = api_post_body("/plugins/platforms/built-in/mattermost/enable", {})
     print(f"[mattermost platform enabled]")
     print("[mattermost platform enabled]")
 
@@ -2571,7 +2564,7 @@ def test_mm9_e2e():
     #    users, and bot token.
     #    Passwords use $secret: notation which resolves from the secrets table.
     #    Users: admin=lucasbasquerotto, bot=omnibot, test=testuser (default names).
-    resp = api_post_body("/plugins/platforms/bundled/mattermost/config", {
+    resp = api_post_body("/plugins/platforms/built-in/mattermost/config", {
         "config": {
             "server_url": "http://mattermost:8065",
             "access_token_name": "MATTERMOST_ACCESS_TOKEN",
@@ -2591,7 +2584,7 @@ def test_mm9_e2e():
     # 5. Run mattermost setup (idempotent: may already exist).
     #    The setup handler creates the omniagent channel and writes the
     #    bot_token to .env so the subprocess can authenticate.
-    req = urllib.request.Request(f"{BASE}/api/plugins/platforms/bundled/mattermost/setup", method="POST")
+    req = urllib.request.Request(f"{BASE}/api/plugins/platforms/built-in/mattermost/setup", method="POST")
     r = urllib.request.urlopen(req, timeout=120)
     setup_resp = json.loads(r.read())
     assert setup_resp.get("success"), f"setup failed: {setup_resp.get('error', 'unknown')}"
@@ -3876,7 +3869,7 @@ if __name__ == "__main__":
         _ensure_secret_exists(name)
 
     # Ensure config is set for mattermost
-    resp = api_post_body("/plugins/platforms/bundled/mattermost/config", {
+    resp = api_post_body("/plugins/platforms/built-in/mattermost/config", {
         "config": {
             "server_url": "http://mattermost:8065",
             "access_token_name": "MATTERMOST_ACCESS_TOKEN",
@@ -3892,13 +3885,13 @@ if __name__ == "__main__":
     })
     pass
 
-    resp = api_post_body("/plugins/platforms/bundled/mattermost/enable", {})
+    resp = api_post_body("/plugins/platforms/built-in/mattermost/enable", {})
     pass
     resp = api_post_body("/plugins/providers/bundled/noop/enable", {})
     pass
 
     # Run setup (idempotent: may already exist)
-    setup_req = urllib.request.Request(f"{BASE}/api/plugins/platforms/bundled/mattermost/setup", method="POST")
+    setup_req = urllib.request.Request(f"{BASE}/api/plugins/platforms/built-in/mattermost/setup", method="POST")
     setup_resp = json.loads(urllib.request.urlopen(setup_req, timeout=120).read())
     assert setup_resp.get("success"), f"setup failed: {setup_resp.get('error', 'unknown')}"
     print(f"  [setup complete: {json.dumps(setup_resp.get('data', {}))[:100]}]")

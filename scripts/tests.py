@@ -354,6 +354,44 @@ def remove_bundled_plugin(name, plugin_type="tools"):
     if exists(target):
         rm_rf(target)
 
+
+def _write_remote_entry(name, plugin_type):
+    """Write a remote.yml entry under the correct type section (not appended to end)."""
+    remote_yml_path = f"{WORKSPACE}/remote.yml"
+    if not os.path.exists(remote_yml_path):
+        with open(remote_yml_path, "w") as f:
+            f.write(f"{plugin_type}:\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
+        return
+    
+    with open(remote_yml_path) as f:
+        lines = f.readlines()
+    
+    current_section = None
+    already_exists = False
+    insert_pos = None
+    
+    for i, line in enumerate(lines):
+        stripped = line.rstrip()
+        indent = len(line) - len(line.lstrip())
+        if indent == 0 and stripped.endswith(':') and not stripped.startswith('-'):
+            current_section = stripped[:-1]
+        elif indent == 2 and stripped.startswith(f"{name}:") and current_section == plugin_type:
+            already_exists = True
+            break
+        elif indent == 0 and stripped.endswith(':') and current_section == plugin_type:
+            if insert_pos is None:
+                insert_pos = i
+    
+    if not already_exists:
+        entry = f"  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n"
+        if insert_pos is not None:
+            lines.insert(insert_pos, entry)
+        else:
+            lines.append("\n" + entry)
+        with open(remote_yml_path, "w") as f:
+            f.writelines(lines)
+
+
 def ensure_remote_plugin(name, plugin_type="tools"):
     """Install a remote plugin from the local repo if not already installed."""
     remote_dir = f"{WORKSPACE}/plugins/{plugin_type}/.remote/{name}"
@@ -397,14 +435,8 @@ def ensure_remote_plugin(name, plugin_type="tools"):
     if os.path.exists(cargo_toml):
         sh(f"cd {dest_base}/{plugin_type}/{name} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
 
-    # Register in remote.yml (skip if already exists)
-    remote_yml_path = f"{WORKSPACE}/remote.yml"
-    if os.path.exists(remote_yml_path):
-        with open(remote_yml_path) as f:
-            existing = f.read()
-        if f"  {name}:" not in existing:
-            with open(remote_yml_path, "a") as f:
-                f.write(f"\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
+    # Register in remote.yml under the correct type section
+    _write_remote_entry(name, plugin_type)
     else:
         with open(remote_yml_path, "a") as f:
             f.write(f"\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
@@ -2060,11 +2092,9 @@ def ensure_name_collision_plugin(collision_name="collision-test"):
 
 
 def ensure_remote_yaml_entry(name, ptype="tools"):
-    """Ensure a plugin has a remote YAML entry."""
-    # Check if already in remote.yml
+    """Ensure a plugin has a remote YAML entry under the correct type section."""
     if not remote_yml_has(name, ptype):
-        with open(f"{WORKSPACE}/remote.yml", "a") as f:
-            f.write(f"  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {ptype}/{name}\n")
+        _write_remote_entry(name, ptype)
 
 
 def test_t6_collision_enable_bundled():

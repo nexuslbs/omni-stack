@@ -1505,16 +1505,15 @@ def find_first_plugin(source, plugin_type="tools"):
     if plugin_type != "tools":
         return matches[0]["name"] if matches else None
     import os as _os
+    # Priority: enabled > disabled > skip
     for p in matches:
         name = p["name"]
-        # Skip not_found
-        if p.get("status") == "not_found":
+        if p.get("status") in ("error", "not_found"):
             continue
-        # For built-in/bundled tools, pick ones that are already enabled
-        # (their MCP server works, re-enable just restarts it)
-        if source in ("built-in", "bundled") and p.get("status") == "enabled":
+        if p.get("status") == "enabled":
             return name
-        # For disabled tools: check binary existence
+    for p in matches:
+        name = p["name"]
         if p.get("status") == "disabled":
             for path in [
                 f"/target/release/mcp-server-{name}",

@@ -354,112 +354,71 @@ def remove_bundled_plugin(name, plugin_type="tools"):
     if exists(target):
         rm_rf(target)
 
-
-def _write_remote_entry(name, plugin_type):
-    """Write a remote.yml entry under the correct type section (not appended to end)."""
-    remote_yml_path = f"{WORKSPACE}/remote.yml"
-    if not os.path.exists(remote_yml_path):
-        with open(remote_yml_path, "w") as f:
-            f.write(f"{plugin_type}:\n  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n")
-        return
-    
-    with open(remote_yml_path) as f:
-        lines = f.readlines()
-    
-    current_section = None
-    already_exists = False
-    insert_pos = None
-    
-    for i, line in enumerate(lines):
-        stripped = line.rstrip()
-        indent = len(line) - len(line.lstrip())
-        if indent == 0 and stripped.endswith(':') and not stripped.startswith('-'):
-            current_section = stripped[:-1]
-        elif indent == 2 and stripped.startswith(f"{name}:") and current_section == plugin_type:
-            already_exists = True
-            break
-        elif indent == 0 and stripped.endswith(':') and current_section == plugin_type:
-            if insert_pos is None:
-                insert_pos = i
-    
-    if not already_exists:
-        entry = f"  {name}:\n    url: https://github.com/nexuslbs/omni-plugins.git\n    path: {plugin_type}/{name}\n"
-        if insert_pos is not None:
-            lines.insert(insert_pos, entry)
-        else:
-            lines.append("\n" + entry)
-        with open(remote_yml_path, "w") as f:
-            f.writelines(lines)
-
-
 def ensure_remote_plugin(name, plugin_type="tools"):
-    """Install a remote plugin from the local repo if not already installed."""
+    """Install a remote plugin from the local repo if not already installed.
+    
+    Copies plugin source files to .remote/<name>/ in a FLAT structure 
+    (no sub-path) so the install API can find Cargo.toml without needing 
+    a remote.yml entry for path resolution. Does NOT write to remote.yml 
+    directly — the remote.yml entry is created by the install-git API or
+    by the install handler itself.
+    """
     remote_dir = f"{WORKSPACE}/plugins/{plugin_type}/.remote/{name}"
-    # Check plugin.json exists (not just the directory: may be empty from failed cleanup)
-    plugin_json = f"{remote_dir}/{plugin_type}/{name}/plugin.json"
+    # Check plugin.json exists at the flat path
+    plugin_json = f"{remote_dir}/plugin.json"
     if exists(plugin_json):
-        # For Rust plugins, verify the binary was actually compiled (partial builds
-        # from interrupted runs leave plugin.json but no binary)
-        cargo_toml = f"{remote_dir}/{plugin_type}/{name}/Cargo.toml"
+        cargo_toml = f"{remote_dir}/Cargo.toml"
         if os.path.exists(cargo_toml):
-            # Try to find the binary: check known Rust binary names
             binary_name = name.replace("-", "_")
-            binary_path = f"{remote_dir}/{plugin_type}/{name}/target/release/{binary_name}"
+            binary_path = f"{remote_dir}/target/release/{binary_name}"
             if not os.path.exists(binary_path):
-                # Also check with hyphens (cargo 1.96+ preserves hyphens)
-                binary_path_hyp = f"{remote_dir}/{plugin_type}/{name}/target/release/{name}"
+                binary_path_hyp = f"{remote_dir}/target/release/{name}"
                 if not os.path.exists(binary_path) and os.path.exists(binary_path_hyp):
                     binary_path = binary_path_hyp
             if not os.path.exists(binary_path):
                 print(f"[recompiling {name} — binary missing]")
-                rc = sh(f"cd {remote_dir}/{plugin_type}/{name} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
+                rc = sh(f"cd {remote_dir} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
                 if rc.returncode != 0:
                     print(f"  ⚠ recompile output: {rc.stdout[-300:]}")
-        return  # already installed with files
+        return  # already installed
 
     repo_src = f"{REMOTE_REPO}/{plugin_type}/{name}"
     if not exists(repo_src):
         raise RuntimeError(f"Cannot install remote plugin '{name}': source not found in repo")
 
-    # Clean up empty directory if it exists
     if os.path.exists(remote_dir):
         shutil.rmtree(remote_dir)
 
-    # Copy source to .remote/<name>/<type>/<name>/
-    dest_base = remote_dir
-    mkdir_p(f"{dest_base}/{plugin_type}")
-    cp(repo_src, f"{dest_base}/{plugin_type}/{name}", recursive=True)
+    # Flat copy: repo/tools/test-rust-tool/* -> .remote/test-rust-tool/*
+    mkdir_p(remote_dir)
+    cp(repo_src, remote_dir, recursive=True)
 
-    # Pre-build Rust binary so install API doesn't timeout compiling
-    cargo_toml = f"{dest_base}/{plugin_type}/{name}/Cargo.toml"
+    cargo_toml = f"{remote_dir}/Cargo.toml"
     if os.path.exists(cargo_toml):
-        sh(f"cd {dest_base}/{plugin_type}/{name} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
+        sh(f"cd {remote_dir} && CARGO_TARGET_DIR=target timeout 120 cargo build --release 2>&1")
 
-    # Register in remote.yml under the correct type section
-    _write_remote_entry(name, plugin_type)
+    # No remote.yml writing from Python — use the install API in test steps
+
 
 def remove_remote_plugin(name, plugin_type="tools"):
-    """Remove a remote plugin we installed temporarily."""
+    """Remove a remote plugin we installed temporarily.
+    
+    Removes the .remote/ directory and calls the API to remove the 
+    remote.yml entry (the Rust code handles YAML properly).
+    """
     remote_dir = f"{WORKSPACE}/plugins/{plugin_type}/.remote/{name}"
     if os.path.exists(remote_dir):
         shutil.rmtree(remote_dir)
-    # Remove from remote.yml
-    remote_yml_path = f"{WORKSPACE}/remote.yml"
-    with open(remote_yml_path) as f:
-        lines = f.readlines()
-    filtered = []
-    skip = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith(f"  {name}:"):
-            skip = True
-            continue
-        if skip and stripped and not stripped.startswith("  "):
-            skip = False
-        if not skip:
-            filtered.append(line)
-    with open(remote_yml_path, "w") as f:
-        f.writelines(filtered)
+    # Remove remote.yml entry via API (Rust handles proper YAML serialization)
+    try:
+        api_delete(f"/plugins/{plugin_type}/remote/{name}")
+        print(f"  [remove_remote_plugin: API delete succeeded for '{name}']")
+    except AssertionError as e:
+        err = str(e).lower()
+        if "not found" in err or "404" in err:
+            print(f"  [remove_remote_plugin: plugin '{name}' not found via API, ignoring]")
+        else:
+            print(f"  [remove_remote_plugin: API delete failed: {e}]")
 
 # ── Restart agent ────────────────────────────────────────────────────
 
@@ -2089,9 +2048,17 @@ def ensure_name_collision_plugin(collision_name="collision-test"):
 
 
 def ensure_remote_yaml_entry(name, ptype="tools"):
-    """Ensure a plugin has a remote YAML entry under the correct type section."""
+    """Register a plugin in remote.yml via the install-git API.
+    
+    This calls the omniagent API so the Rust code handles proper YAML 
+    serialization. Requires the server to be running.
+    """
     if not remote_yml_has(name, ptype):
-        _write_remote_entry(name, ptype)
+        api_post_body("/api/plugins/install-git", {
+            "url": f"file://{REMOTE_REPO}",
+            "name": name,
+            "path": f"{ptype}/{name}"
+        }, timeout=60)
 
 
 def test_t6_collision_enable_bundled():

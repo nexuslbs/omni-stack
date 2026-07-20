@@ -50,7 +50,7 @@ services:
         condition: service_started
         required: false
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgres://omniagent:${POSTGRES_PASSWORD:-}@postgres:5432/omniagent}
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
       QDRANT_URL: http://qdrant:6333

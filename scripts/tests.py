@@ -1501,21 +1501,28 @@ def find_plugins_by_source(source, plugin_type="tools", status=None):
 
 def find_first_plugin(source, plugin_type="tools"):
     """Find first non-duplicated plugin by source and type."""
-    # For tool plugins, skip ones without a working MCP binary
     matches = find_plugins_by_source(source, plugin_type)
     if plugin_type != "tools":
         return matches[0]["name"] if matches else None
     import os as _os
     for p in matches:
         name = p["name"]
-        # Convention paths for MCP server binaries
-        for path in [
-            f"/target/release/mcp-server-{name}",
-            f"/opt/omni/plugins/tools/{name}/target/release/mcp-server-{name}",
-            f"/app/plugins/tools/{name}/target/release/mcp-server-{name}",
-        ]:
-            if _os.path.exists(path) and _os.access(path, _os.X_OK):
-                return name
+        # Skip not_found
+        if p.get("status") == "not_found":
+            continue
+        # For built-in/bundled tools, pick ones that are already enabled
+        # (their MCP server works, re-enable just restarts it)
+        if source in ("built-in", "bundled") and p.get("status") == "enabled":
+            return name
+        # For disabled tools: check binary existence
+        if p.get("status") == "disabled":
+            for path in [
+                f"/target/release/mcp-server-{name}",
+                f"/opt/omni/plugins/tools/{name}/target/release/mcp-server-{name}",
+                f"/app/plugins/tools/{name}/target/release/mcp-server-{name}",
+            ]:
+                if _os.path.exists(path) and _os.access(path, _os.X_OK):
+                    return name
     return None
 
 def get_plugin_source_from_api(name):

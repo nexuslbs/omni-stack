@@ -69,54 +69,75 @@ omni-stack/
 
 ## Quick Start
 
-### Prerequisites
+### Minimal `.env` (necessary)
 
-- Docker & Docker Compose v2
-- An LLM API key (OpenCode Go, DeepSeek, OpenAI, or Anthropic)
+```env
+# ── Required ──
+POSTGRES_PASSWORD=***  # PostgreSQL — everything else derivable
+TUNNEL_TOKEN=***                         # Cloudflare tunnel to reach the dashboard
+COMPOSE_PROFILES=tunnel                  # Which optional services to enable
 
-### Setup
+# ── S3 Backup/Restore (optional, for restoring from backup) ──
+S3_ACCESS_KEY=<key_id>
+S3_SECRET_KEY=<application_key>
+S3_ENDPOINT=https://s3.<region>.backblazeb2.com
+S3_REGION=<region>
+S3_BUCKET=<bucket_name>
+```
 
-1. **Clone the repos** (side by side):
-   ```bash
-   git clone https://github.com/nexuslbs/omni-stack.git
-   git clone https://github.com/nexuslbs/omniagent.git   # optional, for local builds
-   ```
+`POSTGRES_PASSWORD` is the **only** truly required secret. `DATABASE_URL` is auto-derived from it in `docker-compose.yml`.
 
-2. **Configure environment**:
-   ```bash
-   cd omni-stack
-   cp .env.example .env
-   ```
-   Edit `.env` and set at minimum:
-   - `LLM_API_KEY`: your LLM provider API key
-   - `OMNIAGENT_IMAGE`: set to `ghcr.io/nexuslbs/omniagent:latest` (or `omniagent:local` for local builds)
-   - `POSTGRES_PASSWORD`: secure password for PostgreSQL
+> **Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are already bundled in `plugins/providers/`. No manual setup needed — just add your API key via the dashboard Settings page after starting.
 
-3. **Start the stack** (production):
-   ```bash
-   docker compose up -d
-   ```
+> If you're **restoring from an existing S3 backup**, include the `S3_*` variables. The `omni-restore.sh` script pulls your previous `.env` (including all secrets, Mattermost config, provider keys) and restores the full PostgreSQL database. After restore, `docker compose restart` to pick up the restored configuration.
 
-   For **development** (overrides the project name to `omnidev`):
-   ```bash
-   docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name omnidev up -d
-   ```
-
-The docker-compose file has `name: omni` at the top level, so production containers/volumes/networks are prefixed with `omni_` (e.g., `omni_omniagent_1`, `omni_postgres_data`). In dev mode `--project-name omnidev` overrides this to `omnidev_`, keeping dev and prod resources separate.
-
-This starts:
-
-| Service | Image | Port | Description |
-|---------|-------|------|-------------|
-| **omniagent** | `ghcr.io/nexuslbs/omniagent` | 8080 | The agent API |
-| **postgres** | `pgvector/pgvector:pg16` | N/A | Message storage with vector embeddings |
-| **qdrant** | `qdrant/qdrant:v1.18.2` | N/A | Vector similarity search |
-
-### Verify
+### Start
 
 ```bash
-curl http://localhost:8080/health
-# → ok
+docker compose up -d
+```
+
+This starts the core stack:
+- **postgres** — message storage with pgvector
+- **omniagent** — the agent API
+- **dashboard** — web UI on port 3001 (behind the tunnel)
+- **toolbox** — utility container (cron, backup, maintenance)
+- **cloudflared** — tunnel to the dashboard (if `COMPOSE_PROFILES` includes `tunnel`)
+
+Optional services (gated by `COMPOSE_PROFILES`):
+
+| Profile | Services | Purpose |
+|---------|----------|---------|
+| `tunnel` | cloudflared | Dashboard tunnel |
+| `mattermost` | mattermost + mattermost-db | Chat platform |
+| `memory` | qdrant, hindsight | Vector search + persistent memory |
+| `noop` | noop-provider | Test provider |
+| `logs` | vector, loki | Log aggregation |
+| `monitor` | prometheus, grafana | Metrics & dashboards |
+| `cadvisor` | cadvisor + prometheus | Container metrics |
+| `all` | Everything | Full stack |
+
+Combine profiles with commas: `COMPOSE_PROFILES=tunnel,mattermost,memory` or just `COMPOSE_PROFILES=all`.
+
+### Access
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Dashboard | Tunnel URL (from Cloudflare) | Authenticated via tunnel |
+| OmniAgent API | `http://localhost:8080` | Direct on host |
+| Dashboard | `http://localhost:12346` | Direct on host |
+
+### Fresh Start vs Restore
+
+**Fresh start:** After the stack starts, open the dashboard. Configure your LLM provider API key (Settings → Secrets). Mattermost setup can be run from the Platforms page if you have the `mattermost` profile enabled.
+
+**Restore from S3:** After starting the stack, run:
+```bash
+bash /opt/hermes-repo/scripts/omni-restore.sh
+```
+This downloads your previous `.env`, PostgreSQL dumps, and state. Then restart to apply:
+```bash
+docker compose restart
 ```
 
 ---

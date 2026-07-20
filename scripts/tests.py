@@ -2054,7 +2054,7 @@ def ensure_remote_yaml_entry(name, ptype="tools"):
     serialization. Requires the server to be running.
     """
     if not remote_yml_has(name, ptype):
-        api_post_body("/api/plugins/install-git", {
+        api_post_body("/plugins/install-git", {
             "url": f"file://{REMOTE_REPO}",
             "name": name,
             "path": f"{ptype}/{name}"

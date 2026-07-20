@@ -1,22 +1,4 @@
 tools:
-  cron:
+  test-yaml-tool-2:
     url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/cron-echo
-  prompt:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/prompt
-  test-js-tool:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/test-js-tool
-  test-python:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/test-python
-  test-rust-tool:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/test-rust-tool
-
-
-platforms:
-  test-python:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: platforms/test-python
+    path: tools/test-yaml-tool-2

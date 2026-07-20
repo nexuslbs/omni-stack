@@ -22,6 +22,10 @@ tools:
     enabled: false
     source: built-in
     config: {}
+  cron:
+    enabled: false
+    source: built-in
+    config: {}
   fetch:
     enabled: true
     source: built-in
@@ -31,10 +35,6 @@ tools:
     source: built-in
     config: {}
   git:
-    enabled: false
-    source: built-in
-    config: {}
-  cron:
     enabled: false
     source: built-in
     config: {}

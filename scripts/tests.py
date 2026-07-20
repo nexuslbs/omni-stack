@@ -3890,7 +3890,7 @@ if __name__ == "__main__":
     pass
 
     # Run setup (idempotent: may already exist)
-    setup_req = urllib.request.Request(f"{BASE}/api/plugins/mattermost/setup", method="POST")
+    setup_req = urllib.request.Request(f"{BASE}/api/plugins/platforms/bundled/mattermost/setup", method="POST")
     setup_resp = json.loads(urllib.request.urlopen(setup_req, timeout=120).read())
     assert setup_resp.get("success"), f"setup failed: {setup_resp.get('error', 'unknown')}"
     print(f"  [setup complete: {json.dumps(setup_resp.get('data', {}))[:100]}]")

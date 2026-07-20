@@ -529,7 +529,7 @@ def test_a1():
             yaml_del(ptype, plugin)
             restart_agent()
 
-        resp = api_delete(f"/plugins/{ptype}/built-in/{plugin}", raise_on_error=False)
+        resp = api_delete(f"/plugins/{ptype}/bundled/{plugin}", raise_on_error=False)
         expect_error(resp, "cannot delete built-in")
     finally:
         if not yaml_has(ptype, plugin):
@@ -601,7 +601,7 @@ def test_b1():
         yaml_set(ptype, plugin, {"enabled": True, "source": "built-in", "config": {}})
         restart_agent()
 
-    resp = api_delete(f"/plugins/{ptype}/built-in/{plugin}", raise_on_error=False)
+    resp = api_delete(f"/plugins/{ptype}/bundled/{plugin}", raise_on_error=False)
     expect_error(resp, "cannot delete built-in")
     assert yaml_has(ptype, plugin), "YAML entry was removed but should remain"
 
@@ -674,7 +674,7 @@ def test_b3():
 def test_c1():
     """Plugin in YAML (source=built-in) but NOT on disk → succeed, YAML only"""
     plugin, ptype = "phantom-plugin", "tools"
-    fake_entry = {"enabled": True, "source": "built-in", "config": {}}
+    fake_entry = {"enabled": True, "source": "bundled", "config": {}}
 
     # Safety check: plugin must not exist anywhere (just check omni-stack paths)
     for t in ["tools", "platforms", "providers"]:
@@ -686,7 +686,7 @@ def test_c1():
         yaml_set(ptype, plugin, fake_entry)
         restart_agent()
 
-        resp = api_delete(f"/plugins/{ptype}/built-in/{plugin}")
+        resp = api_delete(f"/plugins/{ptype}/bundled/{plugin}")
         pass
         assert not yaml_has(ptype, plugin), "YAML entry still present"
     finally:
@@ -1485,19 +1485,27 @@ def api_post_body(path, body=None, timeout=15):
         raw = e.read().decode("utf-8", errors="replace")
         raise AssertionError(f"POST {path} failed (HTTP {e.code}): {raw}")
 
-def find_plugins_by_source(source, plugin_type="tools"):
+def find_plugins_by_source(source, plugin_type="tools", status=None):
     """Find plugins of a given source and type from the API list."""
     # The API returns plugin_type as singular ("tool", "platform", "provider"),
     # but callers pass plural ("tools", "platforms", "providers")
     singular_type = plugin_type.rstrip("s")
     plugins = api_get("/plugins")["data"]
-    return [p for p in plugins
-            if p.get("source") == source
-            and p.get("plugin_type") == singular_type
-            and not p.get("is_duplicated", False)]
+    result = [p for p in plugins
+              if p.get("source") == source
+              and p.get("plugin_type") == singular_type
+              and not p.get("is_duplicated", False)]
+    if status:
+        result = [p for p in result if p.get("status") == status]
+    return result
 
 def find_first_plugin(source, plugin_type="tools"):
     """Find first non-duplicated plugin by source and type."""
+    # For tool plugins, prefer disabled ones (can be enabled) over error ones (no binary)
+    if source in ("built-in", "bundled") and plugin_type == "tools":
+        matches = find_plugins_by_source(source, plugin_type, status="disabled")
+        if matches:
+            return matches[0]["name"]
     matches = find_plugins_by_source(source, plugin_type)
     return matches[0]["name"] if matches else None
 

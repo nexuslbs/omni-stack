@@ -18,7 +18,8 @@ COMMIT_MSG.txt
 # ── Git plugin cache (shared bare mirrors for remote plugin clones) ──
 .git-cache/
 *.bak
-scripts/
+scripts/__pycache__/
+scripts/*.bak
 docs/
 notes/
 

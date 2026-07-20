@@ -9,9 +9,8 @@ services:
   #  Core (always running) 
 
   postgres:
-    image: pgvector/pgvector:pg16
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
     environment:
-      DATABASE_URL: postgres://omniagent:***@postgres:5432/omniagent
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -20,7 +19,7 @@ services:
     expose:
       - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-omniagent} -d ${POSTGRES_DB:-omniagent}"]
+      test: ["CMD-SHELL", "pg_isready -U omniagent -d omniagent"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,7 +28,7 @@ services:
       driver: journald
 
   qdrant:
-    image: qdrant/qdrant:v1.18.2
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}
     profiles: ["memory", "all"]
     volumes:
       - qdrant_data:/qdrant/storage
@@ -50,7 +49,7 @@ services:
         condition: service_started
         required: false
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://omniagent:${POSTGRES_PASSWORD:-}@postgres:5432/omniagent}
+      DATABASE_URL: postgres://omniagent:***@postgres:5432/omniagent
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
       QDRANT_URL: http://qdrant:6333
@@ -110,9 +109,9 @@ services:
     environment:
       PGHOST: postgres
       PGPORT: "5432"
-      PGUSER: ${POSTGRES_USER:-omniagent}
+      PGUSER: omniagent
       PGPASSWORD: ${POSTGRES_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB:-omniagent}
+      PGDATABASE: omniagent
       OMNI_DIR: /opt/omni-stack
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
@@ -120,7 +119,6 @@ services:
       S3_REGION: ${S3_REGION}
       S3_BUCKET: ${S3_BUCKET}
       S3_PATH: omni
-      COMPOSE_PROFILES: ${COMPOSE_PROFILES}
       CRON_BACKUP: ${BACKUP_CRON_SCHEDULE}
       CRON_CHECKPOINT: ${CHECKOUT_CRON_SCHEDULE}
     volumes:
@@ -145,7 +143,7 @@ services:
 
   #  Memory: Hindsight (profile: memory) 
   hindsight:
-    image: ghcr.io/vectorize-io/hindsight:0.7.2
+    image: ${HINDSIGHT_IMAGE:-ghcr.io/vectorize-io/hindsight:0.7.2}
     profiles: ["memory", "all"]
     restart: unless-stopped
     expose:
@@ -159,11 +157,11 @@ services:
 
   #  Mattermost (profile: mattermost) 
   mattermost-db:
-    image: postgres:16.14
+    image: ${MATTERMOST_DB_IMAGE:-postgres:16.14}
     profiles: ["mattermost", "all"]
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${MM_POSTGRES_USER:-mmuser}
+      POSTGRES_USER: mmuser
       POSTGRES_PASSWORD: ${MM_POSTGRES_PASSWORD}
       POSTGRES_DB: mattermost
     volumes:
@@ -177,7 +175,7 @@ services:
       driver: journald
 
   mattermost:
-    image: mattermost/mattermost-team-edition:10.11.20
+    image: ${MATTERMOST_IMAGE:-mattermost/mattermost-team-edition:10.11.20}
     profiles: ["mattermost", "all"]
     restart: unless-stopped
     command: ["mattermost", "server"]
@@ -191,7 +189,7 @@ services:
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
       MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${MM_POSTGRES_PASSWORD}@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
-      MM_SERVICESETTINGS_SITEURL: https://hermes-app-5.nexuslbs.org
+      MM_SERVICESETTINGS_SITEURL: ${MM_SITEURL:-}
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: true
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: true
     volumes:
@@ -210,7 +208,7 @@ services:
       context: services/vector
       dockerfile: Dockerfile
       args:
-        VECTOR_IMAGE: timberio/vector:0.55.0-debian
+        VECTOR_IMAGE: ${VECTOR_IMAGE:-timberio/vector:0.55.0-debian}
     restart: unless-stopped
     volumes:
       - /var/log/journal:/var/log/journal:ro
@@ -233,7 +231,7 @@ services:
       context: services/loki
       dockerfile: Dockerfile
       args:
-        LOKI_IMAGE: grafana/loki:3.7.2
+        LOKI_IMAGE: ${LOKI_IMAGE:-grafana/loki:3.7.2}
     restart: unless-stopped
     volumes:
       - omni-loki-vol:/loki:rw
@@ -248,7 +246,7 @@ services:
   #  Observability: Metrics: cAdvisor → Prometheus 
   cadvisor:
     profiles: ["cadvisor", "all"]
-    image: ghcr.io/google/cadvisor:v0.57.0
+    image: ${CADVISOR_IMAGE:-ghcr.io/google/cadvisor:v0.57.0}
     container_name: omni-cadvisor
     restart: unless-stopped
     privileged: true
@@ -290,7 +288,7 @@ services:
       context: services/grafana
       dockerfile: Dockerfile
       args:
-        GRAFANA_IMAGE: grafana/grafana:13.0.1
+        GRAFANA_IMAGE: ${GRAFANA_IMAGE:-grafana/grafana:13.0.1}
     restart: unless-stopped
     user: root
     environment:

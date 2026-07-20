@@ -1505,11 +1505,9 @@ def find_first_plugin(source, plugin_type="tools"):
     if plugin_type != "tools":
         return matches[0]["name"] if matches else None
     import os as _os
-    # Priority: enabled > disabled > skip
+    # Priority: enabled > disabled
     for p in matches:
         name = p["name"]
-        if p.get("status") in ("error", "not_found"):
-            continue
         if p.get("status") == "enabled":
             return name
     for p in matches:

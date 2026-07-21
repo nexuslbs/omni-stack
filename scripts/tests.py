@@ -2426,7 +2426,7 @@ MM_BINARY = f"{MM_PLATFORM_DIR}/target/release/mattermost-platform"
 
 def _ensure_mm_platform_binary():
     """Compile mattermost platform binary from omniagent workspace if missing."""
-    binary = "/target/release/mattermost-platform"
+    binary = "/app/target/release/mattermost-platform"
     if not os.path.exists(binary):
         print("[compiling mattermost platform from omniagent workspace...]")
         rc = sh("cd /app && cargo build -p mattermost-platform --release 2>&1")
@@ -2437,13 +2437,16 @@ def _ensure_mm_platform_binary():
         print(f"[mattermost platform binary compiled: {binary}]")
 
 
-def _ensure_secret_exists(name):
-    """Create an empty secret if it doesn't exist."""
+def _ensure_secret_exists(name, value=None):
+    """Create a secret with a given or random value if it doesn't exist."""
     import urllib.request
     import urllib.error
+    import secrets as _sec
+    import string as _str
+    val = value if value else ''.join(_sec.choice(_str.ascii_letters + _str.digits) for _ in range(32))
     req = urllib.request.Request(
         f"{BASE}/secrets",
-        data=json.dumps({"name": name, "fieldType": "password", "value": ""}).encode(),
+        data=json.dumps({"name": name, "fieldType": "password", "value": val}).encode(),
         headers={"Content-Type": "application/json"},
         method="POST"
     )
@@ -2525,7 +2528,7 @@ def test_mm9_e2e():
         ("MATTERMOST_BOT_PASSWORD", "Mattermost_Fresh_Start_1"),
         ("MATTERMOST_TEST_PASSWORD", "Mattermost_Fresh_Start_1"),
     ]:
-        _ensure_secret_exists(name)
+        _ensure_secret_exists(name, val)
 
     # 4. Set mattermost config with setup params BEFORE running setup.
     #    The setup API reads these from the plugin config and passes them
@@ -3835,7 +3838,7 @@ if __name__ == "__main__":
         ("MATTERMOST_BOT_PASSWORD", "Mattermost_Fresh_Start_1"),
         ("MATTERMOST_TEST_PASSWORD", "Mattermost_Fresh_Start_1"),
     ]:
-        _ensure_secret_exists(name)
+        _ensure_secret_exists(name, val)
 
     # Ensure config is set for mattermost
     resp = api_post_body("/plugins/platforms/built-in/mattermost/config", {

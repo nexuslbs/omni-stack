@@ -3736,15 +3736,6 @@ if __name__ == "__main__":
     print("GROUP 11: Prompt Plugin Tests")
     print(f"{'=' * 60}")
 
-    # Ensure prompt MCP binary exists (may have been cleaned from /target/)
-    prompt_binary = "/app/target/release/mcp-server-prompt"
-    if not os.path.exists(prompt_binary):
-        src_dir = "/app/plugins/tools/prompt"
-        assert os.path.exists(f"{src_dir}/Cargo.toml"), f"Prompt source not found at {src_dir}"
-        print(f"  [building prompt MCP server binary...]")
-        rc = sh(f"cd {src_dir} && CARGO_TARGET_DIR=/app/target cargo build --release 2>&1")
-        assert rc.returncode == 0, f"Prompt build failed: {rc.stdout[-300:]}"
-        print(f"  [prompt binary built at {prompt_binary}]")
 
     # Enable the prompt plugin before running its tests (it's disabled by default)
     resp = api_post_body("/plugins/tools/built-in/prompt/enable", {})

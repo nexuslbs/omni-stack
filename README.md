@@ -2,7 +2,7 @@
 
 Deployment, configuration, and plugin infrastructure for **OmniAgent**: a next-generation agent system built with Rust, PostgreSQL + pgvector, and MCP tool support.
 
-This repository contains everything needed to run the OmniAgent stack in production or development: docker-compose files, plugin definitions (MCP servers, platforms, providers), CI/CD, backup infrastructure, and profile/template management.
+This repository contains the Docker Compose stack, service definitions, plugin infrastructure, and profile/template management for **OmniAgent**.
 
 > **OmniAgent itself** lives at [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent).  
 > **Omni-Dashboard** lives at [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard).
@@ -31,9 +31,9 @@ omni-stack/
 │   └ omni/                  # Default profile (config, memories, skills, wiki)
 │       ├ config.json        #   Profile configuration
 │       ├ memories/          #   MEMORY.md, SOUL.md
-│       ├ skills/            #   Knowledge pipeline, workspace development
-│       ├ templates/         #   Prompt templates (blog, knowledge pipeline, etc.)
-│       └ wiki/              #   Wiki content (reference docs, research)
+│       ├ skills/            #   Practical wiki
+│       ├ templates/         #   Prompt templates
+│       └ wiki/              #   Wiki content (basically, a long term memory in human readable format)
 │
 ├ services/toolbox/          # Toolbox container (maintenance scripts)
 │
@@ -63,7 +63,7 @@ S3_BUCKET=<bucket_name>
 
 `POSTGRES_PASSWORD` is the **only** truly required secret. `DATABASE_URL` is auto-derived from it in `docker-compose.yml`.
 
-> **Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are already bundled in `plugins/providers/`. No manual setup needed — just add your API key via the dashboard Settings page after starting.
+> **Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are built into the omniagent Docker image. No manual setup needed in this repo — just add your API key via the dashboard Settings page after starting.
 
 > If you're **restoring from an existing S3 backup**, include the `S3_*` variables. The `omni-restore.sh` script pulls your previous `.env` (including all secrets, Mattermost config, provider keys) and restores the full PostgreSQL database. After restore, `docker compose restart` to pick up the restored configuration.
 
@@ -145,27 +145,25 @@ OmniAgent uses a **three-source** plugin system:
 
 | Source | Location | Description |
 |--------|----------|-------------|
-| **Bundled** | `plugins/{type}/{name}/` | Standalone crates: actual source code in this repo |
+| **Bundled** | `plugins/{type}/{name}/` | Standalone crates added by forked repos (same structure as built-in, with `plugin.json` and source code) |
 | **Built-in** | `/app/plugins/{type}/{name}/` | Workspace crates inside the omniagent Docker image |
 | **Remote** | `plugins/{type}/.remote/{name}/` | Git-cloned from external repositories |
 
 **Display priority (dashboard):**
 - YAML with `remote` → primary = remote
 - YAML with `builtin: true` → primary = built-in
-- YAML entry without flags → primary = bundled
+- YAML entry without flags → primary = bundled (if present in forked repo)
 - No YAML entry → primary = built-in
 
-**Bundled plugins** (fetch, filesystem, git, skills, actions, docker-compose, test-rust-tool) compile as standalone Rust crates. They depend on `mcp-server-util = { path = "../util" }` and external crates, never on `omniagent`.
+**Builtin plugins** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight) are workspace members of omniagent at `/app/plugins/{type}/{name}/`. They require `builtin: true` in YAML to activate and are disabled by default.
 
-**Builtin plugins** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight) are workspace members of omniagent at `/app/plugins/mcp/<name>/`. They only have mcp-config.json, not plugin.json. They require `builtin: true` in YAML to activate and are disabled by default.
-
-**Erroneous binary-only copies** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight also exist as binary-only directories here): these will be removed in a future cleanup. The dashboard shows them as duplicated with a yellow badge. Install/Reinstall falls back to the builtin source automatically.
+**Bundled plugins** — forked repos can add standalone plugin crates under `plugins/{type}/{name}/` with a `plugin.json` manifest. These compile independently of omniagent.
 
 For detailed internal documentation, see [AGENTS.md](AGENTS.md).
 
 ### Provider Plugins
 
-Provider plugins declare which API format they use via `plugin.json`:
+Provider plugins declare which API format they use via `plugin.json` (in forked repos' `plugins/providers/<name>/plugin.json`):
 
 - **`api_mode`**: the default API format for all models. One of:
   - `"chat_completions"`: OpenAI-compatible `/v1/chat/completions` (default)
@@ -223,12 +221,14 @@ Three parallel jobs build:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_API_KEY` | N/A | LLM provider API key |
-| `OMNIAGENT_IMAGE` | `ghcr.io/nexuslbs/omniagent:latest` | OmniAgent image reference |
-| `POSTGRES_PASSWORD` | N/A | PostgreSQL password |
-| `MEMORY_MAX_CHARS` | `5000` | Max characters in MEMORY.md |
-| `USER_MAX_CHARS` | `1000` | Max characters for user memory |
-| `PLANNING_MODE` | `auto_plan` | Global planning mode |
+| `POSTGRES_PASSWORD` | N/A | PostgreSQL password (the only truly required secret) |
+| `COMPOSE_PROFILES` | `` | Enable optional services (tunnel, mattermost, memory, etc.) |
+| `TUNNEL_TOKEN` | N/A | Cloudflare tunnel token (required with `tunnel` profile) |
+| `OMNIAGENT_IMAGE` | `omniagent-dev:latest` | OmniAgent image reference (use `ghcr.io/nexuslbs/omniagent:latest` for prod) |
+| `DASHBOARD_IMAGE` | `ghcr.io/nexuslbs/omni-dashboard:latest` | Dashboard image reference |
+| `TOOLBOX_IMAGE` | `ghcr.io/nexuslbs/omni-stack-toolbox:latest` | Toolbox image reference |
+| `POSTGRES_IMAGE` | `pgvector/pgvector:pg16` | PostgreSQL image reference |
+| `CLOUDFLARED_IMAGE` | `cloudflare/cloudflared:2026.7.1` | Cloudflare tunnel image reference |
 
 ---
 

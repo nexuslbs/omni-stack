@@ -11,7 +11,7 @@ contains only a `.gitignore` that ignores `.remote/` directories (auto-
 generated when plugins are installed from remote sources). Forked repos add
 their own bundled plugins under `plugins/{type}/{name}/` with a `plugin.json`.
 
-The only exception is the `mcp/util/` crate — a shared library dependency
+The only exception is the `tools/util/` crate — a shared library dependency
 used by bundled MCP plugins. It has no `plugin.json` and is not a plugin
 itself; it's a workspace member that other plugins depend on via path.
 
@@ -61,7 +61,7 @@ Bundled plugins are discovered by scanning `plugins/{type}/{name}/plugin.json`. 
 
 ### Actions Plugin: Self-Contained MCP Server
 
-The `actions` plugin (`plugins/mcp/actions/`) is a fully self-contained MCP server:
+The `actions` plugin (`plugins/tools/actions/`) is a fully self-contained MCP server:
 
 - **NO dependency on `omniagent` crate.** It is an independent binary.
 - Connects directly to Postgres via `sqlx::PgPool`
@@ -71,21 +71,21 @@ The `actions` plugin (`plugins/mcp/actions/`) is a fully self-contained MCP serv
 
 **Do NOT add `omniagent` as a dependency** to actions or any other omni-stack plugin. In production, the omniagent repo does not exist: only omni-stack is deployed. Plugins must compile standalone.
 
-### Bundled Plugins That Work Standalone
+### Forked Repos: Bundled Plugin Examples
 
-The following omni-stack plugins compile as standalone crates (no omniagent dependency):
+Forked repos can add bundled plugins that compile as standalone crates (no omniagent dependency). For example:
 
 | Plugin | Cargo.toml | Requires |
 |--------|-----------|----------|
-| `actions` | `plugins/mcp/actions/Cargo.toml` | `mcp-server-util`, `sqlx`, `tokio` |
-| `fetch` | `plugins/mcp/fetch/Cargo.toml` | `mcp-server-util`, `reqwest` |
-| `filesystem` | `plugins/mcp/filesystem/Cargo.toml` | `mcp-server-util`, `tokio` |
-| `docker-compose` | `plugins/mcp/docker-compose/Cargo.toml` | `mcp-server-util` |
-| `git` | `plugins/mcp/git/Cargo.toml` | `mcp-server-util`, `reqwest` |
-| `skills` | `plugins/mcp/skills/Cargo.toml` | `mcp-server-util` |
-| `test-rust-tool` | `plugins/mcp/test-rust-tool/Cargo.toml` | (various) |
+| `actions` | `plugins/tools/actions/Cargo.toml` | `mcp-server-util`, `sqlx`, `tokio` |
+| `fetch` | `plugins/tools/fetch/Cargo.toml` | `mcp-server-util`, `reqwest` |
+| `filesystem` | `plugins/tools/filesystem/Cargo.toml` | `mcp-server-util`, `tokio` |
+| `docker-compose` | `plugins/tools/docker-compose/Cargo.toml` | `mcp-server-util` |
+| `git` | `plugins/tools/git/Cargo.toml` | `mcp-server-util`, `reqwest` |
+| `skills` | `plugins/tools/skills/Cargo.toml` | `mcp-server-util` |
+| `test-rust-tool` | `plugins/tools/test-rust-tool/Cargo.toml` | (various) |
 
-| All of these depend on `mcp-server-util = { path = "../util" }` (the shared util crate at `plugins/mcp/util/`).
+All of these depend on `mcp-server-util = { path = "../util" }` (the shared util crate at `plugins/tools/util/`).
 
 ### Uninstall Must Stop the MCP Server
 
@@ -220,14 +220,14 @@ If you see infinite noop loops, check whether:
 - Planning phase is disabled for test-tool-caller (`"plan": False` in the channel PATCH)
 - Omniagent is making redundant model calls after receiving `finish_reason: "stop"`
 
-### Erroneous Plugin Copies (Binary-Only)
+### Erroneous Plugin Copies (Binary-Only — Cleaned from Seed Repo)
 
-The following directories in `plugins/mcp/` are **erroneous copies** of built-in plugins, containing only binaries (no source code: no `Cargo.toml`, no `src/`):
+The following directories in a forked repo's `plugins/tools/` are **erroneous copies** of built-in plugins, containing only binaries (no source code: no `Cargo.toml`, no `src/`):
 - `cron`, `kanban`, `search`, `memory`, `metrics`, `query`, `plugin-manager`, `subtasks`, `hindsight`
 
 These have `plugin.json` and a compiled binary but no source code. They show with `is_duplicated=true, has_source_code=false` in the dashboard. The actual source for these plugins is only in the **omniagent workspace** at `/app/plugins/mcp/<name>/`.
 
-**These will be removed in a future cleanup.** Do NOT attempt to install or compile them from omni-stack.
+**These were removed from the seed repo in a cleanup.** If they persist in a forked repo, they should be removed.
 
 **Install/Reinstall with Builtin Fallback:** The omniagent install/reinstall handlers now automatically fall back to the builtin source when a bundled directory exists but has no source code. So even if these binary-only copies are present, installing or reinstalling will succeed by compiling from `/app/plugins/mcp/<name>/` instead.
 
@@ -261,7 +261,7 @@ def _git_discard_all(repo_dir):
 
 ### Mattermost Platform Plugin Binary
 
-- Source tracked in omni-stack at `plugins/platforms/mattermost/`
+- Source tracked in omni-stack at `plugins/platforms/mattermost/` (forked repos)
 - Compiled binary at `plugins/platforms/mattermost/target/release/mattermost-platform`
 - `_ensure_mm_platform_binary()` checks if binary exists and compiles if missing : called at start of `test_mm9_e2e`
 - The binary survives `git checkout -- .` cleanup (only tracked files are restored)

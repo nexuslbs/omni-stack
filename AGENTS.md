@@ -1,5 +1,20 @@
 # Omni-Stack: AGENTS.md
 
+## Purpose: Seed Repo for Forking
+
+omni-stack is a **seed repository** — it provides the Docker Compose stack,
+service definitions, and deployment infrastructure. It is designed to be
+**forked** and customized for different deployments.
+
+**By default, omni-stack tracks zero plugins.** The `plugins/` directory
+contains only a `.gitignore` that ignores `.remote/` directories (auto-
+generated when plugins are installed from remote sources). Forked repos add
+their own bundled plugins under `plugins/{type}/{name}/` with a `plugin.json`.
+
+The only exception is the `mcp/util/` crate — a shared library dependency
+used by bundled MCP plugins. It has no `plugin.json` and is not a plugin
+itself; it's a workspace member that other plugins depend on via path.
+
 ## Plugin System Rules & Production Architecture
 
 ### Source of Truth

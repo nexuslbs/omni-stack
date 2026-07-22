@@ -19,7 +19,6 @@ COMMIT_MSG.txt
 .git-cache/
 *.bak
 scripts/__pycache__/
-scripts/*.bak
 docs/
 notes/
 

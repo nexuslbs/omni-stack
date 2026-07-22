@@ -11,13 +11,11 @@ This repository contains everything needed to run the OmniAgent stack in product
 
 ## Repository Structure
 
-```
+\`\`\`
 omni-stack/
 ├ docker-compose.yml         # Production stack
 ├ docker-compose.dev.yml     # Development overrides
 ├ .env.example               # Environment template
-├ .github/workflows/         # CI/CD
-│   └ publish.yml            # Build & push images to GHCR
 │
 ├ plugins/
 │   ├ mcp/                   # MCP server definitions (external subprocess tools)
@@ -230,7 +228,9 @@ The dev compose adds:
 
 ## CI/CD
 
-The `.github/workflows/publish.yml` workflow builds and publishes Docker images to GHCR on:
+CI/CD workflows now live in [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer).
+
+The `publish.yml` workflow builds and publishes Docker images to GHCR on:
 - **Push to `stable`**: tags `omniagent:latest`, `omni-dashboard:latest`, `toolbox:latest`
 - **Push to `v*` tags**: tags each image with the semver tag (e.g., `omniagent:1.2.3`)
 
@@ -279,7 +279,8 @@ rm -rf .git-cache/
 
 | Repository | Description |
 |-----------|-------------|
-| [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
-| [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Svelte SPA) |
-| [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
-| **nexuslbs/omni-stack** (this repo) | Deployment, plugins, profiles, CI/CD |
+|| [nexuslbs/omni-agent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
+|| [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Svelte SPA) |
+|| [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer) | Deployment orchestration, tests, CI/CD |
+|| [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
+|| **nexuslbs/omni-stack** (this repo) | Docker Compose, plugins, profiles |

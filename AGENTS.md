@@ -101,7 +101,7 @@ let current_enabled = plugins_yaml::get_entry(data_dir, &yaml_type, &name)
 
 ### Test Verification Requirements
 
-The integration test at `omni-stack/scripts/tests.py` MUST verify that plugin lifecycle operations actually took effect, not just that the API returned `success: true`:
+The integration test at `omni-deployer/scripts/tests.py` MUST verify that plugin lifecycle operations actually took effect, not just that the API returned `success: true`:
 
 | Operation | Verification |
 |-----------|-------------|
@@ -315,8 +315,8 @@ plugins:
 The test runner MUST run inside the omniagent container, which runs as root. Running from the host causes false failures:
 
 ```bash
-docker exec -e PYTHONUNBUFFERED=1 omni-omniagent-1 \
-    python3 -u /opt/workspace/omni-stack/scripts/tests.py
+docker exec -e PYTHONUNBUFFERED=1 omnidev-omniagent-1 \
+    python3 -u /opt/workspace/omni-deployer/scripts/tests.py
 ```
 
 **Host vs container differences that cause false failures:**

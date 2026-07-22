@@ -279,8 +279,8 @@ rm -rf .git-cache/
 
 | Repository | Description |
 |-----------|-------------|
-|| [nexuslbs/omni-agent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
-|| [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Svelte SPA) |
-|| [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer) | Deployment orchestration, tests, CI/CD |
-|| [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
-|| **nexuslbs/omni-stack** (this repo) | Docker Compose, plugins, profiles |
+| [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
+| [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Svelte SPA) |
+| [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer) | Deployment orchestration, tests, CI/CD |
+| [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
+| **nexuslbs/omni-stack** (this repo) | Docker Compose, plugins, profiles |

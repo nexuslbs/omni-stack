@@ -37,11 +37,10 @@ profiles/default/tmp/
 # ── Eliminated struct — workspace root, each plugin has own Cargo.toml ──
 /Cargo.toml
 
-# ── Data dir (runtime-only: research, generated content) ──
-/data/
-plugins/mcp/.remote/
+# ── Auto-generated remote plugin clones (ignored per type dir) ──
+plugins/platforms/.remote/
 plugins/tools/.remote/
-plugins/.remote/
+plugins/providers/.remote/
 
 # ── Python bytecode cache ──
 __pycache__/

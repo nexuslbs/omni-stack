@@ -11,7 +11,7 @@ This repository contains everything needed to run the OmniAgent stack in product
 
 ## Repository Structure
 
-\`\`\`
+```
 omni-stack/
 ├ docker-compose.yml         # Production stack
 ├ docker-compose.dev.yml     # Development overrides

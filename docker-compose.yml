@@ -32,7 +32,7 @@ services:
     image: ${OMNIAGENT_IMAGE:-omniagent-dev:latest}
     build:
       dockerfile: Dockerfile.dev
-      context: /opt/workspace/omniagent
+      context: ${WORKSPACE_DIR:-/opt/workspace}/omniagent
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,11 +43,11 @@ services:
       DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD:-}@postgres:5432/omniagent
       OMNI_DIR: ${OMNI_DIR:-/opt/omni}
     volumes:
-      - /opt/workspace/omniagent:/app:rw
+      - ${WORKSPACE_DIR:-/opt/workspace}/omniagent:/app:rw
       - omniagent-target:/app/target
-      - /opt/workspace/omni-stack:/opt/omni:rw
+      - ${WORKSPACE_DIR:-/opt/workspace}/omni-stack:/opt/omni:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
-      - /opt/workspace:/opt/workspace:rw
+      - ${WORKSPACE_DIR:-/opt/workspace}:/opt/workspace:rw
     expose:
       - "8080"
     ports:
@@ -68,14 +68,14 @@ services:
       OMNI_DIR: ${OMNI_DIR:-/opt/omni}
       EXPLORER_DIR: ${EXPLORER_DIR:-/opt}
     volumes:
-      - /opt/workspace/omni-stack/:/opt/omni/:rw
-      - /opt/workspace/omni-stack/user/:/opt/omni/user:rw
-      - /opt/workspace/omni-stack/profiles/:/opt/omni/profiles:rw
-      - /opt/workspace/omni-dashboard:/opt/repo:rw
+      - ${WORKSPACE_DIR:-/opt/workspace}/omni-stack/:/opt/omni/:rw
+      - ${WORKSPACE_DIR:-/opt/workspace}/omni-stack/user/:/opt/omni/user:rw
+      - ${WORKSPACE_DIR:-/opt/workspace}/omni-stack/profiles/:/opt/omni/profiles:rw
+      - ${WORKSPACE_DIR:-/opt/workspace}/omni-dashboard:/opt/repo:rw
       - /opt/data:/opt/data:ro
       - /opt/hermes:/opt/hermes:ro
       - /opt/hermes-repo:/opt/hermes-repo:ro
-      - /opt/workspace:/opt/workspace:ro
+      - ${WORKSPACE_DIR:-/opt/workspace}:/opt/workspace:ro
     logging:
       driver: journald
 

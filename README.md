@@ -18,47 +18,25 @@ omni-stack/
 ├ .env.example               # Environment template
 │
 ├ plugins/
-│   ├ mcp/                   # MCP server definitions (external subprocess tools)
-│   │   ├ cron/              #   Cron job management
-│   │   ├ kanban/            #   Kanban task management
-│   │   ├ memory/            #   Memory tools (promote, list, review)
-│   │   ├ fetch/             #   HTTP fetching
-│   │   ├ filesystem/        #   File read/write
-│   │   ├ docker-compose/    #   Docker Compose orchestration
-│   │   ├ git/               #   Git operations
-│   │   ├ skills/            #   Skill management
-│   │   ├ search/            #   Search tools
-│   │   ├ subtasks/          #   Thread subtask management
-│   │   ├ query/             #   Database querying
-│   │   ├ metrics/           #   System metrics
-│   │   ├ plugin-manager/    #   Plugin lifecycle
-│   │   ├ hindsight/         #   Hindsight memory population
-│   │   ├ actions/           #   Built-in actions (kanban dispatcher, etc.)
-│   │   └ ...                #   Test/dev tools
+│   ├ platforms/             # Platform plugins (communication backends) — seed: empty
+│   │   └ ...
 │   │
-│   ├ platforms/             # Platform plugins (communication backends)
-│   │   ├ mattermost/        #   Mattermost (Rust, full setup + websocket)
-│   │   └ telegram/          #   Telegram plugin config
+│   ├ providers/             # LLM provider plugins — seed: empty
+│   │   └ ...
 │   │
-│   └ providers/             # LLM provider plugins
-│       ├ opencode-go/       #   OpenCode Go provider
-│       ├ deepseek/          #   DeepSeek provider
-│       ├ openai/            #   OpenAI provider
-│       └ anthropic/         #   Anthropic provider
+│   └ tools/                 # MCP server definitions (external subprocess tools) — seed: empty
+│       └ ...
 │
 ├ profiles/
-│   └ default/               # Default profile (config, memories, skills, wiki)
+│   └ omni/                  # Default profile (config, memories, skills, wiki)
 │       ├ config.json        #   Profile configuration
 │       ├ memories/          #   MEMORY.md, SOUL.md
 │       ├ skills/            #   Knowledge pipeline, workspace development
 │       ├ templates/         #   Prompt templates (blog, knowledge pipeline, etc.)
 │       └ wiki/              #   Wiki content (reference docs, research)
 │
-├ services/toolbox/                   # Toolbox container (maintenance scripts)
+├ services/toolbox/          # Toolbox container (maintenance scripts)
 │
-├ platforms.yml              # Platform plugin config
-├ providers.yml              # Provider plugin config
-├ tools.yml                  # Tool plugin config
 ├ actions.yml                # Saved action definitions
 └ AGENTS.md                  # Operational guide for the LLM agent
 ```
@@ -161,7 +139,7 @@ Channels represent communication endpoints (Telegram, Mattermost, API, cron). Ea
 
 ### Plugins
 
-Plugins are configured via YAML files (`platforms.yml`, `providers.yml`, `tools.yml`). Each plugin directory under `plugins/` contains a `plugin.json` manifest.
+Plugins are configured via YAML files in the repository root (`platforms.yml`, `providers.yml`, `tools.yml` — created by forked repos that add plugins). Each plugin directory under `plugins/` contains a `plugin.json` manifest.
 
 OmniAgent uses a **three-source** plugin system:
 

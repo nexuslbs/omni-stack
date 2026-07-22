@@ -1,0 +1,6 @@
+# Ignore all plugins by default — omni-stack tracks zero plugins.
+# Forked repos can remove this file to add bundled plugins.
+*
+
+# Track this .gitignore itself
+!.gitignore

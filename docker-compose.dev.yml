@@ -8,6 +8,7 @@ services:
       dockerfile: Dockerfile.dev
     image: omniagent-dev:latest
     env_file: []
+    command: /target/release/omniagent
     environment:
       CARGO_TARGET_DIR: /target
     dns:

@@ -53,8 +53,21 @@ def _parse_script(messages):
             try:
                 p = json.loads(raw)
                 if isinstance(p, list):
-                    _log(f"_parse_script: found {len(p)} top-level items")
+                    _log(f"_parse_script: found {len(p)} top-level items (direct list)")
                     return p
+                # Handle prompt_generate wrapped format:
+                # {"system":"...","user":"[{\"name\":\"step1\",...}]",...}
+                if isinstance(p, dict):
+                    for field in ("user", "content", "script"):
+                        inner = p.get(field)
+                        if inner and isinstance(inner, str):
+                            try:
+                                inner_p = json.loads(inner)
+                                if isinstance(inner_p, list):
+                                    _log(f"_parse_script: found {len(inner_p)} items in wrapped '{field}' field")
+                                    return inner_p
+                            except Exception:
+                                pass
             except Exception:
                 pass
             break
@@ -266,7 +279,19 @@ class NoopHandler(BaseHTTPRequestHandler):
     def _last_text(self, msgs):
         for m in reversed(msgs):
             if m.get("role") == "user":
-                return m.get("content", "") or ""
+                content = m.get("content", "") or ""
+                # Handle prompt_generate wrapped format
+                if content.startswith("{"):
+                    try:
+                        p = json.loads(content)
+                        if isinstance(p, dict):
+                            # Try user field first, then content, then raw
+                            for field in ("user", "content"):
+                                if p.get(field):
+                                    return p[field]
+                    except Exception:
+                        pass
+                return content
         return ""
 
     def _send_json(self, status, data):

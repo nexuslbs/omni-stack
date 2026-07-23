@@ -10,6 +10,8 @@ services:
     env_file: []
     environment:
       CARGO_TARGET_DIR: /target
+    dns:
+      - 8.8.8.8
     volumes:
       - /opt/workspace/omniagent:/app:rw
       - cargo-registry:/usr/local/cargo/registry

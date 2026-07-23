@@ -82,8 +82,7 @@ providers:
   deepseek:
     enabled: true
     source: bundled
-    config:
-      api_key: $secret:DEEPSEEK_API_KEY
+    config: {}
   noop:
     enabled: true
     source: bundled

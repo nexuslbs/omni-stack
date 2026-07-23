@@ -1,4 +1,10 @@
 tools:
+  test-python:
+    url: file:///opt/workspace/omni-plugins
+    path: tools/test-python
+  test-rust-tool:
+    url: file:///opt/workspace/omni-plugins
+    path: tools/test-rust-tool
   test-yaml-tool-2:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-yaml-tool-2

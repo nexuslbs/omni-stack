@@ -280,18 +280,20 @@ class NoopHandler(BaseHTTPRequestHandler):
         for m in reversed(msgs):
             if m.get("role") == "user":
                 content = m.get("content", "") or ""
+                _log(f"_last_text: content={repr(content[:200])}")
                 # Handle prompt_generate wrapped format
                 if content.startswith("{"):
                     try:
                         p = json.loads(content)
                         if isinstance(p, dict):
-                            # Try user field first, then content, then raw
                             for field in ("user", "content"):
                                 if p.get(field):
+                                    _log(f"_last_text: extracted '{field}'={repr(p[field][:200])}")
                                     return p[field]
                     except Exception:
                         pass
                 return content
+        return ""
         return ""
 
     def _send_json(self, status, data):

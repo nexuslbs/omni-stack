@@ -1,1 +1,4 @@
-tools: {}
+tools:
+  test-rust-tool:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/test-rust-tool

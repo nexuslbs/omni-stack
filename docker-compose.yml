@@ -60,7 +60,6 @@ services:
 
   dashboard:
     image: ${DASHBOARD_IMAGE:-ghcr.io/nexuslbs/omni-dashboard:latest}
-    command: ["node", "/opt/repo/server-dist/index.js"]
     ports:
       - "12346:3001"
     environment:

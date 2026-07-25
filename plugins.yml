@@ -9,7 +9,7 @@ platforms:
       bot_password: $secret:MATTERMOST_BOT_PASSWORD
       bot_user: omnibot
       server_url: http://mattermost:8065
-      setup_channel: setup
+      setup_channel: stable-channel
       setup_team: omni
       test_password: $secret:MATTERMOST_TEST_PASSWORD
       test_user: testuser
@@ -77,8 +77,9 @@ tools:
 providers:
   deepseek:
     enabled: true
-    source: bundled
-    config: {}
+    source: built-in
+    config:
+      api_key: "$secret:DEEPSEEK_API_KEY"
   noop:
     enabled: true
     source: bundled
@@ -93,5 +94,5 @@ providers:
     config: {}
   opencode-go:
     enabled: true
-    source: bundled
+    source: built-in
     config: {}

@@ -44,19 +44,18 @@ def _build_tool_call(tool, args, call_id):
 
 
 def _parse_script(messages):
-    """Parse script from the first user message. Returns None if not a script."""
+    """Parse script from messages. Checks all user and system messages."""
     for msg in messages:
-        if msg.get("role") == "user":
+        if msg.get("role") in ("user", "system"):
             raw = msg.get("content", "")
             if raw is None:
-                break
+                continue
             try:
                 p = json.loads(raw)
                 if isinstance(p, list):
                     _log(f"_parse_script: found {len(p)} top-level items (direct list)")
                     return p
                 # Handle prompt_generate wrapped format:
-                # {"system":"...","user":"[{\"name\":\"step1\",...}]",...}
                 if isinstance(p, dict):
                     for field in ("user", "content", "script"):
                         inner = p.get(field)
@@ -70,7 +69,6 @@ def _parse_script(messages):
                                 pass
             except Exception:
                 pass
-            break
     return None
 
 

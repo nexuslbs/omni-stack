@@ -6,7 +6,6 @@ general:
   delete_after_days: 30
   llm_provider: opencode-go
   max_inline_file_kb: 100
-  max_pool_connections: 5
   max_tokens: 4096
   max_unfinished_subtask_retries: 3
   old_message_char_budget: 100000
@@ -15,7 +14,6 @@ general:
   temperature: 0.7
   thread_summary_tokens: 2048
   tokenizer_encoding: gpt-4
-  watchdog_default: ''
 
 execution:
   max_iterations_no_plan: 30
@@ -49,3 +47,8 @@ memory:
   wiki_vectorization_interval: 3600
   wiki_vectorization_method: local
   wiki_vectorization_protocol: openai
+
+unsorted:
+  max_pool_connections: 5
+  watchdog_default: ''
+

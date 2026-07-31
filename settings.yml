@@ -6,7 +6,7 @@ general:
   delete_after_days: 30
   llm_provider: opencode-go
   max_inline_file_kb: 100
-  max_tokens: 4096
+  max_tokens: 8192
   max_unfinished_subtask_retries: 3
   old_message_char_budget: 100000
   soul_max_chars: 1000
@@ -16,7 +16,7 @@ general:
   tokenizer_encoding: gpt-4
 
 execution:
-  max_iterations_no_plan: 30
+  max_iterations_no_plan: 60
   max_iterations_plan: 120
   tool_long_timeout_secs: 300
   tool_short_timeout_secs: 5

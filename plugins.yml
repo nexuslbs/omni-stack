@@ -41,7 +41,9 @@ tools:
   git:
     enabled: true
     source: built-in
-    config: {}
+    config:
+      github_app_id: ''
+      github_installation_id: ''
   hindsight:
     enabled: false
     source: built-in

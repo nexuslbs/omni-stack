@@ -42,6 +42,10 @@ services:
     environment:
       DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD:-}@postgres:5432/omniagent
       OMNI_DIR: ${OMNI_DIR:-/opt/omni}
+      # Stable/image builds use the committed .sqlx offline cache (no live DB
+      # at compile time). The dev overlay overrides this to false so omnidev
+      # builds validate queries against the live migrated DB instead.
+      SQLX_OFFLINE: "true"
     volumes:
       # NOTE: the omniagent SOURCE repo must NOT be mounted here — omnistable
       # (and any image-based deploy) runs the omniagent binary + built-in

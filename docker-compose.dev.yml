@@ -11,6 +11,9 @@ services:
     command: /target/release/omniagent
     environment:
       CARGO_TARGET_DIR: /target
+      # Dev builds validate queries against the live DB (SQLX_OFFLINE=false),
+      # so code + migrations can change on the fly without a stale .sqlx cache.
+      SQLX_OFFLINE: "false"
     dns:
       - 8.8.8.8
     volumes:

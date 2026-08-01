@@ -26,9 +26,17 @@ services:
       context: /opt/workspace/omni-dashboard
       dockerfile: Dockerfile
     command: ["node", "/opt/repo/server-dist/index.js"]
+    # Dev-only host access: publish dashboard + mattermost to the host here,
+    # never in the base compose (host ports are a shared, finite resource).
+    ports:
+      - "12346:3001"
     volumes:
       - /opt/workspace/omni-dashboard:/opt/repo:rw
       - /opt/workspace/omni-dashboard/node_modules:/app/node_modules:ro
+
+  mattermost:
+    ports:
+      - "12349:8065"
 
 networks:
   default:

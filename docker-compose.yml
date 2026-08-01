@@ -57,8 +57,11 @@ services:
       - ${WORKSPACE_DIR:-/opt/workspace}:/opt/workspace:rw
     expose:
       - "8080"
-    ports:
-      - "8080:8080"
+    # NOTE: omniagent is expose-only (no host ports). Host ports are a finite
+    # resource shared across stacks (omnidev/omnistable/omnideploy) and a footgun
+    # for agent-built projects (they collide when a project also wants 8080).
+    # Access the API from the host/other containers via `docker exec` or the
+    # Docker network (http://omniagent:8080), never via localhost:8080.
     user: root
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -68,8 +71,8 @@ services:
   dashboard:
     image: ${DASHBOARD_IMAGE:-ghcr.io/nexuslbs/omni-dashboard:latest}
     command: ["node", "/app/server/index.js"]
-    ports:
-      - "12346:3001"
+    # Host port publishing for the dashboard lives in the dev overlay
+    # (docker-compose.dev.yml) — host access is a dev-only convenience.
     environment:
       PORT: "3001"
       OMNI_DIR: ${OMNI_DIR:-/opt/omni}
@@ -161,8 +164,9 @@ services:
         condition: service_healthy
     expose:
       - "8065"
-    ports:
-      - "12349:8065"
+    # Host port publishing for mattermost lives in the dev overlay
+    # (docker-compose.dev.yml). Agents/platforms talk to it internally via
+    # http://mattermost:8065 — no host mapping needed.
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
       MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${MM_POSTGRES_PASSWORD}@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10

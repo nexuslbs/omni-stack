@@ -42,7 +42,9 @@ tools:
     enabled: true
     source: built-in
     config:
-      github_app_token: $secret:GH_APP_TOKEN
+      github_app_id: '3967918'
+      github_app_private_key: $secret:GH_APP_PRIVATE_KEY
+      github_installation_id: '138119822'
   hindsight:
     enabled: false
     source: built-in

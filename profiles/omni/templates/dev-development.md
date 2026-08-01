@@ -21,6 +21,21 @@
 - Commit work frequently with `git_commit-and-push` using a descriptive message.
 - Keep secrets out of code: use environment variables / `.env` files for credentials and never hardcode API keys.
 
+### Scratch tooling rules (MANDATORY)
+- NEVER commit scratch helper files into the project repo. If you create temporary
+  tooling (helper compose files, patch scripts, busybox containers, `toolbox/`
+  directories), it is scaffolding — NOT part of the deliverable. Delete it before
+  committing, or keep it OUTSIDE the project directory (e.g. `/tmp/`).
+- When using `git_commit-and-push`, pass the explicit `files:` parameter listing
+  exactly the files that belong in the commit. NEVER do a blanket stage of
+  everything (`git add -A` equivalent) — that is how scratch files leak into the repo.
+- Before finishing, remove any helper containers you created for the task
+  (`docker compose down` for the project's own stack is fine; scratch containers
+  like `*-toolbox`, `*-patch` must be `docker rm -f`'d).
+- After `git_commit-and-push`, VERIFY the push actually succeeded (the tool's
+  response should confirm the remote ref was updated). If the push failed, the
+  task is NOT complete — report the failure and do not mark the deliverable done.
+
 ## Testing
 - Run the project's test suite (whatever the README/AGENTS.md specifies): `docker compose exec <service> <test-command>` or the equivalent.
 - Verify each service starts cleanly: check `docker compose ps` for healthy state and inspect logs via `docker compose logs <service>`.
@@ -29,6 +44,8 @@
 
 ## Completing the Task
 - Commit all changes with a descriptive message (what changed and why), and push to the remote.
+- Verify the push landed on the remote (not just a local commit) before reporting success.
+- Clean up: remove scratch helper containers/files created during the task.
 - Report back with:
   - What was implemented and how it works
   - Service layout (db / backend / frontend) and how to run it

@@ -10,6 +10,7 @@ Use this skill when working with git repositories through the MCP git tools. The
 | `git_clone-repo` | Clone a repository. Provide the repo URL and a target path. Repos live under `/opt/workspace/<project>/`. |
 | `git_commit-and-push` | Stage all changes (`git add -A`), commit with a message, and push to the remote `origin`. Pushes the current branch head to `HEAD:<branch>` using the configured credentials. |
 | `git_create-github-repo` | Create a new GitHub repository (requires GitHub App credentials). |
+| `git_run-command` | Run ANY git command: `args` is an array like `["log", "--oneline", "-10"]`, `["diff"]`, `["branch", "-a"]`, `["remote", "-v"]`, `["fetch", "origin"]`, `["reset", "--soft", "HEAD~1"]`, `["stash"]`. Use this when the focused tools above aren't specific enough (pull, diff, log, tag, rebase, etc.). Pass `"use_auth": true` for authenticated fetch/push/pull against the https origin. |
 
 ## Workflow
 
@@ -21,8 +22,9 @@ Use this skill when working with git repositories through the MCP git tools. The
 
 ## Pitfalls
 
-- There is **no `git pull` tool** — `git_clone-repo` is the way to get a fresh copy. If the repo already exists locally, `git_commit-and-push` will push local commits; conflicts with remote changes surface as push errors.
-- There is **no `git diff` tool** — to review changes, use `filesystem_read` on the files you modified.
-- `git_commit-and-push` stages ALL changes (including deletions and untracked files). Be intentional about what you edit in the workspace.
+- `git_commit-and-push` stages ALL changes by default (including deletions and untracked files). To commit ONLY specific files, pass them via the `files` parameter — never rely on the blanket stage when the tree contains scratch files.
+- `git_run-command` args must be an ARRAY (e.g. `["log", "--oneline"]`), never a shell string — no shell injection is possible. Use `use_auth: true` only when the command needs GitHub credentials (fetch/push/pull); read-only commands (log, diff, status, branch) don't need it.
 - Never commit secrets, `.env` files, or build artifacts. Use `.gitignore` entries for those.
+- Never commit scratch helper files (toolbox/ dirs, patch scripts). Delete them or keep them outside the repo before committing.
 - Commit messages should explain what and why, not just "update".
+- If a push fails because the remote has new commits, use `git_run-command` with `["fetch", "origin"]` (plus `"use_auth": true`) to inspect, then rebase/reset as appropriate.

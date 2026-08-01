@@ -22,6 +22,7 @@ Use this skill when working with git repositories through the MCP git tools. The
 
 ## Pitfalls
 
+- **Sandbox**: all git tools only operate inside the configured `workspace_dir` (default `/opt/workspace`) and its subdirectories. Repos outside that path are rejected — clone there first if you need to work on something elsewhere.
 - `git_commit-and-push` stages ALL changes by default (including deletions and untracked files). To commit ONLY specific files, pass them via the `files` parameter — never rely on the blanket stage when the tree contains scratch files.
 - `git_run-command` args must be an ARRAY (e.g. `["log", "--oneline"]`), never a shell string — no shell injection is possible. Use `use_auth: true` only when the command needs GitHub credentials (fetch/push/pull); read-only commands (log, diff, status, branch) don't need it.
 - Never commit secrets, `.env` files, or build artifacts. Use `.gitignore` entries for those.

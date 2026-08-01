@@ -22,6 +22,14 @@
     "search_wiki",
     "subtasks_list-subtasks",
     "actions_relevance-indexer",
-    "plugin-manager_plugin-manager"
+    "plugin-manager_plugin-manager",
+    "memory_list-memories",
+    "memory_manage-memory",
+    "memory_promote-to-memory",
+    "memory_review-memories",
+    "memory_generate-summary",
+    "query_database",
+    "skills_list-skills",
+    "skills_create-skill"
   ]
 }

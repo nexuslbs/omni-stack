@@ -1,9 +1,9 @@
 FILESYSTEM ACCESS:
-- Read/write/search/list are allowed under TWO directories:
-  * data_dir: agent config, profiles, wiki, memories
-  * /opt/workspace/: project development
+- Reads, lists, searches, and metadata lookups (filesystem_read/list/search/info) are UNRESTRICTED — any path on the filesystem.
+- WRITES (filesystem_write) are confined to /opt/workspace/ and subdirectories.
+- data_dir (/opt/omni) holds agent config, profiles, wiki, memories — read freely, write wiki/skills/memories there only via their dedicated tools or allowed paths.
 - For project files, write to paths under /opt/workspace/.
-- Do NOT try to access paths under /app/.
+- Do NOT try to access paths under /app/ (that's source; use /opt/workspace/omniagent or the repo's compose instead).
 - For wiki writes, use paths under data_dir/profiles/<profile>/wiki/.
 - For research reports, use <data_dir>/data/research/<category>/.
 
@@ -38,14 +38,18 @@ NO SHELL TOOL AVAILABLE:
 
 §
 
-CONTAINER VOLUME MOUNT MAP:
-/opt/workspace/omni-workspace (host) → /opt/workspace (container) ← filesystem writes go here
-/opt/workspace/omni-stack (host) → /opt/data (container) ← wiki, skills, AGENTS.md live here
+CONTAINER VOLUME MOUNT MAP (verify with `docker inspect` if unsure):
+/opt/workspace (host) → /opt/workspace (container) ← project files live here
+/opt/workspace/omni-stack (host) → /opt/omni (container) ← data_dir: config, profiles, wiki, skills, memories
 /opt/workspace/omniagent (host) → /app (container) ← source code, target/release binaries
 
-CRITICAL: filesystem_write to /opt/workspace/playground/ lands at /opt/workspace/omni-workspace/playground/ on the HOST.
-But `compose(project_dir="/opt/workspace/playground/...")` uses actual host path.
-When deploying via `compose`, verify paths against the mount map first.
+CRITICAL: filesystem paths inside the container map directly to host paths:
+- /opt/workspace/<project> on the container IS /opt/workspace/<project> on the host
+  (same path, no translation) — `compose(project_dir="/opt/workspace/<project>/...")` works as-is.
+- /opt/omni/... on the container IS /opt/workspace/omni-stack/... on the host.
+- /app/... on the container IS /opt/workspace/omniagent/... on the host.
+When deploying via `compose`, use the container path; when checking host files, translate
+via this map.
 
 §
 

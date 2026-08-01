@@ -43,7 +43,7 @@ tools:
     source: built-in
     config:
       github_app_id: '3967918'
-      github_app_private_key: $secret:GH_APP_PRIVATE_KEY
+      github_app_private_key: $secret:GITHUB_APP_KEY
       github_installation_id: '138119822'
   hindsight:
     enabled: false
@@ -122,4 +122,5 @@ providers:
   opencode-go:
     enabled: true
     source: built-in
-    config: {}
+    config:
+      api_key: $secret:OPENCODE_API_KEY

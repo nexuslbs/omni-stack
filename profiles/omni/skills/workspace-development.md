@@ -9,6 +9,11 @@ Use this skill when asked to build, run, or test code projects in the workspace.
 - Searching past messages is rarely needed for building a new project
 - When you have a clear instruction, **execute it directly** rather than exploring
 
+## Sandbox
+
+- **Filesystem sandbox**: `filesystem_*` tools only operate inside the workspace dir (`/opt/workspace`) and its subdirectories — reads, writes, lists, searches, and metadata calls outside it are rejected. All project files go under `/opt/workspace/<project>/`.
+- **Git sandbox**: git tools (`status`, `commit-and-push`, `run-command`, `clone`) only operate inside `/opt/workspace` and subdirectories.
+
 ## Tools Available
 
 - **`filesystem_write` / `filesystem_read` / `filesystem_info` / `filesystem_search`**: create and edit project files

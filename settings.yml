@@ -18,8 +18,7 @@ general:
 execution:
   max_iterations_no_plan: 60
   max_iterations_plan: 120
-  tool_long_timeout_secs: 300
-  tool_short_timeout_secs: 5
+  tool_bg_secs: 5
 
 prompt:
   prompt_char_budget_hard: 500000

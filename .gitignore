@@ -51,6 +51,3 @@ plugins/providers/.remote/
 # ── Python bytecode cache ──
 __pycache__/
 *.pyc
-
-# ── Deploy-time seed (rewritten by deploy.py every run) ──
-remote.yml

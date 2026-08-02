@@ -76,7 +76,8 @@ tools:
   query:
     enabled: true
     source: built-in
-    config: {}
+    config:
+      database_url: $env:DATABASE_URL
   search:
     enabled: true
     source: built-in

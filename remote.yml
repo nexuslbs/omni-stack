@@ -1,8 +1,4 @@
 tools:
   test-rust-tool:
-    url: file:///opt/workspace/omni-plugins
+    url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-rust-tool
-providers:
-  noop:
-    url: file:///opt/workspace/omni-plugins
-    path: providers/noop-full

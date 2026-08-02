@@ -11,6 +11,9 @@ dist/
 .env.*.local
 .env.bak
 .env.cron
+.env.omnidev
+omnidev.env
+omnideploy.env
 
 # ── Temporary / generated files ──
 COMMIT_MSG.txt

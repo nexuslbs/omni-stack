@@ -42,6 +42,13 @@
 - Test the happy path and at least one error path (e.g. invalid input, missing config, service down).
 - For web apps, verify the frontend loads and can reach the backend API.
 
+## Never restart the stack you run inside (MANDATORY)
+- You run INSIDE the omniagent container. NEVER issue `docker_compose restart`, `down`, `stop`, `rm`, `kill`, or `up` against the
+  omni-stack project (`project_dir` containing `omni-stack`). Restarting your own container kills your thread mid-task.
+- The executor blocks such calls automatically; if you see a "Blocked: docker_compose ... targets the omni-stack" error, that is
+  working as intended — do NOT try to work around it. Report that a stack restart is needed instead; Hermes performs it.
+- You MAY build Rust binaries inside the container (`docker_compose exec` with `cargo build`) and restart OTHER projects.
+
 ## Completing the Task
 - Commit all changes with a descriptive message (what changed and why), and push to the remote.
 - Verify the push landed on the remote (not just a local commit) before reporting success.

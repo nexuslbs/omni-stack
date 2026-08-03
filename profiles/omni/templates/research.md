@@ -33,7 +33,9 @@
   it over. Honesty about uncertainty beats confident hallucination.
 
 ## Output Path
-- Write the report to `<data_dir>/data/research/<category>/`.
+- Write the report to `/opt/workspace/data/research/<category>/` (the ONLY writable
+  location — filesystem_write is sandboxed to /opt/workspace; `/opt/omni` is
+  read-only for the agent).
 - Category reflects topic domain (e.g. 'agents', 'deployment', 'security').
 - If the prompt specifies a filename, use it. Otherwise, the agent defines one.
 

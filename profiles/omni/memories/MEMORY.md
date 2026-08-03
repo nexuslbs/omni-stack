@@ -21,7 +21,9 @@ FILESYSTEM ACCESS:
 - Do NOT try to access paths under /app/ (that's source; use /opt/workspace/omniagent or
   the repo's compose instead).
 - For wiki writes, use paths under data_dir/profiles/<profile>/wiki/.
-- For research reports, use <data_dir>/data/research/<category>/.
+- For research reports, write to /opt/workspace/data/research/<category>/ — the ONLY
+  writable location (filesystem_write is sandboxed to /opt/workspace; /opt/omni is
+  read-only for the agent).
 
 §
 

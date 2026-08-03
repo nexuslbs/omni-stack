@@ -1,5 +1,40 @@
 # Omni-Stack: AGENTS.md
 
+## Agent Guidance Architecture (read this first)
+
+The agent gets its instructions from FOUR layers. Each layer has a distinct role;
+content must live in the layer that matches its role. See
+`profiles/omni/wiki/Reference/Agent-Guidance-Architecture.md` for the full model.
+
+| Layer | Path | Injected when | Role |
+|---|---|---|---|
+| MEMORY | `profiles/omni/memories/MEMORY.md` | Every prompt | Always-know facts (environment, tool capabilities, universal discipline) |
+| Templates | `profiles/omni/templates/<name>.md` | Only tasks that name the template | Task-flavor guidance (development, research, knowledge-pipeline) |
+| Skills | `profiles/omni/skills/<name>.md` | On demand (agent reads the matching skill) | Execution detail: concrete patterns, examples, commands |
+| Wiki | `profiles/omni/wiki/**` | On demand (search_wiki) | Long-term knowledge: architecture, invariants, detailed references |
+
+**Conventions (enforced):**
+1. **Memory = always-know only.** Task-flavor rules (dev commit cadence, research
+   output paths) belong in that flavor's template, NOT in MEMORY.md. Memory is read
+   every turn; bloat taxes every task.
+2. **Templates are generic and task-flavor-focused — never project-specific.**
+   One template per flavor of task. Project specifics go in the task body or wiki.
+   Legacy project-specific templates (`blog-markdown.md`, `build-blog.md`) exist but
+   new templates MUST follow this rule.
+3. **Templates keep the overview; skills carry the how-to.** A template points at a
+   skill ("see skill `workspace-development`") rather than duplicating its examples.
+4. **Tool capabilities live in the tool description** (plugin `input_schema` +
+   description in source), not in guidance files. Guidance references capabilities;
+   tool descriptions stay in sync with code by construction, docs rot.
+5. **Keep every layer small enough to be read.** The agent reads memory every turn
+   and templates at task start; long files get skimmed and rules get missed.
+
+Task flavors currently defined:
+- `dev-development.md` — implementation tasks (budget discipline, commit rules, testing)
+- `research.md` — research/synthesis tasks (batch fetches, notes-first, output path)
+- `knowledge-pipeline.md` — periodic maintenance (summarize, wiki/skill update, indexing)
+- `code-improvement.md`, `blog-markdown.md`, `build-blog.md` — legacy flavors
+
 ## Purpose: Seed Repo for Forking
 
 omni-stack is a **seed repository** — it provides the Docker Compose stack,

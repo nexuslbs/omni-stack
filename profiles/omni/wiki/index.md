@@ -3,8 +3,10 @@
 ## Index
 
 - **Reference/**
+  - [Agent Guidance Architecture](./Reference/Agent-Guidance-Architecture.md): The 4-layer guidance model (memory → templates → skills → wiki), what goes where, and conventions
+  - [Budget & Context Mechanics](./Reference/Budget-and-Context.md): Thread budget, compaction behavior, prompt context blocks, filesystem_read paging
   - [Deployment Checklist](./Reference/Deployment-Checklist.md): How to deploy services correctly via compose
-  - [Container Mount Map](./Reference/Container-Mount-Map.md): Volume mount mapping between host and container
+  - [Container Mount Map](./Reference/Container-Mount-Map.md): Volume mount mapping between host and container (omni-stack → /opt/omni, NOT /opt/data)
   - [Omniagent Mattermost Platform](./Reference/Omniagent-Mattermost-Platform.md): Mattermost platform architecture, setup, invariants, and recovery
 - **Log**
   - [log.md](./log.md): Change log
@@ -13,5 +15,8 @@
 
 - You have NO shell/terminal tool. All operations go through MCP tools.
 - Docker operations: `compose` MCP tool only.
-- File operations: `filesystem_*` MCP tools only.
-- Port checking via `fetch` is unreliable from inside the container.
+- File operations: `filesystem_*` MCP tools only. `filesystem_read` supports
+  offset/limit char-based paging; `filesystem_search` matches file names only.
+- Port checking via `fetch` is unreliable from inside the container — use `compose ps`.
+- Container mount map: `/opt/workspace` == `/opt/workspace`; omni-stack == `/opt/omni`;
+  omniagent == `/app`.

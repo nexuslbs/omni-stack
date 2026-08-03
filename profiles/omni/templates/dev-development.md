@@ -7,17 +7,14 @@
 - Spend AT MOST 10 calls on exploration (list/read/search). By call ~20 you must be
   writing or committing.
 - READ FILES ONCE: read a file a single time and extract everything you need from it in
-  that one call. Do NOT re-read the same file or the same line ranges. Compaction destroys
-  earlier tool results, so after a compaction you will NOT remember file contents — that
-  is not a reason to re-read; write the facts you need into your working notes or a
-  scratch file (outside the repo) as you read.
-- LARGE FILES: `filesystem_read` truncates at 50,000 chars and has NO offset/limit
-  parameter, so it can only ever show the head of a big file. `filesystem_search` only
-  matches FILE NAMES (glob) — it does NOT search file contents. There is no content-grep
-  tool. For a large file, read the section you need with `filesystem_read` (accept the
-  head truncation) or use `docker_compose exec` with `sed -n 'START,ENDp' path` / `grep -n`
-  inside the project's own container to extract exact lines. Never re-read the same file:
-  extract the facts you need the first time and write them into your working notes.
+  that one call. Do NOT re-read the same file or the same line ranges. Compaction keeps
+  only a short excerpt of tool results, so after a compaction you will NOT remember full
+  file contents — that is not a reason to re-read; write the facts you need into your
+  working notes or a scratch file (outside the repo) as you read.
+- LARGE FILES: use `filesystem_read` paging (offset/limit) or `compose exec <service>`
+  with `sed -n 'A,Bp'` / `grep -n` for exact lines. Do NOT read a big file "whole" —
+  you can only ever see a slice, and re-reading the same slice teaches you nothing.
+  See skill `workspace-development` for the exact patterns.
 - COMMIT PARTIAL WORK: commit after each logical unit (a file written, a test passing).
   A thread can die at any moment; only committed work survives. Do not hold changes for
   a single final commit.
@@ -28,7 +25,7 @@
 - Pull the latest code: use the `git_status` tool to check the current state, then `git_clone-repo` (if not cloned yet) or ensure the working tree matches the remote. The repo to work on is usually under `/opt/workspace/<project>`.
 - Read the project's `README.md` and `AGENTS.md` files first — they describe the build, run, and test conventions for that repo.
 - Check for `.cursorrules`, `CLAUDE.md`, or similar guidance files at the repo root.
-- List the existing files with `filesystem_list` to understand the project layout before editing.
+- List the existing files with `filesystem_list` to understand the project layout before editing (ONCE).
 - If the project has no local clone yet, clone it with `git_clone-repo` specifying the target directory.
 
 ## Understanding the Task
@@ -57,8 +54,9 @@
   (`docker compose down` for the project's own stack is fine; scratch containers
   like `*-toolbox`, `*-patch` must be `docker rm -f`'d).
 - After `git_commit-and-push`, VERIFY the push actually succeeded (the tool's
-  response should confirm the remote ref was updated). If the push failed, the
-  task is NOT complete — report the failure and do not mark the deliverable done.
+  response should confirm the remote ref was updated; local == origin/main). If the
+  push failed, the task is NOT complete — report the failure and do not mark the
+  deliverable done.
 
 ## Testing
 - Run the project's test suite (whatever the README/AGENTS.md specifies): `docker compose exec <service> <test-command>` or the equivalent.
@@ -83,3 +81,8 @@
   - How to access/verify the result (URLs, API endpoints, seeded data)
   - Any deviations from the request and why
   - Follow-up items if any
+
+## Where to find deeper guidance
+- Tool execution details: skill `workspace-development`, `docker-compose-usage`, `git-workflow`.
+- Environment facts (mounts, port checking, compaction behavior): wiki `Reference/*` pages + MEMORY.
+- Repo-specific conventions: the repo's own README/AGENTS.md.

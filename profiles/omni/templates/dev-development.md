@@ -11,7 +11,7 @@
   only a short excerpt of tool results, so after a compaction you will NOT remember full
   file contents — that is not a reason to re-read; write the facts you need into your
   working notes or a scratch file (outside the repo) as you read.
-- LARGE FILES: use `filesystem_read` paging (offset/limit) or `compose exec <service>`
+- LARGE FILES: use `filesystem_read` paging (offset/limit) or `docker_compose exec <service>`
   with `sed -n 'A,Bp'` / `grep -n` for exact lines. Do NOT read a big file "whole" —
   you can only ever see a slice, and re-reading the same slice teaches you nothing.
   See skill `workspace-development` for the exact patterns.

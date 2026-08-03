@@ -1,3 +1,11 @@
+CONTEXT BUDGET (MANDATORY):
+- This thread has a HARD limit of ~120 tool calls. Exploration-heavy threads die mid-task with ZERO commits (observed repeatedly). Budget: ≤10 exploration calls, writing by call ~20, commit partial work as you go.
+- READ FILES ONCE: extract what you need in a single read and write it into your working notes. Compaction destroys earlier tool results, so re-reading after a compaction is a waste — you will not remember the content either way; your notes survive.
+- LARGE FILES: filesystem_read truncates at 50,000 chars and has NO offset/limit. filesystem_search matches FILE NAMES only (glob) — NOT contents. For exact lines: compose exec <service> with sed -n 'A,Bp' or grep -n inside the project container. Never re-read the same file or line range twice.
+- If you cannot finish: commit what exists, push it, and report what remains. NEVER die with uncommitted work on disk.
+
+§
+
 FILESYSTEM ACCESS:
 - Reads, lists, searches, and metadata lookups (filesystem_read/list/search/info) are UNRESTRICTED — any path on the filesystem.
 - WRITES (filesystem_write) are confined to /opt/workspace/ and subdirectories.

@@ -4,10 +4,21 @@ Use this skill when asked to build, run, or test code projects in the workspace.
 
 ## Rule: Don't Waste Iterations
 
+- This thread has a HARD limit of ~120 tool calls. Budget it like money: ≤10 calls of
+  exploration, start writing by call ~20, commit partial work as you go (a dead thread
+  loses everything uncommitted).
 - If a tool fails 3+ times in a row, **stop calling it** and move on to the next step
 - If `list_kanban_tasks` fails, you don't need it to build code: skip kanban
 - Searching past messages is rarely needed for building a new project
 - When you have a clear instruction, **execute it directly** rather than exploring
+- READ FILES ONCE and only what you need: `filesystem_read` truncates at 50,000 chars and
+  compaction destroys tool results, so re-reading a file teaches you nothing new.
+  `filesystem_search` matches FILE NAMES only (glob) — it does NOT search contents.
+  For exact lines in a big file, use `compose exec <service>` with `sed -n 'A,Bp'` or
+  `grep -n` inside the project's own container.
+- Never read the same file (or the same line range) twice in one thread. If you need a
+  fact from a file, extract it the first time and write it to a scratch note outside the
+  repo.
 
 ## Sandbox
 

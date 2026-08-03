@@ -1,5 +1,29 @@
 # General Development Workflow
 
+## Context Budget (MANDATORY — read first)
+- This thread has a HARD limit of ~120 tool calls. Spending the budget on exploration
+  kills the task: threads that burn 100+ calls reading files die mid-implementation with
+  ZERO commits (observed repeatedly).
+- Spend AT MOST 10 calls on exploration (list/read/search). By call ~20 you must be
+  writing or committing.
+- READ FILES ONCE: read a file a single time and extract everything you need from it in
+  that one call. Do NOT re-read the same file or the same line ranges. Compaction destroys
+  earlier tool results, so after a compaction you will NOT remember file contents — that
+  is not a reason to re-read; write the facts you need into your working notes or a
+  scratch file (outside the repo) as you read.
+- LARGE FILES: `filesystem_read` truncates at 50,000 chars and has NO offset/limit
+  parameter, so it can only ever show the head of a big file. `filesystem_search` only
+  matches FILE NAMES (glob) — it does NOT search file contents. There is no content-grep
+  tool. For a large file, read the section you need with `filesystem_read` (accept the
+  head truncation) or use `docker_compose exec` with `sed -n 'START,ENDp' path` / `grep -n`
+  inside the project's own container to extract exact lines. Never re-read the same file:
+  extract the facts you need the first time and write them into your working notes.
+- COMMIT PARTIAL WORK: commit after each logical unit (a file written, a test passing).
+  A thread can die at any moment; only committed work survives. Do not hold changes for
+  a single final commit.
+- If you cannot finish in this thread: commit what exists, push it, and report exactly
+  what remains. NEVER let the thread die with uncommitted work on disk.
+
 ## Before Starting
 - Pull the latest code: use the `git_status` tool to check the current state, then `git_clone-repo` (if not cloned yet) or ensure the working tree matches the remote. The repo to work on is usually under `/opt/workspace/<project>`.
 - Read the project's `README.md` and `AGENTS.md` files first — they describe the build, run, and test conventions for that repo.

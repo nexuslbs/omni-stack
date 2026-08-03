@@ -22,8 +22,8 @@ layer makes prompts bloated and guidance rot.
 2. **Templates are generic, task-flavor-focused — never project-specific.**
    A template covers a FLAVOR of task (development, research, knowledge-pipeline),
    not one project. If a task needs project specifics, they go in the task body or
-   a wiki page — not a dedicated template. (Legacy project-specific templates like
-   `blog-markdown.md`/`build-blog.md` exist; new templates should follow the rule.)
+   a wiki page — not a dedicated template. (Legacy project-specific templates
+   `blog-markdown.md`/`build-blog.md` were removed for violating this rule.)
 3. **Templates keep the overview; skills carry the how-to.** A template says "use
    paged reads for large files, see the workspace-development skill" — the skill has
    the actual offset/limit examples and compose exec patterns.

@@ -8,7 +8,7 @@ is specifically a focused code improvement.
 - This thread has a HARD limit of ~120 tool calls. Read files ONCE and take notes;
   compaction keeps only a short excerpt of tool results. Commit partial work as you go;
   never let the thread die with uncommitted work on disk. For large files use
-  `filesystem_read` offset/limit paging or `compose exec` + `sed -n` / `grep -n`.
+  `filesystem_read` offset/limit paging or `docker_compose exec` + `sed -n` / `grep -n`.
 - Deeper guidance: skill `workspace-development` (patterns) and template
   `dev-development.md` (full dev workflow).
 

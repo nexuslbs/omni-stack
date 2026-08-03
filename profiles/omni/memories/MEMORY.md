@@ -33,25 +33,27 @@ LARGE FILE CAPABILITIES (what you CAN do):
   "[showing chars 50000-80000 of 80000 total chars]". Page deterministically:
   offset=50000, then offset=100000, ... until the note no longer says "truncated".
 - filesystem_search matches FILE NAMES only (glob) — it does NOT search file contents.
-- For exact lines / content grep in a big file, use `compose exec <service>` with
+- For exact lines / content grep in a big file, use `docker_compose exec <service>` with
   `sed -n 'A,Bp'` or `grep -n` inside the project's own container.
 - Never re-read the same file or the same line range twice in one thread.
 
 §
 
 DOCKER CODE EXECUTION:
-- The `compose` tool supports: ps, up, down, logs, build, exec, stop, restart, pull.
+- The `docker_compose` tool (the compose MCP tool is registered as `docker_compose`
+  — the bare name `compose` does NOT exist) supports: ps, up, down, logs, build,
+  exec, stop, restart, pull.
 - TOOLBOX PATTERN: if tools aren't in the agent container, create a docker-compose.yml
-  with a 'toolbox' service in the workspace, build it, then `compose exec toolbox <cmd>`.
+  with a 'toolbox' service in the workspace, build it, then `docker_compose exec toolbox <cmd>`.
 - EXISTING PROJECTS: if the workspace already has docker-compose.yml, use
-  `compose exec <service> <cmd>`. Prefer this over installing in the agent container.
+  `docker_compose exec <service> <cmd>`. Prefer this over installing in the agent container.
 
 §
 
 NO SHELL TOOL AVAILABLE:
 - You have NO shell/terminal tool. You can ONLY use registered MCP tools.
-- Docker operations: `compose` MCP tool. File operations: filesystem_* tools.
-- HTTP: `fetch`. DB: `query_database`.
+- Docker operations: `docker_compose` MCP tool. File operations: filesystem_* tools.
+- HTTP: `fetch_fetch`. DB: `query_database`.
 
 §
 
@@ -62,18 +64,18 @@ CONTAINER VOLUME MOUNT MAP (verify with `docker inspect` if unsure):
 
 CRITICAL: filesystem paths inside the container map directly to host paths:
 - /opt/workspace/<project> on the container IS /opt/workspace/<project> on the host
-  (same path, no translation) — `compose(project_dir="/opt/workspace/<project>/...")` works as-is.
+  (same path, no translation) — `docker_compose(project_dir="/opt/workspace/<project>/...")` works as-is.
 - /opt/omni/... on the container IS /opt/workspace/omni-stack/... on the host.
 - /app/... on the container IS /opt/workspace/omniagent/... on the host.
-When deploying via `compose`, use the container path; when checking host files, translate
+When deploying via `docker_compose`, use the container path; when checking host files, translate
 via this map.
 
 §
 
 PORT CHECKING LIMITATION:
-- fetch("http://localhost:PORT/") only checks ports inside THIS container's network.
+- fetch_fetch("http://localhost:PORT/") only checks ports inside THIS container's network.
   A container can have 0.0.0.0:PORT->container_port on the HOST but be unreachable here.
-- ALWAYS use `compose(ps)` on the compose project to check port mappings instead.
+- ALWAYS use `docker_compose(ps)` on the compose project to check port mappings instead.
 
 §
 

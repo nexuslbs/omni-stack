@@ -19,8 +19,8 @@ content must live in the layer that matches its role. See
    every turn; bloat taxes every task.
 2. **Templates are generic and task-flavor-focused — never project-specific.**
    One template per flavor of task. Project specifics go in the task body or wiki.
-   Legacy project-specific templates (`blog-markdown.md`, `build-blog.md`) exist but
-   new templates MUST follow this rule.
+   Project-specific templates are deleted, not accumulated (legacy
+   `blog-markdown.md`/`build-blog.md` were removed for violating this rule).
 3. **Templates keep the overview; skills carry the how-to.** A template points at a
    skill ("see skill `workspace-development`") rather than duplicating its examples.
 4. **Tool capabilities live in the tool description** (plugin `input_schema` +
@@ -33,7 +33,7 @@ Task flavors currently defined:
 - `dev-development.md` — implementation tasks (budget discipline, commit rules, testing)
 - `research.md` — research/synthesis tasks (batch fetches, notes-first, output path)
 - `knowledge-pipeline.md` — periodic maintenance (summarize, wiki/skill update, indexing)
-- `code-improvement.md`, `blog-markdown.md`, `build-blog.md` — legacy flavors
+- `code-improvement.md` — legacy lighter dev variant; prefer `dev-development.md`
 
 ## Purpose: Seed Repo for Forking
 

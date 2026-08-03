@@ -1,37 +1,43 @@
 # Container Mount Map
 
-The omniagent container mounts several host directories, creating path namespace discrepancies between MCP tools. Understanding these is critical for correct file operations and docker deployments.
+The omniagent container mounts several host directories. These paths are the SAME
+inside and outside the container for `/opt/workspace` — no translation. `data_dir`
+(`/opt/omni`) is the exception: it maps to the omni-stack repo on the host.
 
-## Current Mount Map
+## Current Mount Map (verified against a live omnidev container)
 
-| Host Path | Container Path | Purpose | compose accessible? |
+| Host Path | Container Path | Purpose | Notes |
 |---|---|---|---|
-| `/opt/workspace/omni-workspace/` | `/opt/workspace/` | Project development files | ✅ Yes: under `/opt/workspace/omni-workspace/` |
-| `/opt/workspace/omni-stack/` | `/opt/data/` | AGENTS.md, wiki, skills, memories, templates | ✅ Yes: under `/opt/workspace/omni-stack/` |
-| `/opt/workspace/omniagent/` | `/app/` | Source code, compiled binaries | ✅ Yes: under `/opt/workspace/omniagent/` |
-| `/var/run/docker.sock` | `/var/run/docker.sock` | Docker socket for compose tool | N/A |
+| `/opt/workspace` | `/opt/workspace` | Project files | Same path, no translation |
+| `/opt/workspace/omni-stack` | `/opt/omni` | data_dir: config, profiles, wiki, skills, memories, templates | **Translates**: `/opt/omni/...` == `/opt/workspace/omni-stack/...` |
+| `/opt/workspace/omniagent` | `/app` | Source code, compiled binaries | **Translates**: `/app/...` == `/opt/workspace/omniagent/...` |
+| `/var/run/docker.sock` | `/var/run/docker.sock` | Docker socket for compose tool | Same path |
 
-## Path Discrepancy Bug
+## Path Translation Rules
 
-This is the most common deployment failure. The `filesystem` MCP tool writes through the container's filesystem. The `compose` MCP tool validates paths on the HOST.
+- `/opt/workspace/<project>` on the container IS `/opt/workspace/<project>` on the host
+  (same path, no translation) — `compose(project_dir="/opt/workspace/<project>/...")` works as-is.
+- `/opt/omni/...` on the container IS `/opt/workspace/omni-stack/...` on the host.
+- `/app/...` on the container IS `/opt/workspace/omniagent/...` on the host.
+- When deploying via `compose`, use the container path; when checking host files,
+  translate via this map.
 
-**Example:**
+## Historical Note (do NOT trust old docs)
+
+Older documentation (and this page before it was corrected) claimed `omni-stack →
+/opt/data` and `omni-workspace → /opt/workspace`. That was an earlier layout and is
+WRONG for the current stack. Verify with `docker inspect` whenever in doubt:
+
 ```
-filesystem_write(path="/opt/workspace/playground/build/wiki-llm/docker-compose.yml", ...)
-```
-- Container writes to: `/opt/workspace/playground/build/wiki-llm/`
-- Bytes land at HOST path: `/opt/workspace/omni-workspace/playground/build/wiki-llm/`
-- `compose(project_dir="/opt/workspace/playground/build/wiki-llm/")` → looks at HOST `/opt/workspace/playground/build/wiki-llm/` which DOES NOT EXIST
-- `compose(project_dir="/opt/workspace/omni-workspace/playground/build/wiki-llm/")` → looks at HOST `/opt/workspace/omni-workspace/playground/build/wiki-llm/` which DOES EXIST
-
-## Verification
-
-Always verify the mount map before writing files for docker deployment:
-```
-docker inspect omni-stack-omniagent-1 \
-  --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+docker inspect <omniagent-container> --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
 ```
 
-## Rule of Thumb
+## Path Discrepancy: filesystem_* vs compose
 
-When `filesystem_write` writes to a path starting with `/opt/workspace/`, the files will be at `/opt/workspace/omni-workspace/` on the host (NOT at `/opt/workspace/` directly).
+The `filesystem_*` MCP tools operate on the CONTAINER's filesystem; the `compose` MCP
+tool validates paths on the HOST. Because `/opt/workspace` maps 1:1, this usually does
+not bite — but for `data_dir` content, the paths differ:
+
+- Container path `/opt/omni/profiles/omni/...` == host path `/opt/workspace/omni-stack/profiles/omni/...`
+- Never pass `/opt/omni/...` to `compose(project_dir=...)` — compose needs the HOST path
+  (`/opt/workspace/omni-stack/...`).

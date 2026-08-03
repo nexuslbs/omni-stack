@@ -11,14 +11,37 @@ Use this skill when asked to build, run, or test code projects in the workspace.
 - If `list_kanban_tasks` fails, you don't need it to build code: skip kanban
 - Searching past messages is rarely needed for building a new project
 - When you have a clear instruction, **execute it directly** rather than exploring
-- READ FILES ONCE and only what you need: `filesystem_read` truncates at 50,000 chars and
-  compaction destroys tool results, so re-reading a file teaches you nothing new.
-  `filesystem_search` matches FILE NAMES only (glob) — it does NOT search contents.
-  For exact lines in a big file, use `compose exec <service>` with `sed -n 'A,Bp'` or
-  `grep -n` inside the project's own container.
+- READ FILES ONCE and only what you need. Take notes as you read: compaction keeps only
+  a short excerpt of tool results, so re-reading after a compaction teaches you nothing.
 - Never read the same file (or the same line range) twice in one thread. If you need a
   fact from a file, extract it the first time and write it to a scratch note outside the
   repo.
+
+## Reading large files (concrete patterns)
+
+`filesystem_read` returns char-based slices, NOT whole files:
+
+- No args → first 50,000 chars + a truncation note when the file is bigger.
+- `offset` (default 0) + `limit` (default 50000) → page deterministically:
+  ```
+  filesystem_read(path="/opt/workspace/omni-deployer/scripts/tests.py", offset=0,     limit=50000)
+  filesystem_read(path="/opt/workspace/omni-deployer/scripts/tests.py", offset=50000, limit=50000)
+  filesystem_read(path="/opt/workspace/omni-deployer/scripts/tests.py", offset=100000, limit=50000)
+  ```
+  The response reports the slice, e.g. `[showing chars 50000-100000 of 250000 total chars]`.
+  Keep paging until the note no longer says "truncated".
+
+`filesystem_search` matches FILE NAMES only (glob) — it does NOT search file contents.
+
+For exact lines / content grep in a big file, exec inside the project's own container
+(no shell on the agent host):
+```
+compose(project_dir="/opt/workspace/omni-stack", command="exec", service="toolbox",
+        args="grep -n '^GROUP' /opt/workspace/omni-deployer/scripts/tests.py")
+compose(project_dir="/opt/workspace/omni-stack", command="exec", service="toolbox",
+        args="sed -n '3338,3510p' /opt/workspace/omni-deployer/scripts/tests.py")
+```
+Prefer the project's own service if it has the tools; `toolbox` is the generic fallback.
 
 ## Sandbox
 

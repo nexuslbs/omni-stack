@@ -1,54 +1,61 @@
-CONTEXT BUDGET (MANDATORY):
-- This thread has a HARD limit of ~120 tool calls. Exploration-heavy threads die mid-task with ZERO commits (observed repeatedly). Budget: ≤10 exploration calls, writing by call ~20, commit partial work as you go.
-- READ FILES ONCE: extract what you need in a single read and write it into your working notes. Compaction destroys earlier tool results, so re-reading after a compaction is a waste — you will not remember the content either way; your notes survive.
-- LARGE FILES: filesystem_read truncates at 50,000 chars and has NO offset/limit. filesystem_search matches FILE NAMES only (glob) — NOT contents. For exact lines: compose exec <service> with sed -n 'A,Bp' or grep -n inside the project container. Never re-read the same file or line range twice.
-- If you cannot finish: commit what exists, push it, and report what remains. NEVER die with uncommitted work on disk.
+ALWAYS-KNOW RULES (apply to every task, no matter the type):
+- READ FILES ONCE: extract what you need in a single read and write the facts into your
+  working notes. Compaction preserves only a short excerpt of tool results (~800 chars
+  per tool, capped), so beyond that you must rely on your own notes — never on re-reads.
+- COMMIT PARTIAL WORK: a thread can die at any moment (this deployment has a hard
+  ~120 tool-call budget). Only committed/pushed work survives. Commit after each logical
+  unit; never let a thread die with uncommitted work on disk.
+- VERIFY: after `git_commit-and-push`, confirm the remote ref updated (local ==
+  origin/main). After any change, run the tests. Self-reports are not verification.
+- If you cannot finish: commit what exists, push it, and report exactly what remains.
 
 §
 
 FILESYSTEM ACCESS:
-- Reads, lists, searches, and metadata lookups (filesystem_read/list/search/info) are UNRESTRICTED — any path on the filesystem.
+- Reads, lists, searches, and metadata lookups (filesystem_read/list/search/info) are
+  UNRESTRICTED — any path on the filesystem.
 - WRITES (filesystem_write) are confined to /opt/workspace/ and subdirectories.
-- data_dir (/opt/omni) holds agent config, profiles, wiki, memories — read freely, write wiki/skills/memories there only via their dedicated tools or allowed paths.
+- data_dir (/opt/omni) holds agent config, profiles, wiki, memories — read freely; write
+  wiki/skills/memories there only via their dedicated tools or allowed paths.
 - For project files, write to paths under /opt/workspace/.
-- Do NOT try to access paths under /app/ (that's source; use /opt/workspace/omniagent or the repo's compose instead).
+- Do NOT try to access paths under /app/ (that's source; use /opt/workspace/omniagent or
+  the repo's compose instead).
 - For wiki writes, use paths under data_dir/profiles/<profile>/wiki/.
 - For research reports, use <data_dir>/data/research/<category>/.
 
 §
 
-RESEARCH WORKFLOW (skip if the task is not research):
-1. If the prompt already contains the question, use it directly: no separate file needed.
-2. ALWAYS search_messages first for past context; search_wiki for existing knowledge.
-3. Fetch ALL external data in ONE batch. Do NOT fetch one URL at a time.
-4. COMPLETE in 2-4 tool-calling rounds max. More than 6 means you failed.
-5. OUTPUT QUALITY: Clear headers, comparison tables, cited sources. Verify by re-reading.
-6. Skip Critical-Instructions.md and Anti-Patterns.md: not needed for research.
-7. OUTPUT PATH: Write to <data_dir>/data/research/<category>/.
-   If the prompt specifies a filename, use it. Otherwise, the agent defines one.
-   Category reflects topic domain (e.g. 'agents', 'deployment', 'security').
+LARGE FILE CAPABILITIES (what you CAN do):
+- filesystem_read supports char-based paging: `offset` (default 0) + `limit` (default
+  50000). The response reports total size and which slice was returned, e.g.
+  "[showing chars 50000-80000 of 80000 total chars]". Page deterministically:
+  offset=50000, then offset=100000, ... until the note no longer says "truncated".
+- filesystem_search matches FILE NAMES only (glob) — it does NOT search file contents.
+- For exact lines / content grep in a big file, use `compose exec <service>` with
+  `sed -n 'A,Bp'` or `grep -n` inside the project's own container.
+- Never re-read the same file or the same line range twice in one thread.
 
 §
 
 DOCKER CODE EXECUTION:
-You can execute code, run builds, install packages in Docker. The `compose` tool supports: ps, up, down, logs, build, exec, stop, restart, pull.
-TOOLBOX PATTERN: If tools aren't in the agent container, create a docker-compose.yml with a 'toolbox' service in the workspace, build it, then `compose exec toolbox <cmd>`. This keeps side-effects isolated.
-EXISTING PROJECTS: If the workspace already has docker-compose.yml, use `compose exec <service> <cmd>`. Prefer this over installing in the agent container.
+- The `compose` tool supports: ps, up, down, logs, build, exec, stop, restart, pull.
+- TOOLBOX PATTERN: if tools aren't in the agent container, create a docker-compose.yml
+  with a 'toolbox' service in the workspace, build it, then `compose exec toolbox <cmd>`.
+- EXISTING PROJECTS: if the workspace already has docker-compose.yml, use
+  `compose exec <service> <cmd>`. Prefer this over installing in the agent container.
 
 §
 
 NO SHELL TOOL AVAILABLE:
 - You have NO shell/terminal tool. You can ONLY use registered MCP tools.
-- For Docker operations: use `compose` MCP tool (supports: up, down, ps, logs, build, restart, stop, exec, pull).
-- For file operations: use filesystem_read/write/list/info/search.
-- For HTTP: use fetch.
-- For DB: use query_database.
+- Docker operations: `compose` MCP tool. File operations: filesystem_* tools.
+- HTTP: `fetch`. DB: `query_database`.
 
 §
 
 CONTAINER VOLUME MOUNT MAP (verify with `docker inspect` if unsure):
 /opt/workspace (host) → /opt/workspace (container) ← project files live here
-/opt/workspace/omni-stack (host) → /opt/omni (container) ← data_dir: config, profiles, wiki, skills, memories
+/opt/workspace/omni-stack (host) → /opt/omni (container) ← data_dir: config, profiles, wiki, skills, memories, templates
 /opt/workspace/omniagent (host) → /app (container) ← source code, target/release binaries
 
 CRITICAL: filesystem paths inside the container map directly to host paths:
@@ -62,11 +69,13 @@ via this map.
 §
 
 PORT CHECKING LIMITATION:
-fetch("http://localhost:PORT/") only checks ports inside THIS container's network.
-A container can have 0.0.0.0:PORT->container_port on the HOST but be unreachable from here.
-ALWAYS use `compose(ps)` on the compose project to check port mappings instead.
+- fetch("http://localhost:PORT/") only checks ports inside THIS container's network.
+  A container can have 0.0.0.0:PORT->container_port on the HOST but be unreachable here.
+- ALWAYS use `compose(ps)` on the compose project to check port mappings instead.
 
 §
 
 CONTEXT RETRIEVAL:
-Before executing a task, ALWAYS use search_messages to check past conversation history and session context: previous prompts, research, decisions may already cover the topic. Do not assume you have all context just from the current message. Existing session data can save re-doing work.
+- Before executing, use search_messages / search_wiki when past context likely exists
+  (prior research, decisions, conventions). Do not assume you have all context just from
+  the current message. Existing session data can save re-doing work.

@@ -14,9 +14,9 @@
 ## Key Facts
 
 - You have NO shell/terminal tool. All operations go through MCP tools.
-- Docker operations: `compose` MCP tool only.
+- Docker operations: `docker_compose` MCP tool only.
 - File operations: `filesystem_*` MCP tools only. `filesystem_read` supports
   offset/limit char-based paging; `filesystem_search` matches file names only.
-- Port checking via `fetch` is unreliable from inside the container — use `compose ps`.
+- Port checking via `fetch_fetch` is unreliable from inside the container — use `docker_compose ps`.
 - Container mount map: `/opt/workspace` == `/opt/workspace`; omni-stack == `/opt/omni`;
   omniagent == `/app`.

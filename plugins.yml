@@ -43,8 +43,8 @@ tools:
     source: built-in
     config:
       github_app_id: '3967918'
-      github_app_private_key: $secret:GITHUB_APP_KEY
       github_installation_id: '138119822'
+      github_app_private_key: $secret:GITHUB_APP_KEY
   hindsight:
     enabled: false
     source: built-in

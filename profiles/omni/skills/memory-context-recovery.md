@@ -14,7 +14,7 @@ The wiki is the durable knowledge base for this profile. It lives under `profile
 All past agent conversations (threads and messages) are stored in the omniagent PostgreSQL database.
 
 - **`search_messages`** — search past messages/threads by text. Use this to recall what was done in previous sessions, what decisions were made, and how problems were solved.
-- **`query_search-messages`** — vector search over message content. NOTE: requires `embedding_vec` populated; vectorization is OFF (`vectorize_messages: false` in settings), so this currently returns no results. Prefer `search_messages` (substring match) until vectorization is enabled. Defaults to the current channel.
+- **`query_search-messages`** — vector search over message content. Uses `embedding_vec` (vectorization enabled by default: `vectorize_messages: true` in settings). New messages get embeddings automatically; pre-existing rows without `embedding_vec` are backfilled by the background vectorizer. Defaults to the current channel.
 - **`query_thread-messages`** — read all messages in a conversation thread. Defaults to the current thread; pass `thread_id` for another.
 - **`query_channel-prompts`** — list the first message (prompt) of every thread in a channel. Defaults to the current channel.
 - **`query_channels`** — list channels (id, name, platform, cause) to find the `channel_id` for channel-scoped queries.
@@ -40,7 +40,7 @@ The memory tool maintains an explicit memory store for the agent.
 |------|------|
 | Project conventions / known pitfalls | `search_wiki` |
 | What was done in a previous session | `search_messages` |
-| Meaning-based recall (paraphrases, concepts) | `query_search-messages` — NOTE: requires message embeddings; currently `vectorize_messages: false` in settings, so this returns nothing. Use `search_messages` (substring) instead. |
+| Meaning-based recall (paraphrases, concepts) | `query_search-messages` — vector search over message content (vectorization enabled by default) |
 | Full contents of a past thread | `query_thread-messages` |
 | Find channel ids for scoped queries | `query_channels` |
 | Structured lookups (threads, tasks, channels) | `query_database` |

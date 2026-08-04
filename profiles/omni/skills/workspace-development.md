@@ -45,7 +45,7 @@ Prefer the project's own service if it has the tools; `toolbox` is the generic f
 
 ## Sandbox
 
-- **Filesystem sandbox**: `filesystem_*` tools only operate inside the workspace dir (`/opt/workspace`) and its subdirectories — reads, writes, lists, searches, and metadata calls outside it are rejected. All project files go under `/opt/workspace/<project>/`.
+- **Filesystem sandbox**: `filesystem_write` (and other WRITE ops) only operate inside the workspace dir (`/opt/workspace`) and its subdirectories — writes outside it are rejected. READS, lists, searches, and metadata lookups are UNRESTRICTED (any path, e.g. `/opt/omni/...` wiki/memories configs can be read). All project files go under `/opt/workspace/<project>/`.
 - **Git sandbox**: git tools (`status`, `commit-and-push`, `run-command`, `clone`) only operate inside `/opt/workspace` and subdirectories.
 
 ## Tools Available

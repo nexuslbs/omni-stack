@@ -58,11 +58,22 @@
   push failed, the task is NOT complete — report the failure and do not mark the
   deliverable done.
 
-## Testing
+## Testing (MANDATORY — before you commit)
 - Run the project's test suite (whatever the README/AGENTS.md specifies): `docker compose exec <service> <test-command>` or the equivalent.
 - Verify each service starts cleanly: check `docker compose ps` for healthy state and inspect logs via `docker compose logs <service>`.
 - Test the happy path and at least one error path (e.g. invalid input, missing config, service down).
 - For web apps, verify the frontend loads and can reach the backend API.
+- If the deliverable is a plugin/tool/service (MCP server, HTTP API, library), FUNCTIONALLY
+  verify it end-to-end: install/start it, CALL its actual tools/endpoints with real
+  arguments, and assert the output matches the expected behavior — do not rely on
+  "it compiles" or "the test suite passed" as proof the deliverable works. Compare
+  against the reference implementation it replaces (e.g. a Python rewrite must produce
+  the same output as the Rust original on the same input).
+- If the codebase has a test harness, ADD tests for the new behavior (happy path + at
+  least one edge/error case). If it has no harness, capture verification evidence
+  (tool-call transcripts, API responses) in your final report instead.
+- Write the verification results into your report: WHAT you called, WHAT you passed in,
+  WHAT came back, and how it compares to expected/reference output.
 
 ## Never restart the stack you run inside (MANDATORY)
 - You run INSIDE the omniagent container. NEVER issue `docker_compose restart`, `down`, `stop`, `rm`, `kill`, or `up` against the
@@ -70,6 +81,17 @@
 - The executor blocks such calls automatically; if you see a "Blocked: docker_compose ... targets the omni-stack" error, that is
   working as intended — do NOT try to work around it. Report that a stack restart is needed instead; Hermes performs it.
 - You MAY build Rust binaries inside the container (`docker_compose exec` with `cargo build`) and restart OTHER projects.
+
+## Review before commit (MANDATORY)
+- Before `git_commit-and-push`, RE-READ your own diff as a reviewer, not as the author:
+  `git_status` / `git diff` (or `docker_compose exec` + `git diff --stat` + `git diff`).
+  Check for: missing files, renamed tool names (the executor calls exact names like
+  `prompt_generate` — a mismatch silently breaks the feature), wrong env refs
+  (`${VAR}` is a literal; use `$env:VAR`), scratch files leaking in, dead code.
+- Verify the exact deliverables the task named: every file it asked for exists, every
+  tool/endpoint it asked to implement is present with the EXACT expected name/schema.
+- If you cannot verify (no runtime available, sandbox blocks the call), say so in the
+  final report and flag the task for review — do NOT mark it done silently.
 
 ## Completing the Task
 - Commit all changes with a descriptive message (what changed and why), and push to the remote.

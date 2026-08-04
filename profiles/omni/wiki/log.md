@@ -1,5 +1,21 @@
 # Log
 
+## 2026-08-04
+
+- Added mandatory verification + review-before-commit requirements after the Python
+  prompt plugin shipped without MEMORY/skills (agent never functionally verified):
+  - templates/dev-development.md: Testing section now MANDATORY before commit —
+    functional end-to-end verification (call actual tools/endpoints, assert output,
+    compare against reference/Rust original), add tests or capture evidence. New
+    "Review before commit (MANDATORY)" section — re-read diff as reviewer, check exact
+    tool names, `$env:VAR` vs `${VAR}`, scratch files.
+  - templates/code-improvement.md: same upgrades.
+  - skills/workspace-development.md: new "Verifying a plugin/tool deliverable" section
+    (exact tool names, /mcp/execute functional calls, reference equivalence, env-ref
+    resolution) + `${VAR}`-is-literal pitfall.
+  - wiki Reference/Verification-and-Review.md (NEW): the requirements + why + report
+    shape. index.md updated.
+
 ## 2026-08-03
 
 - Established the 4-layer Agent Guidance Architecture (memory → templates → skills →

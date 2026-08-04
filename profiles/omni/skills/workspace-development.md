@@ -113,7 +113,29 @@ docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app",
 
 This runs a shell *inside* the container, and the `&&` chaining executes safely there: never on the host.
 
-### Common pitfalls
+## Verifying a plugin/tool deliverable (MANDATORY for plugin tasks)
+
+A plugin/tool is NOT done when it compiles — it is done when its actual tools/endpoints
+produce the expected output through the real runtime. Minimum bar:
+
+1. **Exact tool names**: the executor calls tools by exact name (e.g. `prompt_generate`,
+   `promote_to_memory`). A renamed/mismatched tool silently breaks the feature even when
+   "everything compiles". List the tools your plugin registers and check each against the
+   name the caller expects.
+2. **Functional call**: after install+enable, CALL each tool with real arguments and
+   assert the response. For omniagent MCP tools, `POST /mcp/execute` with
+   `{"name": "<tool>", "arguments": {...}, "meta": {"profile_name": "omni"}}` runs a tool
+   statelessly — use it for verification.
+3. **Reference equivalence**: a Python rewrite must produce the SAME output as the Rust
+   original on the same input (same sections, same chars order, same fallbacks). Diff the
+   outputs, don't eyeball them.
+4. **Env refs**: mcp-config.json env values MUST use `$env:VAR` / `$secret:NAME`.
+   `"${VAR}"` is NEVER interpolated — it reaches the subprocess as the literal string
+   `${VAR}` (framework passes it through verbatim; only `$env:`/`$secret:` are resolved).
+   A wrong ref manifests as empty sections (e.g. missing MEMORY/skills in a prompt), not
+   as an error — check the generated output, not just process startup.
+
+## Common pitfalls
 
 - The `repo/` subdir is gitignored at workspace level
 - Containers/networks/volumes should be named with the project prefix

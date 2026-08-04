@@ -30,7 +30,7 @@ is specifically a focused code improvement.
 - Ensure the changes compile without errors
 - Stage changes locally with `git add` for the modified files (explicit files only)
 
-## Testing
+## Testing (MANDATORY — before you commit)
 - Run the full test suite: `cargo test` or equivalent
 - If implementing a new feature, add tests that cover:
   - Happy path (normal operation)
@@ -39,6 +39,21 @@ is specifically a focused code improvement.
 - If fixing a bug, add a test that:
   - Reproduces the bug with the old code (shows it failing)
   - Passes with the fix applied
+- If the deliverable is a plugin/tool/service, FUNCTIONALLY verify it end-to-end:
+  install/start it, CALL its actual tools/endpoints with real arguments, assert the
+  output matches expected behavior. Compare against the reference implementation it
+  replaces (a Python rewrite must produce the same output as the Rust original).
+- Write the verification evidence into your report: WHAT you called, WHAT came back,
+  and how it compares to expected/reference output.
+
+## Review before commit (MANDATORY)
+- Before committing, RE-READ your own diff as a reviewer (`git diff`): check for
+  missing files, renamed tool/function names (exact names matter — a mismatch silently
+  breaks the feature), wrong env refs (`${VAR}` is a literal; use `$env:VAR`), scratch
+  files, dead code.
+- Verify every deliverable the task named exists with the EXACT expected name/schema.
+- If you cannot verify, say so in the report and flag for review — do NOT mark done
+  silently.
 
 ## Completing the Task
 - Commit changes with a descriptive message explaining what and why

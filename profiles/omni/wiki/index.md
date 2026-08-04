@@ -8,6 +8,7 @@
   - [Deployment Checklist](./Reference/Deployment-Checklist.md): How to deploy services correctly via compose
   - [Container Mount Map](./Reference/Container-Mount-Map.md): Volume mount mapping between host and container (omni-stack → /opt/omni, NOT /opt/data)
   - [Omniagent Mattermost Platform](./Reference/Omniagent-Mattermost-Platform.md): Mattermost platform architecture, setup, invariants, and recovery
+  - [Verification & Review Requirements](./Reference/Verification-and-Review.md): Mandatory functional verification + review-before-commit for code deliverables (plugins, tools, services)
 - **Log**
   - [log.md](./log.md): Change log
 

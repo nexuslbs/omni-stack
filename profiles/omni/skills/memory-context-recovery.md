@@ -14,6 +14,10 @@ The wiki is the durable knowledge base for this profile. It lives under `profile
 All past agent conversations (threads and messages) are stored in the omniagent PostgreSQL database.
 
 - **`search_messages`** — search past messages/threads by text. Use this to recall what was done in previous sessions, what decisions were made, and how problems were solved.
+- **`query_search-messages`** — semantic (meaning-based) search over message content. Use when keyword search misses (paraphrases, concepts). Defaults to the current channel.
+- **`query_thread-messages`** — read all messages in a conversation thread. Defaults to the current thread; pass `thread_id` for another.
+- **`query_channel-prompts`** — list the first message (prompt) of every thread in a channel. Defaults to the current channel.
+- **`query_channels`** — list channels (id, name, platform, cause) to find the `channel_id` for channel-scoped queries.
 - **`query_database`** — run read-only SQL against the omniagent database when you need structured queries:
   - Threads: `SELECT id, channel_id, status, cause, provider, model, created_at FROM threads ORDER BY id DESC LIMIT 20;`
   - Messages: `SELECT id, thread_id, role, thread_sequence, substr(content,1,200) FROM messages WHERE thread_id = <id> ORDER BY thread_sequence;`
@@ -36,6 +40,9 @@ The memory tool maintains an explicit memory store for the agent.
 |------|------|
 | Project conventions / known pitfalls | `search_wiki` |
 | What was done in a previous session | `search_messages` |
+| Meaning-based recall (paraphrases, concepts) | `query_search-messages` |
+| Full contents of a past thread | `query_thread-messages` |
+| Find channel ids for scoped queries | `query_channels` |
 | Structured lookups (threads, tasks, channels) | `query_database` |
 | Facts you want the agent to retain | `memory_manage-memory` / `memory_promote-to-memory` |
 

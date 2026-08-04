@@ -6,7 +6,7 @@ platforms:
       server_url: http://mattermost:8065
       access_token_name: MATTERMOST_ACCESS_TOKEN
       setup_team: omni
-      setup_channel: dev-channel
+      setup_channel: stable-channel
       admin_user: lucasbasquerotto
       admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
       test_user: testuser
@@ -59,8 +59,12 @@ tools:
     config: {}
   memory:
     enabled: true
-    source: built-in
-    config: {}
+    source: remote
+    config:
+      summary_provider: opencode-go
+      summary_model: deepseek-v4-flash
+      summarize_after_days: 7
+      channel_summary_tokens: 2048
   metrics:
     enabled: true
     source: built-in
@@ -71,7 +75,7 @@ tools:
     config: {}
   prompt:
     enabled: true
-    source: built-in
+    source: remote
     config: {}
   query:
     enabled: true

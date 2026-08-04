@@ -38,7 +38,7 @@ memory:
   messages_vectorization_interval: 3600
   messages_vectorization_method: local
   messages_vectorization_protocol: openai
-  vectorize_messages: false
+  vectorize_messages: true
   vectorize_wiki: false
   wiki_vectorization_api_key: ''
   wiki_vectorization_api_model: ''

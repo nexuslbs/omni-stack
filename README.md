@@ -17,16 +17,6 @@ omni-stack/
 ├ docker-compose.dev.yml     # Development overrides
 ├ .env.example               # Environment template
 │
-├ plugins/
-│   ├ platforms/             # Platform plugins (communication backends) — seed: empty
-│   │   └ ...
-│   │
-│   ├ providers/             # LLM provider plugins — seed: empty
-│   │   └ ...
-│   │
-│   └ tools/                 # MCP server definitions (external subprocess tools) — seed: empty
-│       └ ...
-│
 ├ profiles/
 │   └ omni/                  # Default profile (config, memories, skills, wiki)
 │       ├ config.json        #   Profile configuration
@@ -139,7 +129,15 @@ Channels represent communication endpoints (Telegram, Mattermost, API, cron). Ea
 
 ### Plugins
 
-Plugins are configured via YAML files in the repository root (`platforms.yml`, `providers.yml`, `tools.yml` — created by forked repos that add plugins). Each plugin directory under `plugins/` contains a `plugin.json` manifest.
+This repo is a **seed: it ships no `plugins/` directory and tracks zero
+plugins.** Forked repos add plugins under `plugins/{type}/{name}/` (each
+containing a `plugin.json` manifest) and configure them via YAML files in
+the repository root (`platforms.yml`, `providers.yml`, `tools.yml`). The
+only gitignored content under `plugins/` is `.remote/` (auto-generated
+clones from remote installs) — fork-added plugins are tracked by default,
+never silently excluded. During test runs (defined in omni-deployer)
+plugins may be added to the bind-mounted `plugins/` dir transiently, but
+they must be removed after the tests.
 
 OmniAgent uses a **three-source** plugin system:
 

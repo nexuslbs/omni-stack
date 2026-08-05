@@ -2,6 +2,11 @@
 
 ## 2026-08-04
 
+- Added `Todo/WorkflowImplementation.md` (NEW): the versioned implementation plan for the
+  role-based kanban workflow (executor/tester/reviewer) — distills the full v6 research
+  (`data/research/workflow-role-based-kanban.md`, working-tree only) into schema, status
+  machine, fail-task matrix, retry semantics, prompt-plugin concerns, phases 0–7, and the
+  integration test matrix. Updated index.md + relevant-index.md.
 - Added mandatory verification + review-before-commit requirements after the Python
   prompt plugin shipped without MEMORY/skills (agent never functionally verified):
   - templates/dev-development.md: Testing section now MANDATORY before commit —

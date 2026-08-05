@@ -2,6 +2,8 @@
 
 ## Index
 
+- **Todo/**
+  - [Workflow Implementation](./Todo/WorkflowImplementation.md): Plan of action for the role-based kanban workflow (executor/tester/reviewer) — schema, status machine, fail matrix, phases, test matrix
 - **Reference/**
   - [Agent Guidance Architecture](./Reference/Agent-Guidance-Architecture.md): The 4-layer guidance model (memory → templates → skills → wiki), what goes where, and conventions
   - [Budget & Context Mechanics](./Reference/Budget-and-Context.md): Thread budget, compaction behavior, prompt context blocks, filesystem_read paging

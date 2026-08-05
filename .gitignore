@@ -25,11 +25,6 @@ scripts/__pycache__/
 docs/
 notes/
 
-# ── Runtime test artifacts (created by tests.py) ──
-plugins/tools/test-python-tool/
-plugins/tools/test-python/
-plugins/tools/test-js-tool/
-
 # ── OS files ──
 .DS_Store
 Thumbs.db
@@ -44,6 +39,12 @@ profiles/default/tmp/
 
 /data/
 # ── Auto-generated remote plugin clones (ignored per type dir) ──
+# ONLY these are gitignored: tests install remote plugins via install-git
+# into plugins/<type>/.remote/ — they are clones, never seed content. All
+# OTHER plugin content under plugins/ is deliberately NOT gitignored, so a
+# fork adding its own plugins never gets them silently excluded; test
+# artifacts (test-* tools) are removed after the test run instead of being
+# ignored.
 plugins/platforms/.remote/
 plugins/tools/.remote/
 plugins/providers/.remote/

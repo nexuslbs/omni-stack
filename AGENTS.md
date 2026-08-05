@@ -41,10 +41,17 @@ omni-stack is a **seed repository** — it provides the Docker Compose stack,
 service definitions, and deployment infrastructure. It is designed to be
 **forked** and customized for different deployments.
 
-**By default, omni-stack tracks zero plugins.** The `plugins/` directory
-contains only a `.gitignore` that ignores `.remote/` directories (auto-
-generated when plugins are installed from remote sources). Forked repos add
-their own bundled plugins under `plugins/{type}/{name}/` with a `plugin.json`.
+**By default, omni-stack tracks zero plugins and has NO `plugins/`
+directory.** It acts as a seed: forked repos add their own bundled plugins
+under `plugins/{type}/{name}/` with a `plugin.json`. The only gitignored
+content under `plugins/` is `.remote/` (auto-generated clones from remote
+installs) — everything else a fork adds is tracked by default, never
+silently excluded. During test runs (defined in omni-deployer), plugins may
+be added transiently to the bind-mounted `plugins/` dir, but they MUST be
+removed after the tests — the deployer enforces this by deleting test
+artifacts (`.remote/` clones, `test-*` tools) when the run finishes. If a
+test needs a plugin permanently, it belongs in omni-deployer (or
+omni-plugins for remote installs), never in omni-stack.
 
 The only exception is the `tools/util/` crate — a shared library dependency
 used by bundled MCP plugins. It has no `plugin.json` and is not a plugin

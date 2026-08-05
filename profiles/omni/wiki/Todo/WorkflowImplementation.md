@@ -19,11 +19,13 @@ Turn the current single-actor kanban flow (dispatcher → executor thread → `r
 `done`) into an optional **3-role pipeline**:
 
 - **executor** (required) — runs the task as-is
-- **tester** (optional) — runs/creates tests, never implements
+- **tester** (optional) — runs/creates tests, never implements the kanban task; may implement
+  automated tests, per what is defined for the test (in the template)
 - **reviewer** (optional) — reviews execution + tests, never implements
 
-Each step has its own **retry limit** (default 0 = 1 run). When no workflow is attached
-(`workflow_id` NULL), behavior must be byte-for-byte identical to today.
+Each step has its own **retry limit** (**limit = retries + 1**; default `retries` 0 → limit 1 =
+one run — the first run is never a retry). When no workflow is attached (`workflow_id` NULL),
+behavior must be byte-for-byte identical to today.
 
 ---
 
@@ -31,21 +33,21 @@ Each step has its own **retry limit** (default 0 = 1 run). When no workflow is a
 
 | # | Decision | Value |
 |---|----------|-------|
-| D1 | Retries are the ONLY cap | per-step retry count; re-entry past limit → `blocked` |
+| D1 | Retries are the ONLY cap; **no explicit same-step retry** | per-step retry count; re-entry past limit → `blocked`; agent never explicitly requests to re-run the same step (only interruption reruns do, transparently) |
 | D2 | Reviewer loop bounded by retries only | no extra loop protection |
 | D3 | History comments | `kanban_history.comment` column; surfaced in context |
 | D4 | `ready` removed | replaced by `thread_status` (NULL/scheduled/running); NULL = resting |
-| D5 | Tester fails on ANY single test error | one error → back to executor |
+| D5 | Tester fails on ANY single test error | one error → back to executor (`running`, new scheduled thread) |
 | D6 | Reviewer always verifies work + tests | review-only role |
 | R1 | `thread_status` semantics | NULL = no in-flight step thread; scheduled = thread created; running = picked up |
 | R2 | Interruption reruns consume that step's retry | incl. tester/reviewer steps (I1) |
-| R3 | Pre-start/external skips consume NO retry | channel-closed / no-provider / thread-creation failure |
+| R3 | Pre-start/external skips consume NO retry | channel closure/deletion (scheduled OR running thread) / no-provider / thread-creation failure → task re-scheduled (new thread, status unchanged), no increment |
 | R4 | `ready` dropped, no compat | migrate rows, reject future writes |
 | R5 | Invalid target → `blocked` + auto comment | `review` valid without reviewer (manual state); `testing` without tester is invalid |
 | R6 | Failure signal = generic built-in tool | **`fail-thread`** (full `builtin_fail-thread`) — NOT kanban-named |
-| R7 | Threads carry workflow fields | `workflow_id`, `workflow_step`, `task_type`, `task_id` |
+| R7 | Threads carry workflow fields | `workflow_id` (workflows.yml key string), `workflow_step`, `task_type`, `task_id` |
 | R8 | Engine transitions are ONE DB transaction | thread + seq-0 + status/thread_status + history comment |
-| R9 | Workflows are dashboard-defined entities | `workflows` + `workflow_roles` tables; precedence Workflow > task > channel > global |
+| R9 | Workflows are file-defined entities | **`workflows.yml` in OMNI_DIR** (NO DB tables); precedence workflow_role > workflow_field > task > channel > global |
 | R10 | (no content supplied — no-op) | flagged §13 N3 |
 | R11 | Tester/reviewer never implement | role instructions in prompt |
 | R12 | Reviewer decision via completion/fail mechanism | approve = normal completion → done; issue = fail-thread tool |
@@ -58,17 +60,17 @@ Each step has its own **retry limit** (default 0 = 1 run). When no workflow is a
 | N1 | fail tool name | **`fail-thread`** / **`builtin_fail-thread`** |
 | N2 | `testing` vs `test` | **`testing`** |
 | N3 | R10 | no-op (confirmed OK) |
-| N4 | shared workflows table | confirmed — `kanban_tasks.workflow_id` FK |
-| N5 | where retries live | Rust `workflows.roles.<role_key>.retries`; DB **`workflow_roles` table**, UNIQUE (workflow_id, role_key) |
+| N4 | workflows storage | **`workflows.yml` file in OMNI_DIR** — NO workflow tables; `kanban_tasks.workflow_id` = workflow key string (no FK) |
+| N5 | where retries live | **`workflows.yml`** — workflow-level `retries` default + per-role `retries` override (Rust: `workflows.roles.<role_key>.retries`) |
 | N6 | fail targeting `review` | **NEVER** — only reviewer-interrupted thread re-runs review (I1, has a reviewer) |
 | N7 | task_type backfill | **NO backfill** — omniagent not in production; fields stay empty for existing rows |
 | N8 | auto-comment wording | **prompt-plugin concern** — builtin prompt plugin defines best wording; engine stores transition facts |
 | N9 | "last message and type" | last message in thread; type = `messages.msg_type` |
 | N10 | recent-threads scope | prompt-plugin concern (builtin = sensible window; thread id as meta field) |
 | N11 | executor resume | prompt-plugin concern (context-only assumed) |
-| N12 | cron threads in lookup | yes — prompt-plugin concern |
-| N13 | step may not fail itself | executor → empty/self or `blocked` only; reviewer → running/testing/blocked; tester → running/blocked; **v6: no one → review** |
-| N14 | where tester-created tests live | project-specific (template or AGENTS file; generic template) |
+| N12 | cron threads in lookup | **Yes** — cron step threads are included in the task-id thread lookup (`task_type='cron'`), same as kanban; scope/window is a prompt-plugin concern |
+| N13 | step may not fail itself | fail `workflow_step` = `running` or `testing` (**step keys**, NOT role names — keeps `threads.workflow_step` values), valid only if that step's role is present in the workflow; `blocked` from any step; **no one → review** |
+| N14 | where tester-created tests live | project-specific (template or AGENTS file; generic template). The agent may also look at the project and find where tests are made, if not specified anywhere in the template, skill, or wiki referenced by the template, or the project AGENTS file |
 
 ---
 
@@ -79,42 +81,68 @@ Each step has its own **retry limit** (default 0 = 1 run). When no workflow is a
 
 ### Transition table
 
+`todo` is an **initial/manual state only** — there are NO automated transitions INTO `todo` from any
+step. Executor failure (non-success terminal or empty fail target) re-runs the executor step
+(→ `running`, new thread, `thread_status='scheduled'`), never `todo`. The old omniagent-start
+behavior that moved skipped `running` tasks to `todo` is also gone: skipped scheduled/running tasks
+are **re-scheduled** (new thread, status unchanged) instead. This applies to ALL tasks (workflow and
+non-workflow, kanban and cron).
+
 | # | From | To | Trigger |
 |---|------|----|---------|
-| 1 | `todo` | `running` | Dispatcher (executor step) |
-| 2 | `running` | `todo` | Executor non-success terminal OR empty fail target (F0, implicit self); retry-guarded → `blocked` at limit |
+| 1 | `todo` | `running` | Dispatcher (executor step) — initial/manual scheduling only |
+| 2 | `running` | `running` | Executor non-success terminal OR empty fail target (F0): re-run executor step — new thread, `thread_status='scheduled'`, status stays `running`; retry-guarded → `blocked` at limit |
 | 3 | `running` | `running` | Interruption → rerun same step (I1), consumes executor retry |
 | 4 | `running` | `testing` | Executor success + tester defined → server loop creates test thread |
 | 5 | `running` | `review` | Executor success + no tester → review (manual or reviewer thread) |
 | 6 | `running` | `blocked` | Executor retry limit reached (guard before start) |
 | 7 | `testing` | `review` | Tester pass + reviewer defined → review thread; no reviewer → manual review |
-| 8 | `testing` | `todo` | Tester rework/failure → executor (consumes executor retry) |
-| 9 | `testing` | `todo` | ANY single test error (D5) → executor |
-| 10 | `testing` | `testing` | Tester interruption → rerun (consumes tester retry) |
-| 11 | `testing` | `testing` | Tester explicit retry (D1) |
+| 8 | `testing` | `running` | Tester rework/failure → executor step: new executor thread, `thread_status='scheduled'`, status → `running` (consumes executor retry); retry-guarded → `blocked` at limit |
+| 9 | `testing` | `running` | ANY single test error (D5) → executor step (same as row 8) |
+| 10 | `testing` | `testing` | Tester interruption → rerun (consumes tester retry, omniagent loop handles transparently) |
 | 12 | `testing` | `blocked` | Tester retry limit reached (guard) |
 | 13 | `review` | `done` | Reviewer approve = normal completion + summary message (status success); or manual/API |
-| 14 | `review` | `todo` | Reviewer rework — fail-thread `metadata.kanban_status='running'` |
-| 15 | `review` | `testing` | Reviewer retest — fail-thread `='testing'`; no tester → `blocked` + auto comment |
+| 14 | `review` | `running` | Reviewer rework — fail-thread `metadata.workflow_step='running'`: new executor thread, `thread_status='scheduled'`, status → `running`; retry-guarded → `blocked` at limit |
+| 15 | `review` | `testing` | Reviewer retest — fail-thread `metadata.workflow_step='testing'`; no tester role → `blocked` + auto comment |
 | 16 | `review` | `blocked` | Reviewer block — fail-thread `='blocked'` (no thread) |
-| 17 | `review` | `review` | Reviewer interruption → rerun (consumes reviewer retry) |
-| 18 | `review` | `review` | Reviewer explicit retry (D1) |
+| 17 | `review` | `review` | Reviewer interruption → rerun (consumes reviewer retry, omniagent loop handles transparently) |
 | 19 | `blocked` | — | Terminal, no thread ever |
 | 20 | `done` | — | Terminal, no thread ever |
 
+**No explicit same-step retry (D1 dropped):** the agent NEVER explicitly requests to run the same
+step again. While a test/review task runs, the role may test/review. On pass → return successfully
+with a summary; on failure needing a fix → go to executor (`running` + scheduled thread); on
+iteration limit reached (interrupted) → the omniagent loop reruns the step transparently (rows 10/17,
+I1). Same rule for the executor step: failing with an empty workflow step in practice re-runs the
+executor (F0), but that is implicit, never an explicit "retry" request.
+
 ### Fail-task tool matrix (`builtin_fail-thread`, server-loop handled)
 
-| # | `metadata.kanban_status` | Behavior |
+`builtin_fail-thread` carries **`metadata.workflow_step`** (NOT `kanban_status`) — meaningful only
+in a workflow context (a kanban task with a workflow defined). It receives a **step key** —
+`running` or `testing` — matching the `threads.workflow_step` values (NOT the role names
+executor/tester, to avoid confusion with the status keys), or `blocked` to go straight to blocked;
+empty = executor default (F0). `running`/`testing` are valid **only if that step's role is
+present in the workflow** — otherwise → `blocked`. There is **NO `review` fail target**: an agent
+can never explicitly fail to go to `review` (only a reviewer-interrupted thread may re-run review
+— I1, row 17 — and that is not an explicit fail).
+
+| # | `metadata.workflow_step` | Behavior |
 |---|--------------------------|----------|
-| F0 | *(empty)* | Executor default — returns to executor step itself (task → `todo`), guard permitting |
-| F1 | `running` | Guard → increment `executions['running']` → task `todo` → new executor thread. Callers: tester (rework), reviewer (rework). NOT executor itself |
-| F2 | `testing` | Guard → increment `executions['testing']` → task `testing` → new test thread. Caller: reviewer (retest). NOT tester itself; no tester → `blocked` |
+| F0 | *(empty)* | Executor default — task → `running`, `thread_status='scheduled'`, new executor thread created (guard permitting → `blocked` at limit) |
+| F1 | `running` | Guard → increment `executions['running']` → task `running` → new executor thread, `thread_status='scheduled'`. Callers: tester (rework), reviewer (rework). NOT the executor step itself. Tester/reviewer role absent from workflow → `blocked` |
+| F2 | `testing` | Guard → increment `executions['testing']` → task `testing` → new test thread, `thread_status='scheduled'`. Caller: reviewer (retest). NOT the tester step itself; no tester role in workflow → `blocked` |
 | F3 | `blocked` | Task → `blocked`, NO thread, `thread_status` NULL. Any role |
 | F4 | any other value | Task → `blocked` + auto comment (invalid target). **`review` falls here (N6)** |
 
-**v6 (N6):** `review` is NOT a valid fail target for ANY role. The only non-successful path that
-re-runs a review is a **reviewer-interrupted thread** (I1, row 17) — which has a reviewer by
-definition. (v5's F3 `review` target removed; matrix renumbered.)
+**Safety rules (blocked / review):**
+- Any step may target `blocked`; an invalid `workflow_step` value also goes to `blocked`.
+- Going to `blocked` NEVER creates a thread — tasks in `blocked` do not run.
+- Going to `review` with no reviewer also never creates a thread — that is a manual review.
+
+**v6 (N6):** `review` is NOT a valid fail target for ANY role — there is no `review` workflow_step
+value. The only non-successful path that re-runs a review is a **reviewer-interrupted thread** (I1,
+row 17) — which has a reviewer by definition. (v5's F3 `review` target removed; matrix renumbered.)
 
 ### Interruption matrix (I1)
 
@@ -126,7 +154,11 @@ definition. (v5's F3 `review` target removed; matrix renumbered.)
 
 - Guard checks `executions[<step>]` against the workflow limit BEFORE any re-entry — no thread is
   created when the limit is reached.
-- `blocked`/`done` never have threads; `thread_status` NULL.
+- `blocked`/`done` never have threads; `thread_status` NULL. **Going to `blocked` NEVER creates a
+  thread** — tasks in `blocked` do not run.
+- **Going to `review` with no reviewer never creates a thread** — that is a manual review.
+- **No automated transition to `todo`** — `todo` is initial/manual only; failures re-schedule the
+  step (`running`/`testing` + scheduled thread), and omniagent-start skips re-schedule too.
 - A step thread must be terminal before the next transition.
 - Every engine transition is ONE DB transaction (thread + seq-0 + status/thread_status + history
   comment — R8).
@@ -134,38 +166,79 @@ definition. (v5's F3 `review` target removed; matrix renumbered.)
 
 ---
 
-## 4. Schema changes
+## 4. Schema & configuration changes
 
-All in the existing **declarative single-phase** migration style: `CREATE TABLE IF NOT EXISTS` /
-`ALTER TABLE … ADD COLUMN IF NOT EXISTS` + idempotent UPDATEs; no versioned migration runner.
+DB changes use the existing **declarative single-phase** migration style: `CREATE TABLE IF NOT
+EXISTS` / `ALTER TABLE … ADD COLUMN IF NOT EXISTS` + idempotent UPDATEs; no versioned migration
+runner. **Workflows are NOT stored in the DB** — they live in a `workflows.yml` config file
+(below); the only DB changes are the task/thread/history columns.
 
-### `workflows` (new)
-- `id` UUID PK, `name` TEXT NOT NULL, `created_at`, `updated_at`. Workflow-level identity only.
+### `workflows.yml` (NEW — file in OMNI_DIR, NO workflow tables)
 
-### `workflow_roles` (new — v6 N5)
-- `id` UUID PK, `workflow_id` UUID NOT NULL REFERENCES `workflows(id)` ON DELETE CASCADE
-- `role_key` TEXT NOT NULL — `'executor'` | `'tester'` | `'reviewer'`
-- config columns: `name`, `provider`, `model`, `planning_mode`, `template`, `retries` (INT,
-  default 0)
-- executor REQUIRED, tester/reviewer OPTIONAL
-- **UNIQUE (`workflow_id`, `role_key`)** — at most one config row per role per workflow
-- Rust representation: `workflows.roles.<role_key>.retries` — NOT `workflows.config` JSONB (gone)
+All workflow definitions live in a **`workflows.yml` file in `OMNI_DIR`** (next to the other
+omniagent config). The **dashboard Workflows page reads AND writes this file** — adding a new
+workflow, updating one, deleting one = rewriting `workflows.yml`. **Task execution reads the
+workflow information from this file** at run time.
+
+```yaml
+workflows:
+  my_workflow_1:
+    profile: omni
+    provider: my-provider
+    model: my-model
+    retries: 3
+    plan_mode: "off"
+    roles:
+      executor:
+        plan_mode: "on"
+        retries: 5
+        template: executor.md
+      tester:
+        profile: my-other-profile
+        template: tester.md
+      reviewer:
+        provider: my-provider-2
+        model: my-model-2
+        template: reviewer.md
+  my_workflow_2:
+    ...
+```
+
+- **Workflow key = id = name**: there is NO separate `name` field — the key under `workflows:`
+  IS the workflow's id/name (e.g. `my_workflow_1`). Same for roles: the role keys are exactly
+  `executor` / `tester` / `reviewer` — no role name field.
+- **Workflow-level optional default fields**: `profile`, `provider`, `model`, `plan_mode`
+  (planning mode), `retries` — each workflow may define any subset; anything undefined falls back
+  down the chain (task → channel → global).
+- **`template` is defined PER ROLE**: OPTIONAL for `executor`, REQUIRED for `tester` and
+  `reviewer`.
+- **Role-level overrides**: `profile`, `provider`, `model`, `plan_mode`, `retries` may also be
+  defined per role; a role-level value takes precedence over the workflow-level value, with
+  task/channel/global fallbacks when still undefined.
+- `workflow_id` (kanban_tasks / threads) = the **workflow key string** (e.g. `my_workflow_1`),
+  not a numeric FK.
 
 ### `kanban_tasks` (add columns)
-- `workflow_id` UUID NULL — REFERENCES `workflows(id)`; NULL = today's behavior
+- `workflow_id` TEXT NULL — the workflow key in `workflows.yml`; NULL = today's behavior
 - `thread_status` TEXT NULL — `'scheduled'` | `'running'` | NULL = resting;
   `CHECK (thread_status IS NULL OR thread_status IN ('scheduled','running'))`
 - `workflow_state` JSONB NULL — `{"executions": {"running": N, "testing": M, "review": K}}`
   - **the actual number of times the task has run in each workflow step** (JSON field on the
     kanban task table), NOT retries-remaining; increment by 1 AFTER the step's thread runs
-  - guard compares against the workflow's configured limit for that role
+  - guard compares against the workflow's configured limit for that step (role)
 - `ready` migration (R4): `status='ready'` → `status='running'` + `thread_status='scheduled'`
   when a pending thread exists, else NULL; future `ready` writes REJECTED at validation
 
 ### `threads` (add columns)
-- `workflow_id` UUID NULL — REFERENCES `workflows(id)`
-- `workflow_step` TEXT NULL — `'running'` | `'testing'` | `'review'` (display names
-  executor/tester/reviewer are a prompt-level mapping)
+- `workflow_id` TEXT NULL — the workflow key in `workflows.yml`
+- `workflow_step` TEXT NULL — **STEP keys**: `'running'` | `'testing'` | `'review'` — NEVER the
+  role names. **Steps ≠ Roles:** steps are `running` / `testing` / `review`; roles are
+  `executor` / `tester` / `reviewer` (the `roles:` keys in `workflows.yml`). A step's display
+  name IS the step name (`running` / `testing` / `review`); a role's display name IS the role
+  name (`executor` / `tester` / `reviewer`) — separate concepts; the role name is NOT a display
+  name for the step in general. Only where it makes sense to identify the role acting in a step
+  (e.g. prompt context: "executor step") may the role name be shown — it is still the role, not
+  a step display name. Role names are never stored as `workflow_step` values.
 - `task_type` TEXT NULL — `'kanban'` | `'cron'` (discriminator for `task_id`)
 - `task_id` — existing column, generalized; set on ALL workflow step threads (R12) so
   `prompt_generate` can find a task's full step-thread history
@@ -179,11 +252,10 @@ All in the existing **declarative single-phase** migration style: `CREATE TABLE 
   surfaced in agent context (R13)
 
 ### Migration order
-1. `workflows` table
-2. `workflow_roles` table
-3. `kanban_tasks` columns (+ `ready` migration, R4)
-4. `threads` columns (**no backfill — v6 N7**)
-5. `kanban_history.comment`
+1. `kanban_tasks` columns (+ `ready` migration, R4)
+2. `threads` columns (**no backfill — v6 N7**)
+3. `kanban_history.comment`
+(`workflows.yml` needs no migration — it is a config file, not a table.)
 
 ---
 
@@ -191,7 +263,7 @@ All in the existing **declarative single-phase** migration style: `CREATE TABLE 
 
 - **Executor step (`running`)**: dispatcher-created thread (existing); `workflow_id` +
   `workflow_step='running'`; `task_id` = kanban task id. Re-entries (rework/fail/interruption) are
-  new dispatcher threads via `todo` (row 2) or I1 reruns (row 3).
+  new dispatcher threads via `running` re-schedule (row 2) or I1 reruns (row 3).
 - **Test step (`testing`)**: server-loop-created at executor completion when a tester is defined
   (row 4, R8); `parent_id` = executor thread; `workflow_step='testing'`; `task_id` = kanban task
   id; seq-0 cause message; `thread_status='scheduled'`.
@@ -201,23 +273,30 @@ All in the existing **declarative single-phase** migration style: `CREATE TABLE 
 - Every step thread is picked up by the omniagent loop when its channel is free (per-channel
   serial execution) → `thread_status='running'`.
 
-### Workflow role fields & precedence (R9)
+### Workflow role fields & precedence (R9 — workflows.yml)
 
-Each workflow has a **name**, and per-step-role config (executor REQUIRED; tester/reviewer
-OPTIONAL). The Workflows dashboard page defines these; fields behave like the equivalent Kanban /
-Channel fields (the workflow only defines its OWN values — omniagent resolves the fallbacks
-transparently, just like it already does for the kanban task profile):
+Workflows are defined in `workflows.yml` (§4). Each workflow has **workflow-level default
+fields** (`profile`, `provider`, `model`, `plan_mode`, `retries` — all optional) and a
+**`roles:`** section (executor REQUIRED; tester/reviewer OPTIONAL). Roles may override any of the
+workflow defaults and define the **`template`** (per-role only). The dashboard writes this file;
+omniagent resolves the fallbacks transparently, just like it already does for the kanban task
+profile:
 
-| Role field | Semantics / fallback chain |
-|------------|----------------------------|
-| **Name** | Optional display name; **defaults to the role workflow-step key** (`executor` / `tester` / `reviewer`) |
-| **Profile** | Defaults to task profile → channel profile → settings profile → `"omni"`; the workflow only worries about its own profile value (fallback handled by omniagent, same as kanban task profile) |
-| **Provider** | Defaults to channel provider → default provider in settings |
-| **Model** | Defaults to the default model of the provider resolved after the provider fallbacks; an explicit model is honored ONLY when the role's **provider is ALSO explicitly defined** |
-| **Planning Mode** | Default `none`; falls back to kanban task planning mode → channel planning mode → None (**None ≠ Off**) |
-| **Template** | Like the kanban task template; the kanban task template takes priority when both are defined (just as kanban task template > channel template) |
+| Field | Where it lives | Semantics / fallback chain |
+|-------|----------------|----------------------------|
+| **Name / id** | workflow KEY in `workflows.yml` | The key IS the name — no separate `name` field. Roles: `executor` / `tester` / `reviewer` keys are the role names |
+| **Template** | per-role (`roles.<role>.template`) | OPTIONAL for `executor`, REQUIRED for `tester` / `reviewer`; precedence: role template > kanban task template > channel template > global settings; prompt mapping per §7 |
+| **Profile** | workflow default OR role override | role value → workflow value → task profile → channel profile → settings profile → `"omni"` |
+| **Provider** | workflow default OR role override | role value → workflow value → channel provider → default provider in settings |
+| **Model** | workflow default OR role override | role value → workflow value → default model of the provider resolved after the provider fallbacks; an explicit model is honored ONLY when the provider is ALSO explicitly defined at that level |
+| **Plan mode** | workflow default OR role override (`plan_mode`) | role value → workflow value → kanban task planning mode → channel planning mode → None (**None ≠ Off**) |
+| **Retries** | workflow default OR role override | role value → workflow value (default 0); limit = retries + 1 (§6) |
 
-**Precedence (overall):** Workflow fields > kanban task fields > channel fields > global fields.
+**Precedence (ALWAYS, not just overall):** `workflow_role` > `workflow_field` > `task_field` >
+`channel_field` > `global_setting`. **Resolution rule:** the field is taken from the
+highest-priority source where it **EXISTS**; when the field does not exist in a given source it is
+considered `None` and resolution defaults to the next source down the chain. This applies to EVERY
+field resolution, not merely as a tie-break between sources that both define a value.
 
 **Field availability:**
 - The kanban task has **NO Provider/Model fields** — workflow roles MAY have them.
@@ -225,27 +304,56 @@ transparently, just like it already does for the kanban task profile):
   task** (default kanban channel when none, as today). Steps never run in different channels.
 - The kanban task keeps its **planning_mode** field (existing; if not present, add it) defaulting
   to none, falling back to channel planning mode → None.
+- **planning_mode is NOT workflow-related** — it exists independently of workflows and must be
+  implemented FIRST (before any workflow work): the **Kanban Task modal in the dashboard currently
+  does NOT show the plan mode field** and must be added; if the field is missing from the
+  **backend, API, or DB** it must be added there too, **defaulting to None/NULL**.
 
 ### Channel closure / deletion (step-aware, §6.4)
-- **Pending step thread** (`thread_status='scheduled'`, never started) → task returns to the
-  step's PRIOR status; **no retry consumed (R3)**.
-- **Running step thread** (`thread_status='running'`) → interrupted mid-flight → step RE-RUN (I1)
-  consuming that step's retry (R2) when channel recovers, or `blocked` when exhausted.
+
+**Retry is NEVER consumed on channel closure/deletion** — this is a pre-start/external skip (R3),
+NOT a mid-flight interruption (I1). A kanban task whose thread would be marked skipped (whether
+`scheduled` or `running`) simply gets a **new thread** and the task is marked
+`thread_status='scheduled'` (status unchanged). This applies to **workflow AND non-workflow kanban
+tasks alike** (the normal retry guard still applies on the next actual re-entry — exhaustion →
+`blocked`).
+
+- **Pending step thread** (`thread_status='scheduled'`, never started) → **re-scheduled**: new
+  thread created, status unchanged, `thread_status='scheduled'`; **no retry consumed (R3)**. (No
+  move to `todo` — the old "return to prior status" behavior is replaced by re-scheduling so
+  already-completed workflow steps are never re-run.)
+- **Running step thread** (`thread_status='running'`, interrupted because the channel
+  closed/was deleted) → the thread is marked skipped and the task is **re-scheduled** the same
+  way — **NOT** an I1 mid-flight rerun: **no retry consumed, no re-run**, new thread,
+  `thread_status='scheduled'`. (I1 reruns — LLM-loop interruptions that DO consume that step's
+  retry (R2) — are a different case; see §6.)
+- Same re-schedule rule applies to ANY task at omniagent start whose thread was marked skipped
+  (scheduled or running) — re-schedule (new thread, status unchanged), for workflow and
+  non-workflow (cron) tasks alike; never move to `todo`.
 
 ---
 
 ## 6. Retry semantics (v5 executions counter + v6 N5 placement)
 
-- **Limits** live in `workflow_roles.retries` per role (Rust:
-  `workflows.roles.<role_key>.retries`); the task references the workflow via `workflow_id`.
+- **Limits** live in **`workflows.yml`** — workflow-level `retries` default + per-role `retries`
+  override (Rust: `workflows.roles.<role_key>.retries`); the task references the workflow via
+  `workflow_id` (key string).
 - **Task tracks `executions`** — number of times each step has RUN, not a decrementing counter.
 - **Increment**: after running the step's thread, increment `executions[<step>]` by 1 (same
   transition transaction, R8).
 - **Guard**: before sending a task to a step again, compare `executions[<step>]` to the limit; at
   limit → `blocked` (+ auto comment), step NEVER starts (no thread).
-- **Interruption reruns consume the step's retry (R2)** — incl. tester/reviewer.
-- **Pre-start/external skips consume NO retry (R3)** — channel closed at thread creation, no
-  provider, thread-creation failure → task returns to prior state without incrementing.
+- **Limit = retries + 1** — the default `retries` value is 0, so the limit is 1: the FIRST
+  execution of any step always runs (the first run is NOT a retry). Every re-entry past the first
+  consumes a retry; when `executions[<step>]` reaches `retries + 1` → `blocked` (no thread).
+- **Interruption reruns consume the step's retry (R2)** — incl. tester/reviewer. Concretely, an
+  interruption rerun (I1) **increments the task's step execution counter**
+  (`executions[<step>]`) just like any other run of that step.
+- **Pre-start/external skips consume NO retry (R3)** — no provider, thread-creation failure, or
+  **channel closure/deletion** (pending OR running thread: the thread is marked skipped and a new
+  thread is created with `thread_status='scheduled'`, status unchanged) → task **re-scheduled**
+  without incrementing. **Channel closure/deletion NEVER uses retry** — even for `running`
+  threads.
 - **No double transitions** — guard + atomic transaction prevent concurrent sends.
 - **Mid-flight edit rejection** — reject changes to `workflow_id` / role config while status ∈
   {running, testing, review}.
@@ -267,17 +375,38 @@ instruction plus thread context so the agent knows what to do:
 - **Reviewer** (when defined): do a **comprehensive review of the execution AND the tests** (when
   a tester is defined) — must NOT implement the kanban task. Must see the executor thread + tester
   threads AND all recent threads of this task. Review passes with a **successful status + a normal
-  summary message**; on any issue it calls the fail tool with an allowed target (`running`,
-  `testing`, or `blocked`).
+  summary message**; on any issue it calls the fail tool with `metadata.workflow_step` =
+  `running`, `testing`, or `blocked` (never `review` — N6; `running`/`testing` valid only if the
+  target step's role exists in the workflow, else `blocked`).
+
+### Prompt generation (built-in prompt plugin)
+
+Prompts are generated agnostically per step, with nothing role-specific hardcoded. The
+**template** defines WHAT to do (execution spec / test criteria / review checklist); the **task
+description** supplies the subject. How they map to messages depends on the step:
+
+- **Executor**: the template (when defined) is a **system message** — part of the context; the
+  **task description is the user prompt**. Template OPTIONAL — when absent, the prompt is just
+  the task description as user prompt (today's behavior).
+- **Tester / reviewer**: the INVERSE — **template = user prompt** (drives the role: test criteria
+  / review checklist); **task description = system prompt** (context about WHAT is being
+  tested/reviewed). Template REQUIRED for both.
+
+This way the prompt needs no role-specific definitions: the template drives the role, and the task
+description supplies the subject. The **template is REQUIRED for tester and reviewer, and OPTIONAL
+for the executor**.
 
 ### `prompt_generate` workflow-context block (R12/R13)
 1. **Thread lookup by task id**: `SELECT id, workflow_step FROM threads WHERE task_id = <task>
    AND task_type='kanban' ORDER BY id` (cron: `task_type='cron'` — N12). Both handled in the
    prompt plugin, not omniagent core.
-2. **Per-thread entry**: `{thread_id, workflow_step (executor|tester|reviewer — display mapping),
+2. **Per-thread entry**: `{thread_id, workflow_step (stored step key `running`/`testing`/`review`),
    last_message, last_message_type}` — last message = LAST message in thread; type =
    `messages.msg_type` (N9). Normally the thread SUMMARY (success) or the FAIL message (Error-type
-   from `builtin_fail-thread`).
+   from `builtin_fail-thread`). The step is displayed by its own step name; only where it makes
+   sense to identify the role acting in the step (e.g. "executor step") may the role name
+   (`executor`/`tester`/`reviewer`) be shown alongside — that is still the role, not a step
+   display name.
 3. **Recent `kanban_history` entries**: last N status changes + comments so the agent understands
    WHY it is being run again. Scope = prompt-plugin decision (N10).
 4. **Role instruction block** per `workflow_step` + thread-access rules (R11).
@@ -292,10 +421,11 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 
 - **Fail → re-run another step** (e.g. tester/reviewer fail → executor/test thread):
   `"Task failed in thread #{thread_id}. Creating thread #{new_thread_id}"` — creates the new
-  thread + seq-0 message, moves the kanban task to the new status (`running`/`testing` — the
-  allowed fail targets, N6; `review` threads are created only on normal completion, rows 5/7),
-  sets `thread_status='scheduled'`, and records the comment — all in ONE DB transaction (R8;
-  reuses the existing thread-creation function; also updates kanban history).
+  thread + seq-0 message, moves the kanban task to the target status (`running` for
+  `workflow_step='running'`, `testing` for `workflow_step='testing'` — the allowed fail targets,
+  N6; absent role → `blocked` with no thread; `review` threads are created only on normal
+  completion, rows 5/7), sets `thread_status='scheduled'`, and records the comment — all in ONE DB
+  transaction (R8; reuses the existing thread-creation function; also updates kanban history).
 - **Interrupted → rerun SAME step** (I1): `"Task interrupted due to LLM calls iteration limit
   reached in thread #{thread_id}. Creating thread #{new_thread_id}"` — creates the new thread +
   seq-0 message, sets `thread_status='scheduled'`, comment in one transaction. **Kanban STATUS is
@@ -322,20 +452,27 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
   clean budget. Called by a **"Reset workflow executions" button on the Kanban Task Details
   page** (manual operator escape hatch, e.g. after fixing the cause of repeated failures).
   Idempotent; only meaningful for tasks with `workflow_id` set.
+- **Workflows CRUD API (NEW)** — `GET/PUT/DELETE /workflows` (or per-workflow routes) that the
+  dashboard calls to list/create/update/delete workflows; backed by reading/writing
+  `workflows.yml` (validation on write: executor role required, tester/reviewer templates
+  required).
 
 ### MCP tools (kanban plugin)
 - `kanban_update_task` — validates new status list; `ready` rejected.
 - `kanban_review_task` — MANUAL/API only (R12).
-- **`builtin_fail-thread`** — built-in agent core, NOT kanban-specific (R6); `metadata.kanban_status`
-  handled by server loop (§6.5 of research).
+- **`builtin_fail-thread`** — built-in agent core, NOT kanban-specific (R6); `metadata.workflow_step`
+  (step key `running`/`testing`, or `blocked`; no `review` — N6) handled by server loop (§6.5 of
+  research).
 
 ### Dashboard (`omni-dashboard`)
 - 7 columns: backlog, todo, running, testing, review, blocked, done; labels from STATUS_LABELS.
 - Manual review decision buttons (approve/rework/retest/block + comment) = manual path only.
 - History page renders `comment`.
-- **Workflows page (R9)**: CRUD — name in `workflows` + per-role fields written as
-  `workflow_roles` rows (v6 N5); precedence UI hints.
-- Kanban task `planning_mode` → channel planning mode → None.
+- **Workflows page (R9)**: CRUD reads/writes **`workflows.yml`** in OMNI_DIR (workflow key =
+  name; per-role fields; NO DB tables — N5); precedence UI hints.
+- Kanban task `planning_mode` → channel planning mode → None. **The Kanban Task modal MUST show
+  the plan mode field** (currently missing); default None/NULL. Independent of workflows —
+  implement first (DB column + backend/API field if absent, then the modal).
 - **Kanban Task Details page**: "Reset workflow executions" button → calls
   `POST /kanban/tasks/{id}/workflow/executions/reset` (clears `workflow_state.executions`).
 
@@ -345,13 +482,14 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 
 | Phase | Scope | Key work |
 |-------|-------|----------|
-| **0** | Schema + migration | §4 DDL (`workflows` + `workflow_roles`, kanban_tasks cols, threads cols, kanban_history.comment); `ready` migration (R4); **no task_type backfill (N7)** |
+| **0a** | Kanban task `planning_mode` (NOT workflow-related) | lands FIRST, independently of workflows: DB column default NULL (if missing) + backend/API field (if missing) + **Kanban Task modal field** (currently missing); fallback channel planning mode → None |
+| **0** | Schema + config | §4 DB DDL (kanban_tasks cols, threads cols, kanban_history.comment) + **`workflows.yml` parsing/validation** (NO workflow tables); `ready` migration (R4); **no task_type backfill (N7)** |
 | **1** | Status validation + dashboard columns | new status lists everywhere (§8); `ready` rejected |
-| **2** | Generic fail tool + metadata | built-in `fail-thread`/`builtin_fail-thread` (N1) ending thread FAILED with Error-type last message; `metadata.kanban_status` plumbing |
+| **2** | Generic fail tool + metadata | built-in `fail-thread`/`builtin_fail-thread` (N1) ending thread FAILED with Error-type last message; `metadata.workflow_step` plumbing (step keys `running`/`testing`/`blocked`, no `review` — N6) |
 | **3** | Server-loop atomic transitions + retry guards | R8 transaction; guard (D1/R2/R3); interruption reruns (I1); fail-tool routing F1–F4 (**no `review` target — N6**); no thread on exhaustion |
-| **3b** | Role-aware prompt context | `prompt_generate` workflow-context block (§7): thread lookup by task_id; per-thread {id, workflow_step, last message + type}; role instructions; thread-access rules; recent history |
-| **4** | Reviewer/tester decisions | tester = normal completion / fail-thread (D5/R6); reviewer per R12 — success = normal completion + summary → done; issue = fail-thread → running/testing/blocked; `kanban_review_task`/`POST /review` manual-only; target validation (R5) |
-| **5** | Workflows page + precedence | CRUD (`workflows` + `workflow_roles`, N5); field precedence (Workflow > task > channel > global); planning_mode semantics; **reset-executions API + Kanban Task Details button** |
+| **3b** | Role-aware prompt context | `prompt_generate` workflow-context block (§7): thread lookup by task_id; per-thread {id, workflow_step, last message + type}; role instructions; thread-access rules; recent history; **executor prompt = task description (user prompt) + template as system message (optional); tester/reviewer = template (user prompt) + task description (system prompt), template required** |
+| **4** | Reviewer/tester decisions | tester = normal completion / fail-thread (D5/R6); reviewer per R12 — success = normal completion + summary → done; issue = fail-thread `workflow_step` → `running`/`testing`/`blocked` (target step's role must exist, else `blocked`; no `review` — N6); `kanban_review_task`/`POST /review` manual-only; target validation (R5) |
+| **5** | Workflows page + precedence | CRUD against **`workflows.yml`** (N5); execution reads workflow from file; field precedence (workflow_role > workflow_field > task > channel > global); planning_mode semantics; **reset-executions API + Kanban Task Details button** |
 | **6** | Recovery hardening | step-aware channel closure/deletion (§5) |
 | **7** | Docs/tests | wiki + CHANGELOG; dashboard polish |
 
@@ -365,25 +503,41 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 ## 10. Integration test matrix
 
 - No-config (existing behavior unchanged)
-- Executor-only fail → blocked
-- Tester flow: pass / single test error → executor / fail tool → executor / interruption → rerun
-  same step consuming tester retry (R2)
+- Executor-only fail → re-scheduled executor (`running` + scheduled thread) → blocked at limit
+- **No automated transition to `todo`** — executor fail / tester rework / any-step failure never
+  moves a task to `todo`; skipped tasks at omniagent start are re-scheduled (new thread, status
+  unchanged), for workflow and non-workflow (cron) tasks alike
+- Tester flow: pass / single test error → executor (`running` + scheduled) / fail tool `workflow_step`
+  → `running` / interruption → rerun same step consuming tester retry (R2)
 - Reviewer 4-way decisions; retest without tester → blocked + auto comment (R5)
-- Channel-closed-before-start → no retry consumed (R3)
+- **No explicit same-step retry** — agent cannot request to re-run the same step (D1 dropped);
+  only interruption reruns (I1) re-run a step, transparently
+- **Channel closure/deletion NEVER consumes a retry (R3)** — pending (`scheduled`) OR running
+  thread: thread marked skipped → task re-scheduled (new thread, `thread_status='scheduled'`,
+  status unchanged), workflow and non-workflow tasks alike; no increment, no re-run
 - `thread_status` NULL = resting (R1); ready write rejected (R4)
-- Fail-tool metadata matrix F1–F4 (**`review` target rejected — N6**)
+- Fail-tool `metadata.workflow_step` matrix F1–F4 (**`review` rejected — N6**; absent
+  role → `blocked`; any invalid value → `blocked`)
+- **`blocked` never creates a thread** (F3, retry-limit paths); **`review` without reviewer never
+  creates a thread** (manual review)
 - Server-loop single-transaction transitions (R8)
-- Workflows page CRUD + precedence (R9)
+- Workflows page CRUD reads/writes `workflows.yml`; execution resolves role fields from the file (R9)
+- `workflow_id` = workflows.yml key string; field precedence workflow_role > workflow_field > task
+  > channel > global (always)
 - Reset-executions API + button: clears `workflow_state.executions`; idempotent; no-op without
   `workflow_id`; steps can re-run from a clean budget after reset
-- retry=1 per step, guard blocks re-entry BEFORE the step starts (no thread created)
-- rework/retest consume the right budget (D1); reviewer-loop bounded (D2)
+- retries=1 per step (limit = 2), guard blocks re-entry BEFORE the step starts (no thread created)
+- rework/retest consume the right budget; reviewer-loop bounded (D2)
 - comment persisted on transitions (D3); `thread_status` lifecycle (D4)
 - Channel skip mid-test; dependency with test dep; manual override race
 - `task_id` present on all step threads (R12)
-- `prompt_generate` context lists step threads per task id with step + last message + type (R12)
+- `prompt_generate` context lists step threads per task id with step + last message + type (R12);
+  cron threads included (`task_type='cron'`, N12)
 - Reviewer approves via normal completion (summary, status success) → done (R12)
-- Reviewer issue via fail-thread → running/testing/blocked with retry guards (R12)
+- Reviewer issue via fail-thread `workflow_step` → running/testing/blocked with retry guards (R12)
+- **Prompt mapping: executor = task description (user prompt) + template as system message
+  (optional); tester/reviewer INVERSE = template (user prompt) + task description (system
+  prompt)**; template required for tester/reviewer
 - kanban-history context present when a task re-runs after tester failure (R13)
 - Tester context shows executor thread + all recent; reviewer shows executor + tester threads (R11)
 - No-workflow task = executor default role instruction (R12)
@@ -392,14 +546,18 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 
 ## 11. Definition of Done
 
-- All phases 0–7 landed as separate PRs on `main`.
+- All phases 0a, 0–7 landed as separate PRs on `main`.
 - Full integration test matrix (§10) passing against a running container.
-- Dashboard workflows page CRUD works (`workflows` + `workflow_roles`).
+- Dashboard workflows page CRUD works against `workflows.yml` (persists across restarts; no
+  workflow tables).
 - Role-aware prompts verified end-to-end (executor/tester/reviewer threads carry task_id;
   context block shows step history + last message + type).
 - No `ready` accepted anywhere; `testing` accepted everywhere.
-- `builtin_fail-thread` routes F1–F4 correctly; `review` never accepted as a fail target.
-- Executions counter increments per run; guard blocks at limit with `blocked` + comment.
+- **No automated transition to `todo`** — failures re-schedule the step (`running`/`testing` +
+  scheduled thread); omniagent-start skip re-schedules instead of moving to `todo`.
+- `builtin_fail-thread` routes F1–F4 correctly via `metadata.workflow_step` (step keys
+  running/testing/blocked); `review` never accepted; absent role → `blocked`.
+- Executions counter increments per run; guard blocks at limit with `blocked` + comment (no thread).
 - Reset-executions API + button work end-to-end (executions cleared, steps re-runnable).
 - Existing no-workflow tasks behave identically to before.
 
@@ -407,3 +565,9 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 
 *See also: `data/research/workflow-role-based-kanban.md` (v6, working-tree only) for the full
 design rationale, verified current-system facts, and version history.*
+
+**⚠️ This page SUPERSEDES the research doc where they differ** — the research doc has NOT been
+updated with the later decisions: workflows are stored in `workflows.yml` (NO DB tables), fail-tool
+`metadata.workflow_step` uses step keys (`running`/`testing`/`blocked`), prompt mapping is inverse
+for tester/reviewer vs executor, channel closure/deletion never consumes a retry (even for
+`running` threads), and the retry limit is `retries + 1`.

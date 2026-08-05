@@ -156,7 +156,8 @@ All in the existing **declarative single-phase** migration style: `CREATE TABLE 
 - `thread_status` TEXT NULL — `'scheduled'` | `'running'` | NULL = resting;
   `CHECK (thread_status IS NULL OR thread_status IN ('scheduled','running'))`
 - `workflow_state` JSONB NULL — `{"executions": {"running": N, "testing": M, "review": K}}`
-  - executions counter, NOT retries-remaining; increment by 1 AFTER the step's thread runs
+  - **the actual number of times the task has run in each workflow step** (JSON field on the
+    kanban task table), NOT retries-remaining; increment by 1 AFTER the step's thread runs
   - guard compares against the workflow's configured limit for that role
 - `ready` migration (R4): `status='ready'` → `status='running'` + `thread_status='scheduled'`
   when a pending thread exists, else NULL; future `ready` writes REJECTED at validation
@@ -168,6 +169,9 @@ All in the existing **declarative single-phase** migration style: `CREATE TABLE 
 - `task_type` TEXT NULL — `'kanban'` | `'cron'` (discriminator for `task_id`)
 - `task_id` — existing column, generalized; set on ALL workflow step threads (R12) so
   `prompt_generate` can find a task's full step-thread history
+- **`task_type`/`task_id` are NOT necessarily workflow-related**: a cron task that generates a
+  thread also populates them (`task_type='cron'` + cron task id) — today that info only lives in
+  the seq-0 message type/subtype + id; the new columns make it queryable.
 - **NO backfill (v6 N7)** — omniagent not in production; existing rows keep fields empty
 
 ### `kanban_history` (add column)
@@ -197,13 +201,30 @@ All in the existing **declarative single-phase** migration style: `CREATE TABLE 
 - Every step thread is picked up by the omniagent loop when its channel is free (per-channel
   serial execution) → `thread_status='running'`.
 
-### Provider/model per role (R9)
-Role config → task fields → channel fields → global defaults. An explicit model is honored ONLY
-when the role's provider is ALSO explicitly defined. Executor falls back to today's chain.
+### Workflow role fields & precedence (R9)
 
-### Planning mode / template (R9)
-Role planning_mode → kanban task planning_mode → channel planning mode → None (None ≠ Off).
-Kanban task `template` takes priority over workflow role `template`.
+Each workflow has a **name**, and per-step-role config (executor REQUIRED; tester/reviewer
+OPTIONAL). The Workflows dashboard page defines these; fields behave like the equivalent Kanban /
+Channel fields (the workflow only defines its OWN values — omniagent resolves the fallbacks
+transparently, just like it already does for the kanban task profile):
+
+| Role field | Semantics / fallback chain |
+|------------|----------------------------|
+| **Name** | Optional display name; **defaults to the role workflow-step key** (`executor` / `tester` / `reviewer`) |
+| **Profile** | Defaults to task profile → channel profile → settings profile → `"omni"`; the workflow only worries about its own profile value (fallback handled by omniagent, same as kanban task profile) |
+| **Provider** | Defaults to channel provider → default provider in settings |
+| **Model** | Defaults to the default model of the provider resolved after the provider fallbacks; an explicit model is honored ONLY when the role's **provider is ALSO explicitly defined** |
+| **Planning Mode** | Default `none`; falls back to kanban task planning mode → channel planning mode → None (**None ≠ Off**) |
+| **Template** | Like the kanban task template; the kanban task template takes priority when both are defined (just as kanban task template > channel template) |
+
+**Precedence (overall):** Workflow fields > kanban task fields > channel fields > global fields.
+
+**Field availability:**
+- The kanban task has **NO Provider/Model fields** — workflow roles MAY have them.
+- Roles have **NO channel fields** — all workflow steps run in the **channel defined on the kanban
+  task** (default kanban channel when none, as today). Steps never run in different channels.
+- The kanban task keeps its **planning_mode** field (existing; if not present, add it) defaulting
+  to none, falling back to channel planning mode → None.
 
 ### Channel closure / deletion (step-aware, §6.4)
 - **Pending step thread** (`thread_status='scheduled'`, never started) → task returns to the
@@ -234,10 +255,20 @@ Kanban task `template` takes priority over workflow role `template`.
 ## 7. Roles & prompts (R11–R13)
 
 ### Role instructions
-- **Executor**: run the task as-is (default for no-workflow tasks); sees previous task threads.
-- **Tester**: run/create tests, NEVER implement; sees executor thread + all recent.
-- **Reviewer**: comprehensive review of execution + tests, NEVER implement; sees executor + tester
-  threads + all recent.
+
+The **kanban task is the SAME for all steps** — each role does its PART. Prompts carry a role
+instruction plus thread context so the agent knows what to do:
+
+- **Executor**: run the task **as-is** (the default role for kanban tasks with NO workflow).
+  Must see previous task threads to: avoid error loops, **start from where it ended** on
+  interrupted tasks, and fix the work after a failed review/rework.
+- **Tester** (when defined): run the tests — and **may create automated tests** — but must NOT
+  implement the kanban task. Must see the executor thread AND all recent threads of this task.
+- **Reviewer** (when defined): do a **comprehensive review of the execution AND the tests** (when
+  a tester is defined) — must NOT implement the kanban task. Must see the executor thread + tester
+  threads AND all recent threads of this task. Review passes with a **successful status + a normal
+  summary message**; on any issue it calls the fail tool with an allowed target (`running`,
+  `testing`, or `blocked`).
 
 ### `prompt_generate` workflow-context block (R12/R13)
 1. **Thread lookup by task id**: `SELECT id, workflow_step FROM threads WHERE task_id = <task>
@@ -254,6 +285,27 @@ Kanban task `template` takes priority over workflow role `template`.
 **Prompt-plugin-owned (NOT core):** recent-threads window/token budget (N10), executor resume
 semantics (N11), cron scope (N12), auto-comment wording (N8). Core guarantees the data source only.
 
+### Auto-comment wording (N8 — builtin prompt plugin defines; examples)
+
+The engine stores transition facts (thread ids, status, step, executions n/M) and the builtin
+prompt plugin renders the comment. Reference wording (matches the fail-thread flow):
+
+- **Fail → re-run another step** (e.g. tester/reviewer fail → executor/test thread):
+  `"Task failed in thread #{thread_id}. Creating thread #{new_thread_id}"` — creates the new
+  thread + seq-0 message, moves the kanban task to the new status (`running`/`testing` — the
+  allowed fail targets, N6; `review` threads are created only on normal completion, rows 5/7),
+  sets `thread_status='scheduled'`, and records the comment — all in ONE DB transaction (R8;
+  reuses the existing thread-creation function; also updates kanban history).
+- **Interrupted → rerun SAME step** (I1): `"Task interrupted due to LLM calls iteration limit
+  reached in thread #{thread_id}. Creating thread #{new_thread_id}"` — creates the new thread +
+  seq-0 message, sets `thread_status='scheduled'`, comment in one transaction. **Kanban STATUS is
+  NOT changed** — only `thread_status`, to run the same task step again.
+- **Retry limit reached → blocked (no new thread)**: `"Task failed in thread #{thread_id}. Moving
+  kanban task to "blocked" status due to retry limit reached for status {status}"` (or
+  `"...interrupted due to LLM calls iteration limit reached in thread #{thread_id}. Moving kanban
+  task to "blocked" status due to retry limit reached for status {status}"` for the interruption
+  case). No thread is created; `thread_status` NULL.
+
 ---
 
 ## 8. API & dashboard
@@ -265,6 +317,11 @@ semantics (N11), cron scope (N12), auto-comment wording (N8). Core guarantees th
   optional `comment`; server-side target validation (R5) + retry guards (D1/R2). Reviewer AGENT
   does not call it (R12).
 - `GET /kanban/tasks/{id}/history` — data source for R13 context, now including `comment`.
+- **`POST /kanban/tasks/{id}/workflow/executions/reset`** (NEW) — resets the task's
+  `workflow_state.executions` counters (back to 0) so the workflow steps can run again from a
+  clean budget. Called by a **"Reset workflow executions" button on the Kanban Task Details
+  page** (manual operator escape hatch, e.g. after fixing the cause of repeated failures).
+  Idempotent; only meaningful for tasks with `workflow_id` set.
 
 ### MCP tools (kanban plugin)
 - `kanban_update_task` — validates new status list; `ready` rejected.
@@ -279,6 +336,8 @@ semantics (N11), cron scope (N12), auto-comment wording (N8). Core guarantees th
 - **Workflows page (R9)**: CRUD — name in `workflows` + per-role fields written as
   `workflow_roles` rows (v6 N5); precedence UI hints.
 - Kanban task `planning_mode` → channel planning mode → None.
+- **Kanban Task Details page**: "Reset workflow executions" button → calls
+  `POST /kanban/tasks/{id}/workflow/executions/reset` (clears `workflow_state.executions`).
 
 ---
 
@@ -292,7 +351,7 @@ semantics (N11), cron scope (N12), auto-comment wording (N8). Core guarantees th
 | **3** | Server-loop atomic transitions + retry guards | R8 transaction; guard (D1/R2/R3); interruption reruns (I1); fail-tool routing F1–F4 (**no `review` target — N6**); no thread on exhaustion |
 | **3b** | Role-aware prompt context | `prompt_generate` workflow-context block (§7): thread lookup by task_id; per-thread {id, workflow_step, last message + type}; role instructions; thread-access rules; recent history |
 | **4** | Reviewer/tester decisions | tester = normal completion / fail-thread (D5/R6); reviewer per R12 — success = normal completion + summary → done; issue = fail-thread → running/testing/blocked; `kanban_review_task`/`POST /review` manual-only; target validation (R5) |
-| **5** | Workflows page + precedence | CRUD (`workflows` + `workflow_roles`, N5); field precedence (Workflow > task > channel > global); planning_mode semantics |
+| **5** | Workflows page + precedence | CRUD (`workflows` + `workflow_roles`, N5); field precedence (Workflow > task > channel > global); planning_mode semantics; **reset-executions API + Kanban Task Details button** |
 | **6** | Recovery hardening | step-aware channel closure/deletion (§5) |
 | **7** | Docs/tests | wiki + CHANGELOG; dashboard polish |
 
@@ -315,6 +374,8 @@ semantics (N11), cron scope (N12), auto-comment wording (N8). Core guarantees th
 - Fail-tool metadata matrix F1–F4 (**`review` target rejected — N6**)
 - Server-loop single-transaction transitions (R8)
 - Workflows page CRUD + precedence (R9)
+- Reset-executions API + button: clears `workflow_state.executions`; idempotent; no-op without
+  `workflow_id`; steps can re-run from a clean budget after reset
 - retry=1 per step, guard blocks re-entry BEFORE the step starts (no thread created)
 - rework/retest consume the right budget (D1); reviewer-loop bounded (D2)
 - comment persisted on transitions (D3); `thread_status` lifecycle (D4)
@@ -339,6 +400,7 @@ semantics (N11), cron scope (N12), auto-comment wording (N8). Core guarantees th
 - No `ready` accepted anywhere; `testing` accepted everywhere.
 - `builtin_fail-thread` routes F1–F4 correctly; `review` never accepted as a fail target.
 - Executions counter increments per run; guard blocks at limit with `blocked` + comment.
+- Reset-executions API + button work end-to-end (executions cleared, steps re-runnable).
 - Existing no-workflow tasks behave identically to before.
 
 ---

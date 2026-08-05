@@ -11,6 +11,7 @@ RUN apk add --no-cache \
     postgresql-client postgresql \
     docker-cli docker-compose \
     python3 py3-pip \
+    py3-psycopg2 \
     jq
 
 # Copy backup/utility scripts

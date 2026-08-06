@@ -21,6 +21,72 @@
 - If you cannot finish in this thread: commit what exists, push it, and report exactly
   what remains. NEVER let the thread die with uncommitted work on disk.
 
+## Long-Running Commands & Waiting (MANDATORY — read before running any build/test)
+
+- **A long-running command (build, test suite, server start, git push) costs ONE tool call if
+  you wait properly — or 20+ if you poll.** Poll-spinning (repeatedly calling
+  `filesystem_info`/`filesystem_search`/`docker_compose ps` to check "is it done yet?") burns
+  your entire iteration budget on a single command and the thread dies with zero commits
+  (observed repeatedly: threads died at the iteration limit mid-`cargo build` after 100+ poll
+  calls).
+- **When a tool call returns `status: processing` with a `task_id`, ALWAYS block on
+  `builtin_wait-task` immediately** — do NOT poll with other tools. Use a GENEROUS timeout:
+  `builtin_wait-task(task_id=<id>, timeout_secs=300, tail=2000)`. The max is 300s (5 min);
+  the tool polls internally every 500ms and returns when the task finishes. If it times out
+  (task still running), call it AGAIN with another 300s — each wait is still just ONE call.
+- **Never guess a small timeout** (e.g. 5-15s) for a build — a Rust `cargo build --release`
+  takes 1-10+ minutes. Use 300s from the start. Waiting 5 min costs 1 iteration; checking
+  every 15s for 5 min costs 20 iterations.
+- **`docker_compose exec` background pattern:** if you must run a long command that does not
+  return a task_id, prefer running it in the background (`command: "exec", args: ... &` or the
+  tool's background/notify option if available) and then `builtin_wait-task` on the returned
+  id. If the tool only supports foreground, use the tool's OWN timeout parameter set high
+  (e.g. 300+) rather than launching and then re-checking.
+- **While a build runs, do NOT do other work in parallel by polling** — the per-channel
+  executor is serial; your thread is the only one running. Just wait.
+- **If a command genuinely hangs past 2-3 wait cycles (10-15 min), THEN investigate** (logs,
+  process list) — not before. A Rust release build legitimately takes that long.
+
+## Before Starting — ORIENT FIRST (MANDATORY, 2-4 calls max)
+
+**This task may be a CONTINUATION of previous threads that died mid-work (interrupted /
+iteration-limit). The kanban task stays the same across attempts; each new thread starts with
+fresh context. DO NOT assume you are starting from zero — and DO NOT redo work a previous thread
+already did. Establish state cheaply, then act:**
+
+1. **Check the tracking file FIRST if this task references one** (e.g. the task body says
+   `/opt/omni/data/tasks/<name>.md`): `filesystem_read` it. It is the resume ledger — previous
+   threads write what they did, what worked, errors, and what remains. If it exists, your job is
+   usually "finish the listed remaining steps", not re-implement.
+2. **Check git state of every repo the task touches** (`git_status` / `git diff --stat` /
+   `git log --oneline -5`): uncommitted changes on disk = a previous thread's work that survived;
+   recent commits with the task's topic = previous thread's committed work. Map what's already
+   done BEFORE writing any code.
+3. **Check prior threads of THIS task** (if you have a threads API/tool): read the last thread's
+   summary/status. A thread that reached `completed`/`review` means the work was done — your job
+   is verification/commit, not re-implementation. A thread that was `interrupted`/`skipped` means
+   it died mid-way — resume from its last recorded state.
+4. **Check prior threads of OTHER tasks on THIS CHANNEL that touched the same repos/files**
+   (the channel is serial — earlier tasks on the same channel often solved the exact problem you
+   are about to investigate). Query the channel's recent thread messages (`query_database` on
+   `threads`/`messages`, or search_messages) and read the FINAL messages / status reports of the
+   last 1-3 relevant threads. Harvest their verified facts: canonical build commands, error
+   signatures, root causes, workarounds. **If a prior thread already documented an investigation
+   result (e.g. "build fails with 17 sqlx no-cached-data errors; fix = regenerate .sqlx via
+   prepare.py"), TRUST it and continue from there — do NOT re-run that investigation.** Re-deriving
+   what a previous thread already established is the #1 budget killer (observed: threads 88-90 each
+   burned ~117 tool calls re-investigating the same sqlx cache problem).
+5. **Then decide:**
+   - Uncommitted work exists + looks coherent → review the diff, fix if broken, COMMIT + PUSH it
+     (this is the #1 most common missing step — previous threads die right before committing).
+   - Work is committed but task not marked done → verify the commit matches the task, then report.
+   - Nothing exists → implement fresh.
+
+**Never redo verified work.** If the tracking file or a prior thread says a build/test passed,
+do not rebuild from scratch "to be sure" — trust the recorded verification, or at most re-run the
+cheapest check. The whole point of the tracking file is that a successor thread can finish in a
+handful of calls instead of re-earning the state.
+
 ## Before Starting
 - Pull the latest code: use the `git_status` tool to check the current state, then `git_clone-repo` (if not cloned yet) or ensure the working tree matches the remote. The repo to work on is usually under `/opt/workspace/<project>`.
 - Read the project's `README.md` and `AGENTS.md` files first — they describe the build, run, and test conventions for that repo.
@@ -74,6 +140,45 @@
   (tool-call transcripts, API responses) in your final report instead.
 - Write the verification results into your report: WHAT you called, WHAT you passed in,
   WHAT came back, and how it compares to expected/reference output.
+
+## omniagent is a SEPARATE PROJECT — NEVER touch the live stack (MANDATORY)
+
+- **You develop omniagent (and omni-dashboard, omni-stack) like ANY OTHER external project.**
+  The live omnistable stack is a DEPLOYED product running image-fixed binaries. Your code changes
+  do NOT exist there and you MUST NOT make them exist there. They go live ONLY when a new CI image
+  is built and published from `main` — never before.
+- **NEVER run `db-migrations` against the live database** (omnistable-postgres-1, db `omniagent`)
+  — or ANY database that is not a throwaway local/test DB you created yourself for this task.
+  Applying schema to the live stack is a PRODUCTION CHANGE, not a dev step. The error that caused
+  this rule: an agent ran the migrator against the live omnistable DB and polluted the prod schema
+  with unreleased columns. The migrator crate exists so CI/deploy applies migrations at release
+  time — the AGENT never applies them to live.
+- **NEVER write to the live stack's state** — no API PATCH/POST against the running omniagent's
+  kanban/threads/plugins endpoints to "test" your change (the running binary is OLD code; your
+  change is not there, so such tests prove nothing and mutate prod state). No edits to
+  `/opt/omni/**` runtime data that is not a git repo. No container restarts, no `docker compose`
+  against the omni-stack project, no killing processes.
+- **The dev loop is: edit source → add/run INTERNAL RUST TESTS (unit tests in the crate) → build →
+  clippy → fmt → commit → push to origin/main.** Internal Rust tests are the verification vehicle —
+  write tests that exercise the new behavior in-process (mock DB/state where needed). Do NOT
+  "functionally verify" against the live stack.
+- If you genuinely need a database to test against, create a THROWAWAY local postgres (e.g. a
+  scratch compose service or `docker run` on a non-live port) and run `db-migrations` against
+  THAT — never the live one.
+- **.sqlx offline cache**: sqlx with `SQLX_OFFLINE=true` (the workspace build uses it) requires a
+  cached entry for EVERY `sqlx::query!`/`query_as!` in the codebase. Adding new queries WITHOUT
+  regenerating the cache makes `cargo build --workspace` fail with 17+ "no cached data for this
+  query" errors — and the NEXT task/thread inherits the broken build. After ANY query change:
+  1. Regenerate the cache: `cargo sqlx prepare --workspace` with DATABASE_URL pointing at YOUR
+     throwaway local DB (schema applied there first via db-migrations) — the repo has
+     `prepare.py` under /opt/workspace/rustbuild that auto-discovers plugin crates; check the
+     `.sqlx/` dirs: root + `plugins/tools/{search,metrics,kanban,query,cron}`.
+  2. Commit the regenerated `.sqlx/*.json` files TOGETHER WITH the queries that need them —
+     otherwise you land a broken main and every subsequent phase pays the tax.
+- If the live DB lacks columns your code references, that is EXPECTED and CORRECT — the columns
+  arrive with the release that carries your code. Do not "fix" the live schema. Do not edit around
+  the missing columns in a way that diverges from the spec — write the code per spec and let the
+  release pipeline apply the schema.
 
 ## Never restart the stack you run inside (MANDATORY)
 - You run INSIDE the omniagent container. NEVER issue `docker_compose restart`, `down`, `stop`, `rm`, `kill`, or `up` against the

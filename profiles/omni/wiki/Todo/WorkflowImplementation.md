@@ -39,6 +39,7 @@ behavior must be byte-for-byte identical to today.
 | D4 | `ready` removed | replaced by `thread_status` (NULL/scheduled/running); NULL = resting |
 | D5 | Tester fails on ANY single test error | one error → back to executor (`running`, new scheduled thread) |
 | D6 | Reviewer always verifies work + tests | review-only role |
+| D7 | `clear_executions_on_review` | workflow-level boolean (default `false`, outside roles): when `true`, an executor/tester retry-limit → `review` (running+testing executions cleared to 0) instead of `blocked`; reviewer retry-limit still → `blocked`; reviewer executions NEVER reset → loop is bounded (no infinity) |
 | R1 | `thread_status` semantics | NULL = no in-flight step thread; scheduled = thread created; running = picked up |
 | R2 | Interruption reruns consume that step's retry | incl. tester/reviewer steps (I1) |
 | R3 | Pre-start/external skips consume NO retry | channel closure/deletion (scheduled OR running thread) / no-provider / thread-creation failure → task re-scheduled (new thread, status unchanged), no increment |
@@ -95,12 +96,14 @@ non-workflow, kanban and cron).
 | 3 | `running` | `running` | Interruption → rerun same step (I1), consumes executor retry |
 | 4 | `running` | `testing` | Executor success + tester defined → server loop creates test thread |
 | 5 | `running` | `review` | Executor success + no tester → review (manual or reviewer thread) |
-| 6 | `running` | `blocked` | Executor retry limit reached (guard before start) |
+| 6 | `running` | `blocked` | Executor retry limit reached (guard before start); **unless** workflow `clear_executions_on_review: true` → row 6a |
+| 6a | `running` | `review` | Executor retry limit + `clear_executions_on_review: true` → go to `review` instead of `blocked`: clear `executions[running]`+`executions[testing]` to 0 (reviewer executions untouched), create a review thread if a reviewer role exists (else manual review state, no thread), status → `review` |
 | 7 | `testing` | `review` | Tester pass + reviewer defined → review thread; no reviewer → manual review |
 | 8 | `testing` | `running` | Tester rework/failure → executor step: new executor thread, `thread_status='scheduled'`, status → `running` (consumes executor retry); retry-guarded → `blocked` at limit |
 | 9 | `testing` | `running` | ANY single test error (D5) → executor step (same as row 8) |
 | 10 | `testing` | `testing` | Tester interruption → rerun (consumes tester retry, omniagent loop handles transparently) |
-| 12 | `testing` | `blocked` | Tester retry limit reached (guard) |
+| 12 | `testing` | `blocked` | Tester retry limit reached (guard); **unless** workflow `clear_executions_on_review: true` → row 12a |
+| 12a | `testing` | `review` | Tester retry limit + `clear_executions_on_review: true` → go to `review` instead of `blocked`: clear `executions[running]`+`executions[testing]` to 0 (reviewer executions untouched), create a review thread if a reviewer role exists (else manual review state, no thread), status → `review` |
 | 13 | `review` | `done` | Reviewer approve = normal completion + summary message (status success); or manual/API |
 | 14 | `review` | `running` | Reviewer rework — fail-thread `metadata.workflow_step='running'`: new executor thread, `thread_status='scheduled'`, status → `running`; retry-guarded → `blocked` at limit |
 | 15 | `review` | `testing` | Reviewer retest — fail-thread `metadata.workflow_step='testing'`; no tester role → `blocked` + auto comment |
@@ -188,6 +191,7 @@ workflows:
     model: my-model
     retries: 3
     plan_mode: "off"
+    clear_executions_on_review: true
     roles:
       executor:
         plan_mode: "on"
@@ -208,8 +212,16 @@ workflows:
   IS the workflow's id/name (e.g. `my_workflow_1`). Same for roles: the role keys are exactly
   `executor` / `tester` / `reviewer` — no role name field.
 - **Workflow-level optional default fields**: `profile`, `provider`, `model`, `plan_mode`
-  (planning mode), `retries` — each workflow may define any subset; anything undefined falls back
-  down the chain (task → channel → global).
+  (planning mode), `retries`, **`clear_executions_on_review`** — each workflow may define any
+  subset; anything undefined falls back down the chain (task → channel → global).
+- **`clear_executions_on_review` (NEW, boolean, default `false`)**: TOP-LEVEL workflow field,
+  OUTSIDE roles (not per-role). When `true`: (a) a task that reaches the executor or tester
+  retry limit goes to `review` instead of `blocked`, clearing the executor+tester executions
+  (see §3 rows 6a/12a + §6); (b) the reviewer executions always keep incrementing and are NEVER
+  cleared; (c) the task's overall executions counter is not explicitly reset. Gives the reviewer
+  power to continue a task that exceeded executor/tester retries but is being done correctly —
+  while still being bounded (see §6) so no infinite loop, and the reviewer can always fail the
+  task to `blocked` directly.
 - **`template` is defined PER ROLE**: OPTIONAL for `executor`, REQUIRED for `tester` and
   `reviewer`.
 - **Role-level overrides**: `profile`, `provider`, `model`, `plan_mode`, `retries` may also be
@@ -342,7 +354,21 @@ tasks alike** (the normal retry guard still applies on the next actual re-entry 
 - **Increment**: after running the step's thread, increment `executions[<step>]` by 1 (same
   transition transaction, R8).
 - **Guard**: before sending a task to a step again, compare `executions[<step>]` to the limit; at
-  limit → `blocked` (+ auto comment), step NEVER starts (no thread).
+  limit → `blocked` (+ auto comment), step NEVER starts (no thread). **Exception:** when the
+  workflow's `clear_executions_on_review` is `true`, the executor/tester limit → `review` instead
+  of `blocked` (rows 6a/12a): clear `executions[running]` + `executions[testing]` to 0, keep
+  `executions[review]` as-is, and let the reviewer decide (approve → done / rework → running /
+  retest → testing / block → blocked). The reviewer limit ALWAYS → `blocked` (never cleared,
+  never overridden) — rows 16/17 unchanged.
+- **`clear_executions_on_review` semantics (D7, default `false`)**: when a task goes to `review`
+  under this flag, the executor and tester executions go to 0; the reviewer executions ALWAYS
+  increment and are never reset; the task's overall executions counter is not explicitly reset
+  (only the per-step running/testing counters are zeroed). Boundedness: with the flag, the
+  maximum total executions is `[(num_executor_executions + num_tester_executions + 1) *
+  num_reviewer_executions]` — no infinite loop as long as the agent does NOT call the
+  reset-executions action (`POST /kanban/tasks/{id}/workflow/executions/reset`). The reviewer
+  can always fail the task to `blocked` directly (row 16) without waiting for the limit.
+- **No double transitions** — guard + atomic transaction prevent concurrent sends.
 - **Limit = retries + 1** — the default `retries` value is 0, so the limit is 1: the FIRST
   execution of any step always runs (the first run is NOT a retry). Every re-entry past the first
   consumes a retry; when `executions[<step>]` reaches `retries + 1` → `blocked` (no thread).
@@ -469,7 +495,9 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 - Manual review decision buttons (approve/rework/retest/block + comment) = manual path only.
 - History page renders `comment`.
 - **Workflows page (R9)**: CRUD reads/writes **`workflows.yml`** in OMNI_DIR (workflow key =
-  name; per-role fields; NO DB tables — N5); precedence UI hints.
+  name; per-role fields; NO DB tables — N5); precedence UI hints. The workflow form MUST include
+  the top-level **`clear_executions_on_review`** boolean field (default `false`; checkbox/switch,
+  outside roles) — D7.
 - Kanban task `planning_mode` → channel planning mode → None. **The Kanban Task modal MUST show
   the plan mode field** (currently missing); default None/NULL. Independent of workflows —
   implement first (DB column + backend/API field if absent, then the modal).
@@ -489,6 +517,7 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 | **3** | Server-loop atomic transitions + retry guards | R8 transaction; guard (D1/R2/R3); interruption reruns (I1); fail-tool routing F1–F4 (**no `review` target — N6**); no thread on exhaustion |
 | **3b** | Role-aware prompt context | `prompt_generate` workflow-context block (§7): thread lookup by task_id; per-thread {id, workflow_step, last message + type}; role instructions; thread-access rules; recent history; **executor prompt = task description (user prompt) + template as system message (optional); tester/reviewer = template (user prompt) + task description (system prompt), template required** |
 | **4** | Reviewer/tester decisions | tester = normal completion / fail-thread (D5/R6); reviewer per R12 — success = normal completion + summary → done; issue = fail-thread `workflow_step` → `running`/`testing`/`blocked` (target step's role must exist, else `blocked`; no `review` — N6); `kanban_review_task`/`POST /review` manual-only; target validation (R5) |
+| **4b** | `clear_executions_on_review` (D7) | top-level workflow boolean (default false): executor/tester retry-limit → `review` instead of `blocked` (rows 6a/12a), clearing `executions[running]`+`executions[testing]` (reviewer executions NEVER cleared, reviewer limit still → `blocked`); bounded (see §6); Workflows page form field |
 | **5** | Workflows page + precedence | CRUD against **`workflows.yml`** (N5); execution reads workflow from file; field precedence (workflow_role > workflow_field > task > channel > global); planning_mode semantics; **reset-executions API + Kanban Task Details button** |
 | **6** | Recovery hardening | step-aware channel closure/deletion (§5) |
 | **7** | Docs/tests | wiki + CHANGELOG; dashboard polish |
@@ -528,6 +557,11 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
   `workflow_id`; steps can re-run from a clean budget after reset
 - retries=1 per step (limit = 2), guard blocks re-entry BEFORE the step starts (no thread created)
 - rework/retest consume the right budget; reviewer-loop bounded (D2)
+- **`clear_executions_on_review: true`** — executor retry-limit → `review` (not `blocked`), `executions[running]`+`executions[testing]` cleared to 0, reviewer executions untouched; tester retry-limit → `review` the same way (rows 6a/12a)
+- **`clear_executions_on_review: true` + reviewer retry-limit → `blocked`** as usual (reviewer limit never overridden/cleared)
+- **`clear_executions_on_review` default `false` (or absent)** — executor/tester retry-limit → `blocked` exactly as before (no behavior change)
+- **Boundedness under the flag** — total executions ≤ `[(executor + tester + 1) * reviewer]`; no infinite loop without calling reset-executions; reviewer can fail to `blocked` directly at any time
+- Workflows page form shows/edits `clear_executions_on_review` and persists it to `workflows.yml`
 - comment persisted on transitions (D3); `thread_status` lifecycle (D4)
 - Channel skip mid-test; dependency with test dep; manual override race
 - `task_id` present on all step threads (R12)
@@ -559,6 +593,9 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
   running/testing/blocked); `review` never accepted; absent role → `blocked`.
 - Executions counter increments per run; guard blocks at limit with `blocked` + comment (no thread).
 - Reset-executions API + button work end-to-end (executions cleared, steps re-runnable).
+- `clear_executions_on_review` (D7) implemented end-to-end: executor/tester limit → `review`
+  with running/testing executions cleared when `true`; default `false` unchanged; reviewer
+  limit always `blocked`; bounded per §6; Workflows page form field present.
 - Existing no-workflow tasks behave identically to before.
 
 ---

@@ -40,10 +40,10 @@ behavior must be byte-for-byte identical to today.
 | D5 | Tester fails on ANY single test error | one error → back to executor (`running`, new scheduled thread) |
 | D6 | Reviewer always verifies work + tests | review-only role |
 | D7 | `clear_executions_on_review` | workflow-level boolean (default `false`, outside roles): when `true`, an executor/tester retry-limit → `review` (running+testing executions cleared to 0) instead of `blocked`; reviewer retry-limit still → `blocked`; reviewer executions NEVER reset → loop is bounded (no infinity) |
-| D8 | **Explicit stop-thread ≠ restart recovery** | `skip_recovery` (init/restart) is IMPLICIT continuation: pending/processing threads are re-scheduled (new thread, status unchanged) so the task continues from where it stopped. `POST /stop-thread` is an EXPLICIT stop: the thread is marked skipped AND the kanban task moves to `blocked` (thread_status → NULL) so the operator can later move it (e.g. to `todo`) deliberately. No re-schedule, no retry consumed, no move to `todo` automatically |
+| D8 | **Explicit stop ≠ restart recovery** | `skip_recovery` (init/restart) is IMPLICIT continuation: pending/processing threads are re-scheduled (new thread, status unchanged) so the task continues from where it stopped. Explicit stops — `POST /stop-thread/{id}` (one thread), `POST /stop/{channel_id}` (all threads in a channel, channel stays open), `POST /close/{channel_id}` (all threads in a channel + channel closed) — are EXPLICIT: affected thread(s) marked skipped AND each kanban-linked task moves to `blocked` (thread_status → NULL) so the operator can later move it (e.g. to `todo`) deliberately. No re-schedule, no retry consumed, no move to `todo` automatically |
 | R1 | `thread_status` semantics | NULL = no in-flight step thread; scheduled = thread created; running = picked up |
 | R2 | Interruption reruns consume that step's retry | incl. tester/reviewer steps (I1) |
-| R3 | Pre-start/external skips consume NO retry | channel closure/deletion (scheduled OR running thread) / no-provider / thread-creation failure → task re-scheduled (new thread, status unchanged), no increment |
+| R3 | Pre-start/external skips consume NO retry | **IMPLICIT** channel closure/deletion (channel removed externally or at init/restart — NOT the operator's `POST /close`) (scheduled OR running thread) / no-provider / thread-creation failure → task re-scheduled (new thread, status unchanged), no increment. **Operator-initiated explicit stop/close (D8) is NOT R3** — it → `blocked` |
 | R4 | `ready` dropped, no compat | migrate rows, reject future writes |
 | R5 | Invalid target → `blocked` + auto comment | `review` valid without reviewer (manual state); `testing` without tester is invalid |
 | R6 | Failure signal = generic built-in tool | **`fail-thread`** (full `builtin_fail-thread`) — NOT kanban-named |
@@ -103,10 +103,10 @@ non-workflow, kanban and cron).
 | 8 | `testing` | `running` | Tester rework/failure → executor step: new executor thread, `thread_status='scheduled'`, status → `running` (consumes executor retry); retry-guarded → `blocked` at limit |
 | 9 | `testing` | `running` | ANY single test error (D5) → executor step (same as row 8) |
 | 10 | `testing` | `testing` | Tester interruption → rerun (consumes tester retry, omniagent loop handles transparently) |
-| 11 | `running` | `blocked` | **Explicit stop-thread** (operator `POST /stop-thread/{id}`): thread marked skipped, task → `blocked`, `thread_status` → NULL (D8). Operator may later move to `todo` deliberately |
-| 11a | `testing` | `blocked` | **Explicit stop-thread**: thread marked skipped, task → `blocked`, `thread_status` → NULL (D8) |
-| 11b | `review` | `blocked` | **Explicit stop-thread** when `thread_status` ∈ {scheduled, running}: thread marked skipped, task → `blocked`, `thread_status` → NULL (D8) |
-| 11c | `review` | (unchanged) | **Explicit stop-thread** when `thread_status` IS NULL (manual review state — no thread exists to stop): no-op |
+| 11 | `running` | `blocked` | **Explicit stop** (operator `POST /stop-thread/{id}` on the thread, or `POST /stop/{channel_id}` / `POST /close/{channel_id}` affecting it): thread marked skipped, task → `blocked`, `thread_status` → NULL (D8). Operator may later move to `todo` deliberately |
+| 11a | `testing` | `blocked` | **Explicit stop** (`stop-thread` on the thread, or channel-level `stop`/`close` affecting it): thread marked skipped, task → `blocked`, `thread_status` → NULL (D8) |
+| 11b | `review` | `blocked` | **Explicit stop** (`stop-thread` on the thread, or channel-level `stop`/`close` affecting it) when `thread_status` ∈ {scheduled, running}: thread marked skipped, task → `blocked`, `thread_status` → NULL (D8) |
+| 11c | `review` | (unchanged) | **Explicit stop** when `thread_status` IS NULL (manual review state — no thread exists to stop): no-op |
 | 12 | `testing` | `blocked` | Tester retry limit reached (guard); **unless** workflow `clear_executions_on_review: true` → row 12a |
 | 12a | `testing` | `review` | Tester retry limit + `clear_executions_on_review: true` → go to `review` instead of `blocked`: clear `executions[running]`+`executions[testing]` to 0 (reviewer executions untouched), create a review thread if a reviewer role exists (else manual review state, no thread), status → `review` |
 | 13 | `review` | `done` | Reviewer approve = normal completion + summary message (status success); or manual/API |
@@ -116,6 +116,13 @@ non-workflow, kanban and cron).
 | 17 | `review` | `review` | Reviewer interruption → rerun (consumes reviewer retry, omniagent loop handles transparently) |
 | 19 | `blocked` | — | Terminal, no thread ever |
 | 20 | `done` | — | Terminal, no thread ever |
+
+**Channel-level explicit stop:** `POST /stop/{channel_id}` and `POST /close/{channel_id}` apply rows
+11/11a/11b/11c to **EVERY kanban-linked thread** of the channel (all pending/processing threads are
+marked skipped, each linked task → `blocked`, `thread_status` → NULL). `stop` keeps the channel open
+(executor restarts, picks up any remaining pending threads); `close` additionally closes the channel
+(supervisor will not spawn a new handler until the channel is opened again — D8). Threads without a
+kanban task link are only marked skipped (no task transition).
 
 **No explicit same-step retry (D1 dropped):** the agent NEVER explicitly requests to run the same
 step again. While a test/review task runs, the role may test/review. On pass → return successfully
@@ -335,6 +342,12 @@ NOT a mid-flight interruption (I1). A kanban task whose thread would be marked s
 tasks alike** (the normal retry guard still applies on the next actual re-entry — exhaustion →
 `blocked`).
 
+**R3/D8 boundary — WHO initiated it:** the re-schedule below is the **IMPLICIT** path — the channel
+was closed/removed externally or the system found it closed at init/restart. The **EXPLICIT operator
+path is D8** (`POST /stop/{channel_id}` or `POST /close/{channel_id}`): threads marked skipped AND
+kanban-linked tasks → `blocked` + `thread_status` NULL (rows 11/11a/11b), channel stays open for
+`stop`, closes for `close`. Implicit → re-schedule; explicit → `blocked`. Never conflate the two.
+
 - **Pending step thread** (`thread_status='scheduled'`, never started) → **re-scheduled**: new
   thread created, status unchanged, `thread_status='scheduled'`; **no retry consumed (R3)**. (No
   move to `todo` — the old "return to prior status" behavior is replaced by re-scheduling so
@@ -381,13 +394,17 @@ tasks alike** (the normal retry guard still applies on the next actual re-entry 
   interruption rerun (I1) **increments the task's step execution counter**
   (`executions[<step>]`) just like any other run of that step.
 - **Pre-start/external skips consume NO retry (R3)** — no provider, thread-creation failure, or
-  **channel closure/deletion** (pending OR running thread: the thread is marked skipped and a new
-  thread is created with `thread_status='scheduled'`, status unchanged) → task **re-scheduled**
-  without incrementing. **Channel closure/deletion NEVER uses retry** — even for `running`
-  threads.
-- **Explicit stop-thread consumes NO retry but DOES move the task to `blocked` (D8)** — this is
-  the operator's deliberate abort: `POST /stop-thread/{id}` marks the thread skipped, moves the
-  kanban task to `blocked` and sets `thread_status` → NULL (rows 11/11a/11b). It is NOT a
+  **IMPLICIT channel closure/deletion** (external removal or init/restart state — NOT the
+  operator's `POST /close`, which is D8) (pending OR running thread: the thread is marked skipped
+  and a new thread is created with `thread_status='scheduled'`, status unchanged) → task
+  **re-scheduled** without incrementing. **Channel closure/deletion NEVER uses retry** — even for
+  `running` threads. The D8 boundary: **implicit/external → re-schedule (R3); explicit operator
+  stop/close → `blocked` (D8)**.
+- **Explicit stop consumes NO retry but DOES move the task to `blocked` (D8)** — this is
+  the operator's deliberate abort: `POST /stop-thread/{id}` (single thread) or the channel-level
+  `POST /stop/{channel_id}` / `POST /close/{channel_id}` (all threads of the channel) mark the
+  affected thread(s) skipped, move each kanban-linked task to `blocked` and set `thread_status`
+  → NULL (rows 11/11a/11b). It is NOT a
   re-schedule (that is for implicit recovery at restart/init via `skip_recovery`) and NOT an
   automatic `todo` — the operator moves it forward deliberately later (e.g. to `todo`).
 - **No double transitions** — guard + atomic transaction prevent concurrent sends.
@@ -492,12 +509,17 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
   dashboard calls to list/create/update/delete workflows; backed by reading/writing
   `workflows.yml` (validation on write: executor role required, tester/reviewer templates
   required).
-- **`POST /stop-thread/{id}`** (D8, explicit stop): marks the thread skipped AND, when the
-  thread is kanban-linked, moves the kanban task to `blocked` with `thread_status` → NULL —
-  from `running`/`testing` always, and from `review` when `thread_status` ∈ {scheduled,
-  running}. `review` with `thread_status` NULL (manual review, no thread) is a no-op on the
-  task. No re-schedule, no retry consumed, no automatic move to `todo` (the operator may move
-  it deliberately later).
+- **Explicit stop endpoints (D8)** — all three mark affected thread(s) skipped AND, for every
+  kanban-linked thread, move the task to `blocked` with `thread_status` → NULL — from
+  `running`/`testing` always, and from `review` when `thread_status` ∈ {scheduled, running};
+  `review` with `thread_status` NULL (manual review, no thread) is a no-op on the task. No
+  re-schedule, no retry consumed, no automatic move to `todo` (the operator may move it
+  deliberately later):
+  - **`POST /stop-thread/{id}`** — single thread.
+  - **`POST /stop/{channel_id}`** — ALL pending/processing threads of the channel; channel stays
+    open (executor restarts, picks up remaining pending threads).
+  - **`POST /close/{channel_id}`** — ALL pending/processing threads of the channel AND closes the
+    channel (supervisor will not spawn a new handler until the channel is opened again).
 
 ### MCP tools (kanban plugin)
 - `kanban_update_task` — validates new status list; `ready` rejected.
@@ -534,7 +556,7 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 | **3b** | Role-aware prompt context | `prompt_generate` workflow-context block (§7): thread lookup by task_id; per-thread {id, workflow_step, last message + type}; role instructions; thread-access rules; recent history; **executor prompt = task description (user prompt) + template as system message (optional); tester/reviewer = template (user prompt) + task description (system prompt), template required** |
 | **4** | Reviewer/tester decisions | tester = normal completion / fail-thread (D5/R6); reviewer per R12 — success = normal completion + summary → done; issue = fail-thread `workflow_step` → `running`/`testing`/`blocked` (target step's role must exist, else `blocked`; no `review` — N6); `kanban_review_task`/`POST /review` manual-only; target validation (R5) |
 | **4b** | `clear_executions_on_review` (D7) | top-level workflow boolean (default false): executor/tester retry-limit → `review` instead of `blocked` (rows 6a/12a), clearing `executions[running]`+`executions[testing]` (reviewer executions NEVER cleared, reviewer limit still → `blocked`); bounded (see §6); Workflows page form field |
-| **6b** | Explicit stop-thread → `blocked` (D8) | `POST /stop-thread/{id}`: thread marked skipped AND kanban task → `blocked` + `thread_status` NULL (from `running`/`testing` always; from `review` only when `thread_status` ∈ {scheduled, running}; `review` manual no-op). Distinguish from restart recovery (`skip_recovery` = implicit re-schedule). No retry consumed, no auto `todo` |
+| **6b** | Explicit stop → `blocked` (D8) | `POST /stop-thread/{id}` (single thread), `POST /stop/{channel_id}` and `POST /close/{channel_id}` (ALL threads of the channel): affected thread(s) marked skipped AND each kanban-linked task → `blocked` + `thread_status` NULL (from `running`/`testing` always; from `review` only when `thread_status` ∈ {scheduled, running}; `review` manual no-op). `stop` keeps channel open; `close` closes it. Distinguish from restart recovery (`skip_recovery` = implicit re-schedule, R3) and from IMPLICIT channel closure (R3). No retry consumed, no auto `todo` |
 | **5** | Workflows page + precedence | CRUD against **`workflows.yml`** (N5); execution reads workflow from file; field precedence (workflow_role > workflow_field > task > channel > global); planning_mode semantics; **reset-executions API + Kanban Task Details button** |
 | **6** | Recovery hardening | step-aware channel closure/deletion (§5) |
 | **7** | Docs/tests | wiki + CHANGELOG; dashboard polish |
@@ -579,7 +601,9 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 - **`clear_executions_on_review` default `false` (or absent)** — executor/tester retry-limit → `blocked` exactly as before (no behavior change)
 - **Boundedness under the flag** — total executions ≤ `[(executor + tester + 1) * reviewer]`; no infinite loop without calling reset-executions; reviewer can fail to `blocked` directly at any time
 - Workflows page form shows/edits `clear_executions_on_review` and persists it to `workflows.yml`
-- **Explicit stop-thread (D8)**: stop a `running` thread → task `blocked` + `thread_status` NULL; stop a `testing` thread → same; stop a `review` thread with `thread_status` scheduled/running → same; stop-thread on `review` with `thread_status` NULL → task unchanged (no-op); no retry consumed, no re-schedule, no auto `todo`
+- **Explicit stop (D8)**: stop a `running` thread → task `blocked` + `thread_status` NULL; stop a `testing` thread → same; stop a `review` thread with `thread_status` scheduled/running → same; stop-thread on `review` with `thread_status` NULL → task unchanged (no-op); no retry consumed, no re-schedule, no auto `todo`
+- **Channel-level explicit stop (D8)**: `POST /stop/{channel_id}` with several pending/processing kanban-linked threads → EVERY linked task `blocked` + `thread_status` NULL; channel stays open; `POST /close/{channel_id}` → same + channel closed (no new handler until reopened); non-kanban threads only skipped (no task transition)
+- **Implicit vs explicit channel closure**: IMPLICIT closure/deletion (external/init) → re-scheduled (R3, status unchanged); EXPLICIT operator `POST /close` → `blocked` (D8) — the boundary is who initiated it
 - **Restart recovery ≠ stop-thread**: restart with pending/processing threads → re-scheduled (status unchanged, `thread_status='scheduled'`, no retry) — the implicit continuation path stays distinct from explicit stop (D8)
 - comment persisted on transitions (D3); `thread_status` lifecycle (D4)
 - Channel skip mid-test; dependency with test dep; manual override race
@@ -615,9 +639,10 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 - `clear_executions_on_review` (D7) implemented end-to-end: executor/tester limit → `review`
   with running/testing executions cleared when `true`; default `false` unchanged; reviewer
   limit always `blocked`; bounded per §6; Workflows page form field present.
-- Explicit `stop-thread` (D8): task → `blocked` + `thread_status` NULL from running/testing
-  always, from review only with an in-flight thread; manual-review no-op; distinct from restart
-  re-schedule.
+- Explicit stop (D8) — `stop-thread`, `stop` (channel), `close` (channel): affected kanban tasks →
+  `blocked` + `thread_status` NULL from running/testing always, from review only with an in-flight
+  thread; manual-review no-op; distinct from restart re-schedule; channel-level ops block EVERY
+  kanban-linked task in the channel; implicit channel closure still re-schedules (R3).
 - Existing no-workflow tasks behave identically to before.
 
 ---

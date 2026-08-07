@@ -53,11 +53,14 @@
 - **Never guess a small timeout** (e.g. 5-15s) for a build — a Rust `cargo build --release`
   takes 1-10+ minutes. Use 300s from the start. Waiting 5 min costs 1 iteration; checking
   every 15s for 5 min costs 20 iterations.
-- **`docker_compose exec` background pattern:** if you must run a long command that does not
-  return a task_id, prefer running it in the background (`command: "exec", args: ... &` or the
-  tool's background/notify option if available) and then `builtin_wait-task` on the returned
-  id. If the tool only supports foreground, use the tool's OWN timeout parameter set high
-  (e.g. 300+) rather than launching and then re-checking.
+- **`docker_compose` LONG COMMANDS: NEVER pass the `timeout` parameter.** `docker_compose`
+  automatically switches to background after a few seconds and returns
+  `{"status":"processing","task_id":...}`. It has NO default timeout — the command runs until
+  it finishes, errors, or you cancel it. If you pass `timeout: 300`, the command is KILLED at
+  300s (observed: a setup killed at 300s left the stack half-up; a cargo build killed at 300s
+  forced a full re-run). To wait: `builtin_wait-task(task_id=<id>, timeout_secs=300, tail=2000)`
+  and repeat if it times out. Do NOT combine `timeout` with wait-task — `timeout` on the tool
+  call kills the command; wait-task just waits.
 - **While a build runs, do NOT do other work in parallel by polling** — the per-channel
   executor is serial; your thread is the only one running. Just wait.
 - **If a command genuinely hangs past 2-3 wait cycles (10-15 min), THEN investigate** (logs,

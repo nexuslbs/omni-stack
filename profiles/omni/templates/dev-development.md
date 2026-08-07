@@ -21,6 +21,22 @@
 - If you cannot finish in this thread: commit what exists, push it, and report exactly
   what remains. NEVER let the thread die with uncommitted work on disk.
 
+## Trust the Task Body — PRE-VERIFIED FACTS are authoritative (MANDATORY — read first)
+- Task bodies are written by an orchestrator that has ALREADY done the exploration. When a
+  body embeds facts — file paths, line numbers, code snippets, exact commands, root causes —
+  those facts are PRE-VERIFIED ground truth. Your job is to USE them, not re-derive them.
+- **Do not re-read a file (or a line range) whose relevant content is already quoted in the
+  task body.** Opening a file to "confirm" what the body already states costs a tool call
+  and teaches you nothing. Trust the body; verify only what the body tells you to verify.
+- **If the body gives you the change and the location, EDIT FIRST.** Open the target file
+  once, make the edit, then read back ONLY the edited region (a few lines) to confirm it
+  applied. Do not page through the whole file first.
+- **Your plan should be: edit → test → commit.** A plan that lists "read files to confirm
+  line content" is a plan to waste the budget. The first N tool calls should be EDITS.
+- When the body says a build/test/verification "already passed" or "is not needed here",
+  trust it — do not rerun it "to be sure". The orchestrator recorded the state so you can
+  finish in a handful of calls instead of re-earning it.
+
 ## Long-Running Commands & Waiting (MANDATORY — read before running any build/test)
 
 - **A long-running command (build, test suite, server start, git push) costs ONE tool call if
@@ -147,6 +163,33 @@ handful of calls instead of re-earning the state.
   The live omnistable stack is a DEPLOYED product running image-fixed binaries. Your code changes
   do NOT exist there and you MUST NOT make them exist there. They go live ONLY when a new CI image
   is built and published from `main` — never before.
+
+## Building omniagent code from an omnistable-dispatched task (MANDATORY)
+
+If THIS task is running under the omnistable stack (you are inside the
+`omnistable-omniagent-1` container / stable-channel) and the task asks you to
+implement omniagent (or omni-dashboard / omni-stack) code, you build and
+verify it via the DEV stack — the omnistable container has NO source mount
+and NO build toolchain:
+
+1. **Use the omni-deployer repo to run omnidev** — the dev stack:
+   `cd /opt/workspace/omni-deployer && python3 omnidev.py setup`
+   (or, if the omnidev stack is already up, skip setup and just exec into it).
+   omnidev and omnistable run side-by-side — starting omnidev does NOT stop
+   omnistable, and vice versa.
+2. **Implement the code in the omniagent repo in the workspace**:
+   `/opt/workspace/omniagent` (mounted at `/app` inside the omnidev omniagent
+   container).
+3. **Build it in the omnidev omniagent container**
+   (`omnidev-omniagent-1`) — e.g.
+   `docker exec omnidev-omniagent-1 bash -c 'cd /app && cargo build --release -p <pkg>'`
+   or `docker compose -f /opt/workspace/omni-stack/docker-compose.yml -f /opt/workspace/omni-stack/docker-compose.dev.yml -p omnidev exec omniagent bash -c 'cd /app && cargo build ...'`.
+   The omnidev dev overlay already sets `SQLX_OFFLINE: "false"`, so `sql_forge!`
+   macros are verified against the LIVE dev database at compile time — do not
+   set `SQLX_OFFLINE=true` to bypass.
+4. NEVER run the migrator or builds against the live omnistable DB/stack.
+   Your changes reach omnistable only via the next CI build from `main`.
+
 - **NEVER run `db-migrations` against the live database** (omnistable-postgres-1, db `omniagent`)
   — or ANY database that is not a throwaway local/test DB you created yourself for this task.
   Applying schema to the live stack is a PRODUCTION CHANGE, not a dev step. The error that caused
@@ -165,16 +208,27 @@ handful of calls instead of re-earning the state.
 - If you genuinely need a database to test against, create a THROWAWAY local postgres (e.g. a
   scratch compose service or `docker run` on a non-live port) and run `db-migrations` against
   THAT — never the live one.
-- **.sqlx offline cache**: sqlx with `SQLX_OFFLINE=true` (the workspace build uses it) requires a
-  cached entry for EVERY `sqlx::query!`/`query_as!` in the codebase. Adding new queries WITHOUT
-  regenerating the cache makes `cargo build --workspace` fail with 17+ "no cached data for this
-  query" errors — and the NEXT task/thread inherits the broken build. After ANY query change:
-  1. Regenerate the cache: `cargo sqlx prepare --workspace` with DATABASE_URL pointing at YOUR
-     throwaway local DB (schema applied there first via db-migrations) — the repo has
-     `prepare.py` under /opt/workspace/rustbuild that auto-discovers plugin crates; check the
-     `.sqlx/` dirs: root + `plugins/tools/{search,metrics,kanban,query,cron}`.
-  2. Commit the regenerated `.sqlx/*.json` files TOGETHER WITH the queries that need them —
-     otherwise you land a broken main and every subsequent phase pays the tax.
+- **Databases: NEVER use the live omnistable DB — spin your OWN temporary local
+  postgres.** The live omnistable stack (image, binary, DB) is FROZEN — no
+  migrations, no schema changes, no builds against it, no pointing tests at it.
+  Only bundled and remote *plugins* can change live. Your code goes live ONLY via
+  the next CI build. So: create a THROWAWAY local postgres (scratch compose
+  service or `docker run` on a non-live port — e.g. the `phase5-db` pattern),
+  run `db-migrations` against THAT, and point `DATABASE_URL` at it.
+- **Development uses a LIVE database — NOT `SQLX_OFFLINE`.** `SQLX_OFFLINE=true`
+  is for CI and hybrid builds (the Dockerfile sets it); the dev overlay
+  (`docker-compose.dev.yml`) already sets `SQLX_OFFLINE: "false"` so `cargo build`
+  validates queries against your live temp DB at compile time. When you change a
+  query, build/test against your temp DB — sqlx will validate it live and you do
+  NOT need to regenerate the `.sqlx` cache yourself during development. CI
+  regenerates the cache (`cargo sqlx prepare --workspace` against a scratch DB)
+  as part of its own build; if you must regenerate it (e.g. to prove CI will
+  pass), run `prepare.py` under /opt/workspace/rustbuild with DATABASE_URL
+  pointing at YOUR throwaway DB — never the live one.
+- **If a query fails at compile time with a missing table/column, your temp DB
+  schema is stale — re-run `db-migrations` against it, or the query is wrong.**
+  Do NOT reach for `SQLX_OFFLINE=true` to bypass the error; that hides real
+  problems and is not how dev is configured.
 - If the live DB lacks columns your code references, that is EXPECTED and CORRECT — the columns
   arrive with the release that carries your code. Do not "fix" the live schema. Do not edit around
   the missing columns in a way that diverges from the spec — write the code per spec and let the

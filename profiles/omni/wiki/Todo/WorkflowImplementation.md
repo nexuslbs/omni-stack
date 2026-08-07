@@ -41,6 +41,7 @@ behavior must be byte-for-byte identical to today.
 | D6 | Reviewer always verifies work + tests | review-only role |
 | D7 | `clear_executions_on_review` | workflow-level boolean (default `false`, outside roles): when `true`, an executor/tester retry-limit → `review` (running+testing executions cleared to 0) instead of `blocked`; reviewer retry-limit still → `blocked`; reviewer executions NEVER reset → loop is bounded (no infinity) |
 | D8 | **Explicit stop ≠ restart recovery** | `skip_recovery` (init/restart) is IMPLICIT continuation: pending/processing threads are re-scheduled (new thread, status unchanged) so the task continues from where it stopped. Explicit stops — `POST /stop-thread/{id}` (one thread), `POST /stop/{channel_id}` (all threads in a channel, channel stays open), `POST /close/{channel_id}` (all threads in a channel + channel closed) — are EXPLICIT: affected thread(s) marked skipped AND each kanban-linked task moves to `blocked` (thread_status → NULL) so the operator can later move it (e.g. to `todo`) deliberately. No re-schedule, no retry consumed, no move to `todo` automatically |
+| D9 | **Dependency gate = ALL non-archived deps `done`** | the dispatcher moves a `todo` task to `ready` ONLY when every NON-ARCHIVED task it depends on (`kanban_task_dependencies`) has status `done`. `review` no longer satisfies dependents (archived deps are ignored — they do not block); a missing/deleted dep row or any non-`done` non-archived dep blocks dispatch |
 | R1 | `thread_status` semantics | NULL = no in-flight step thread; scheduled = thread created; running = picked up |
 | R2 | Interruption reruns consume that step's retry | incl. tester/reviewer steps (I1) |
 | R3 | Pre-start/external skips consume NO retry | **IMPLICIT** channel closure/deletion (channel removed externally or at init/restart — NOT the operator's `POST /close`) (scheduled OR running thread) / no-provider / thread-creation failure → task re-scheduled (new thread, status unchanged), no increment. **Operator-initiated explicit stop/close (D8) is NOT R3** — it → `blocked` |
@@ -89,6 +90,13 @@ step. Executor failure (non-success terminal or empty fail target) re-runs the e
 behavior that moved skipped `running` tasks to `todo` is also gone: skipped scheduled/running tasks
 are **re-scheduled** (new thread, status unchanged) instead. This applies to ALL tasks (workflow and
 non-workflow, kanban and cron).
+
+**Dispatcher dependency gate (D9):** the dispatcher (`plugins/tools/actions/src/main.rs`
+`handle_kanban_dispatcher`) promotes a `todo` task to `ready` ONLY when every **non-archived** task
+it depends on is `done`. `review` does NOT satisfy dependents anymore — a child with a parent stuck
+in `review` stays `todo` until that parent is explicitly moved to `done` (manual/API review
+completion). Archived dependencies are ignored (they do not block dispatch); a missing/deleted
+dependency row blocks dispatch.
 
 | # | From | To | Trigger |
 |---|------|----|---------|
@@ -592,6 +600,7 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
 - Workflows page CRUD reads/writes `workflows.yml`; execution resolves role fields from the file (R9)
 - `workflow_id` = workflows.yml key string; field precedence workflow_role > workflow_field > task
   > channel > global (always)
+- **Dependency gate (D9)**: dispatcher promotes `todo` → `ready` ONLY when ALL non-archived deps are `done`; a dep in `review` (or `running`/`testing`/`blocked`/`backlog`/`todo`) BLOCKS; archived dep does NOT block; missing dep row blocks; no deps → eligible immediately
 - Reset-executions API + button: clears `workflow_state.executions`; idempotent; no-op without
   `workflow_id`; steps can re-run from a clean budget after reset
 - retries=1 per step (limit = 2), guard blocks re-entry BEFORE the step starts (no thread created)
@@ -636,6 +645,8 @@ prompt plugin renders the comment. Reference wording (matches the fail-thread fl
   running/testing/blocked); `review` never accepted; absent role → `blocked`.
 - Executions counter increments per run; guard blocks at limit with `blocked` + comment (no thread).
 - Reset-executions API + button work end-to-end (executions cleared, steps re-runnable).
+- **Dependency gate (D9)**: a `todo` child is dispatched only when all non-archived parents are
+  `done` — `review` does not satisfy dependents; archived parents ignored; missing dep row blocks.
 - `clear_executions_on_review` (D7) implemented end-to-end: executor/tester limit → `review`
   with running/testing executions cleared when `true`; default `false` unchanged; reviewer
   limit always `blocked`; bounded per §6; Workflows page form field present.

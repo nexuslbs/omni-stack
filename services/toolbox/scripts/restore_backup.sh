@@ -9,6 +9,15 @@ S3_PREFIX="${S3_PATH:-omni}/data"
 S3_ENDPOINT="${S3_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}"
 S3_REGION="${S3_REGION:-us-east-005}"
 
+# ── Compose project resolution ─────────────────────────────────────────────
+# Containers/volumes are auto-named per project ({project}-{service}-{index},
+# {project}_{volume}) — there are no fixed omni-* names. Derive the project
+# from this container's compose label; fall back to the default directory name.
+PROJECT="$(docker inspect "$HOSTNAME" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
+PROJECT="${PROJECT:-omni-stack}"
+GRAFANA_CT="$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT}" --filter "name=grafana" 2>/dev/null | head -1)"
+GRAFANA_VOL="${PROJECT}_grafana-vol"
+
 BACKUP_DIR="${OMNI_DIR}/data/backups"
 
 # ── Source credentials ─────────────────────────────────────────────────────
@@ -43,13 +52,13 @@ echo "[restore] Starting restore from ${SRC}/"
 
 # ─── Step 1: Stop services ─────────────────────────────────────────────────
 echo "[restore] Step 1/6: Stopping services..."
-docker stop omni-omniagent-1 2>/dev/null || echo "[restore] omniagent not running"
-if docker ps -q --filter name=omni-mattermost-1 | grep -q .; then
-  docker stop omni-mattermost-1
+docker stop "${PROJECT}-omniagent-1" 2>/dev/null || echo "[restore] omniagent not running"
+if docker ps -q --filter name="${PROJECT}-mattermost-1" | grep -q .; then
+  docker stop "${PROJECT}-mattermost-1"
   echo "[restore] mattermost stopped"
 fi
-if docker ps -q --filter name=omni-grafana | grep -q .; then
-  docker stop omni-grafana
+if [ -n "${GRAFANA_CT}" ]; then
+  docker stop "${GRAFANA_CT}"
   echo "[restore] grafana stopped"
 fi
 
@@ -133,9 +142,9 @@ echo "[restore] Step 6/7: Restoring Grafana data..."
 if [ -f "${BACKUP_DIR}/grafana/grafana.db" ]; then
   # Restore by mounting the backup into the grafana volume
   # Since the volume is separate, create a temp container to copy it
-  if docker volume ls -q | grep -q omni-grafana-vol; then
+  if docker volume ls -q | grep -q "^${GRAFANA_VOL}$"; then
     docker run --rm \
-      -v omni-grafana-vol:/target \
+      -v "${GRAFANA_VOL}:/target" \
       -v "${BACKUP_DIR}/grafana:/source:ro" \
       alpine sh -c 'cp /source/grafana.db /target/ && chown 472:472 /target/grafana.db' \
       2>/dev/null && echo "[restore] Grafana data restored." || \
@@ -149,7 +158,7 @@ fi
 
 # ─── Step 7: Start services ────────────────────────────────────────────────
 echo "[restore] Step 7/7: Starting services..."
-docker start omni-omniagent-1 2>/dev/null || echo "[restore] Starting omniagent..."
+docker start "${PROJECT}-omniagent-1" 2>/dev/null || echo "[restore] Starting omniagent..."
 # Wait for omniagent to be healthy
 for i in $(seq 1 30); do
   if curl -sf http://localhost:8080/health 2>/dev/null | grep -q ok; then
@@ -158,14 +167,13 @@ for i in $(seq 1 30); do
   fi
   sleep 2
 done
-
-if docker ps -a -q --filter name=omni-mattermost-1 | grep -q .; then
-  docker start omni-mattermost-1
+if docker ps -a -q --filter name="${PROJECT}-mattermost-1" | grep -q .; then
+  docker start "${PROJECT}-mattermost-1"
   echo "[restore] mattermost restarted."
 fi
 
-if docker ps -a -q --filter name=omni-grafana | grep -q .; then
-  docker start omni-grafana
+if [ -n "${GRAFANA_CT}" ]; then
+  docker start "${GRAFANA_CT}"
   echo "[restore] grafana restarted."
 fi
 

@@ -223,8 +223,11 @@ del(.facility)
 type = "remap"
 inputs = ["vector_internal"]
 source = """
-# Map Vector's own internal logs to our standard schema
-.container = "omni-vector"
+# Map Vector's own internal logs to our standard schema.
+# The container label is injected by compose (VECTOR_SELF_CONTAINER,
+# defaults to {COMPOSE_PROJECT_NAME}-vector-1) so multiple projects can
+# run side-by-side without a fixed-name collision.
+.container = get_env_var("VECTOR_SELF_CONTAINER", "vector")
 .service = "vector"
 .stream = if .metadata.level == "error" || .metadata.level == "critical" || .metadata.level == "warn" {
     "stderr"

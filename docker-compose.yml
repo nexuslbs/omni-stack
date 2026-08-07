@@ -1,4 +1,4 @@
-name: omni
+name: ${COMPOSE_PROJECT_NAME:-omni}
 
 networks:
   obs-net:
@@ -121,7 +121,6 @@ services:
   #  Observability: Cloudflare Tunnel 
   cloudflared:
     profiles: ["tunnel", "all"]
-    container_name: omni-cloudflared
     build:
       context: services/cloudflared
       dockerfile: Dockerfile
@@ -209,7 +208,6 @@ services:
   cadvisor:
     profiles: ["cadvisor", "all"]
     image: ${CADVISOR_IMAGE:-ghcr.io/google/cadvisor:v0.57.0}
-    container_name: omni-cadvisor
     restart: unless-stopped
     privileged: true
     command:
@@ -230,7 +228,6 @@ services:
       dockerfile: Dockerfile
       args:
         PROMETHEUS_IMAGE: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.5}
-    container_name: omni-prometheus
     restart: unless-stopped
     user: root
     entrypoint:
@@ -239,7 +236,7 @@ services:
       - '--storage.tsdb.retention.time=7d'
       - '--storage.tsdb.path=/prometheus'
     volumes:
-      - omni-prometheus-vol:/prometheus:rw
+      - prometheus-vol:/prometheus:rw
     mem_limit: 500M
     logging:
       driver: journald
@@ -247,18 +244,22 @@ services:
   #  Observability: Log Pipeline: Vector → Loki 
   vector:
     profiles: ["logs", "all"]
-    container_name: omni-vector
     build:
       context: services/vector
       dockerfile: Dockerfile
       args:
         VECTOR_IMAGE: ${VECTOR_IMAGE:-timberio/vector:0.55.0-debian}
     restart: unless-stopped
+    environment:
+      # Container-name label used for vector's own logs. Auto-named per project
+      # ({COMPOSE_PROJECT_NAME}-vector-1) so multiple projects can run
+      # side-by-side without colliding on a fixed name.
+      VECTOR_SELF_CONTAINER: "${COMPOSE_PROJECT_NAME:-omni}-vector-1"
     volumes:
       - /var/log/journal:/var/log/journal:ro
       - /run/systemd/journal:/run/systemd/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
-      - omni-vector-vol:/var/lib/vector:rw
+      - vector-vol:/var/lib/vector:rw
     user: "0"
     networks:
       - obs-net
@@ -270,7 +271,6 @@ services:
 
   loki:
     profiles: ["logs", "all"]
-    container_name: omni-loki
     build:
       context: services/loki
       dockerfile: Dockerfile
@@ -278,7 +278,7 @@ services:
         LOKI_IMAGE: ${LOKI_IMAGE:-grafana/loki:3.7.2}
     restart: unless-stopped
     volumes:
-      - omni-loki-vol:/loki:rw
+      - loki-vol:/loki:rw
     networks:
       - obs-net
     command: -config.file=/etc/loki/loki-config.yaml
@@ -290,7 +290,6 @@ services:
   #  Observability: Dashboards 
   grafana:
     profiles: ["logs", "monitor", "cadvisor", "all"]
-    container_name: omni-grafana
     build:
       context: services/grafana
       dockerfile: Dockerfile
@@ -302,7 +301,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
     volumes:
-      - omni-grafana-vol:/var/lib/grafana:rw
+      - grafana-vol:/var/lib/grafana:rw
     networks:
       - default
       - obs-net
@@ -344,7 +343,7 @@ volumes:
   mm-logs:
   mm-plugins:
   omni-toolbox-cron:
-  omni-loki-vol:
-  omni-grafana-vol:
-  omni-prometheus-vol:
-  omni-vector-vol:
+  loki-vol:
+  grafana-vol:
+  prometheus-vol:
+  vector-vol:

@@ -9,6 +9,15 @@ S3_PREFIX="${S3_PATH:-omni}/checkout/$(date +%Y%m%d)"
 S3_ENDPOINT="${S3_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}"
 S3_REGION="${S3_REGION:-us-east-005}"
 
+# ── Compose project resolution ─────────────────────────────────────────────
+# Containers/volumes are auto-named per project ({project}-{service}-{index},
+# {project}_{volume}) — there are no fixed omni-* names. Derive the project
+# from this container's compose label; fall back to the default directory name.
+PROJECT="$(docker inspect "$HOSTNAME" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
+PROJECT="${PROJECT:-omni-stack}"
+GRAFANA_CT="$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT}" --filter "name=grafana" 2>/dev/null | head -1)"
+GRAFANA_VOL="${PROJECT}_grafana-vol"
+
 DATE_TAG=$(date +%Y%m%d)
 BACKUP_DIR="${OMNI_DIR}/data/backups"
 mkdir -p "${BACKUP_DIR}/omniagent" "${BACKUP_DIR}/mattermost" "${BACKUP_DIR}/grafana"
@@ -106,11 +115,11 @@ fi
 
 # ─── Step 4: Grafana ───────────────────────────────────────────────────────
 echo "[checkout] Step 4/5: Grafana..."
-if docker ps -q --filter name=omni-grafana 2>/dev/null | grep -q .; then
+if [ -n "${GRAFANA_CT}" ]; then
   GFB="${BACKUP_DIR}/grafana/grafana.db"
-  if docker exec omni-grafana sh -c 'sqlite3 /var/lib/grafana/grafana.db ".backup /tmp/grafana-ck.db"' 2>/dev/null; then
-    docker cp omni-grafana:/tmp/grafana-ck.db "$GFB" 2>/dev/null
-    docker exec omni-grafana rm -f /tmp/grafana-ck.db 2>/dev/null
+  if docker exec "${GRAFANA_CT}" sh -c 'sqlite3 /var/lib/grafana/grafana.db ".backup /tmp/grafana-ck.db"' 2>/dev/null; then
+    docker cp "${GRAFANA_CT}:/tmp/grafana-ck.db" "$GFB" 2>/dev/null
+    docker exec "${GRAFANA_CT}" rm -f /tmp/grafana-ck.db 2>/dev/null
     if [ -f "$GFB" ] && [ "$(stat -c%s "$GFB")" -gt 1000 ]; then
       echo "[checkout] Grafana OK ($(stat -c%s "$GFB") bytes)"
     else

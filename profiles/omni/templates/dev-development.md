@@ -46,13 +46,14 @@
   (observed repeatedly: threads died at the iteration limit mid-`cargo build` after 100+ poll
   calls).
 - **When a tool call returns `status: processing` with a `task_id`, ALWAYS block on
-  `builtin_wait-task` immediately** — do NOT poll with other tools. Use a GENEROUS timeout:
-  `builtin_wait-task(task_id=<id>, timeout_secs=300, tail=2000)`. The max is 300s (5 min);
-  the tool polls internally every 500ms and returns when the task finishes. If it times out
-  (task still running), call it AGAIN with another 300s — each wait is still just ONE call.
+  `builtin_wait-task` immediately** — do NOT poll with other tools. Use a GENEROUS timeout
+  matching the operation: `builtin_wait-task(task_id=<id>, timeout_secs=900, tail=2000)` for a
+  dev-stack setup (5-15 min), `timeout_secs=900` for a Rust build. There is NO hard cap —
+  the wait returns as soon as the task finishes (it polls internally every 500ms). If it
+  returns `status: timeout`, call it AGAIN — each wait is still just ONE call.
 - **Never guess a small timeout** (e.g. 5-15s) for a build — a Rust `cargo build --release`
-  takes 1-10+ minutes. Use 300s from the start. Waiting 5 min costs 1 iteration; checking
-  every 15s for 5 min costs 20 iterations.
+  takes 1-10+ minutes, a full `omnidev.py setup` takes 10-15 min. Use 900-1800s from the
+  start. Waiting 15 min costs 1 iteration; checking every 15s for 15 min costs 60.
 - **`docker_compose` LONG COMMANDS: NEVER pass the `timeout` parameter.** `docker_compose`
   automatically switches to background after a few seconds and returns
   `{"status":"processing","task_id":...}`. It has NO default timeout — the command runs until
@@ -205,8 +206,8 @@ and NO build toolchain:
    This is a LONG command (a Rust release build takes 1-10+ min) — the tool
    call will return `{"status":"processing","task_id":...}` after a few
    seconds; ALWAYS follow with `builtin_wait-task(task_id=<id>,
-   timeout_secs=300, tail=2000)` and repeat if it times out. Do NOT poll with
-   other tools.
+   timeout_secs=900, tail=2000)` and repeat only if it returns `status:
+   timeout`. Do NOT poll with other tools.
    The omnidev dev overlay already sets `SQLX_OFFLINE: "false"`, so
    `sql_forge!` macros are verified against the LIVE dev database at compile
    time — do not set `SQLX_OFFLINE=true` to bypass.

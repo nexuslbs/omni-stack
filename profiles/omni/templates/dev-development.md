@@ -172,11 +172,19 @@ implement omniagent (or omni-dashboard / omni-stack) code, you build and
 verify it via the DEV stack — the omnistable container has NO source mount
 and NO build toolchain:
 
-1. **Use the omni-deployer repo to run omnidev** — the dev stack:
-   `cd /opt/workspace/omni-deployer && python3 omnidev.py setup`
-   (or, if the omnidev stack is already up, skip setup and just exec into it).
-   omnidev and omnistable run side-by-side — starting omnidev does NOT stop
-   omnistable, and vice versa.
+1. **Bring up omnidev FIRST if it is not running** — you (inside
+   `omnistable-omniagent-1`) have `docker.sock`, `python3`, `git`, and
+   `/opt/workspace` mounted, so you CAN start the dev stack yourself. Check
+   first: `docker_compose(project_dir="/opt/workspace/omni-stack", command="ps")`
+   — if `omnidev-omniagent-1` is not listed, run the dev setup by exec'ing into
+   your own container:
+   `docker_compose(project_dir="/opt/workspace/omni-stack", command="exec", service="omniagent", args="python3 /opt/workspace/omni-deployer/omnidev.py setup")`
+   (this is safe — it creates the OMNIDEV project; it does NOT touch omnistable).
+   Alternatively, if you prefer to use the docker_compose tool directly:
+   `docker_compose(project_dir="/opt/workspace/omni-stack", compose_file="docker-compose.yml", env_file="/opt/workspace/omni-deployer/omnidev.env", command="up -d", ...)` —
+   the docker plugin accepts compose/env files anywhere inside `/opt/workspace`,
+   not only inside `project_dir`. omnidev and omnistable run side-by-side —
+   starting omnidev does NOT stop omnistable, and vice versa.
 2. **Implement the code in the omniagent repo in the workspace**:
    `/opt/workspace/omniagent` (mounted at `/app` inside the omnidev omniagent
    container).

@@ -175,26 +175,38 @@ and NO build toolchain:
 1. **Bring up omnidev FIRST if it is not running** — you (inside
    `omnistable-omniagent-1`) have `docker.sock`, `python3`, `git`, and
    `/opt/workspace` mounted, so you CAN start the dev stack yourself. Check
-   first: `docker_compose(project_dir="/opt/workspace/omni-stack", command="ps")`
-   — if `omnidev-omniagent-1` is not listed, run the dev setup by exec'ing into
-   your own container:
-   `docker_compose(project_dir="/opt/workspace/omni-stack", command="exec", service="omniagent", args="python3 /opt/workspace/omni-deployer/omnidev.py setup")`
-   (this is safe — it creates the OMNIDEV project; it does NOT touch omnistable).
-   Alternatively, if you prefer to use the docker_compose tool directly:
-   `docker_compose(project_dir="/opt/workspace/omni-stack", compose_file="docker-compose.yml", env_file="/opt/workspace/omni-deployer/omnidev.env", command="up -d", ...)` —
-   the docker plugin accepts compose/env files anywhere inside `/opt/workspace`,
-   not only inside `project_dir`. omnidev and omnistable run side-by-side —
-   starting omnidev does NOT stop omnistable, and vice versa.
+   first (pass the env file so the compose project resolves to `omnidev`):
+   `docker_compose(project_dir="/opt/workspace/omni-stack", env_file="/opt/workspace/omni-deployer/omnidev.env", command="ps")`
+   — if no containers are listed, bring omnidev up by running the dev setup
+   INSIDE your own container (this is safe — it creates the OMNIDEV project;
+   it does NOT touch omnistable). CRITICAL: pass `omnistable.env` here so the
+   exec targets YOUR project (omnistable), NOT the default `omni` project:
+   `docker_compose(project_dir="/opt/workspace/omni-stack", env_file="/opt/workspace/omni-deployer/omnistable.env", command="exec", service="omniagent", args="python3 /opt/workspace/omni-deployer/omnidev.py setup")`
+   - NOTE: do NOT try `command="up -d"` directly against the omni-stack dir —
+     the executor blocks `up`/`restart`/`down`/`stop`/`rm`/`kill` on any
+     project_dir containing `omni-stack` (self-restart guard: you run inside
+     that stack). `exec` is NOT blocked, so the omnidev.py path above is the
+     supported way. If you see a "Blocked: docker_compose ... targets the
+     omni-stack" error, that is working as intended — use the exec path.
+   - omnidev and omnistable run side-by-side — starting omnidev does NOT stop
+     omnistable, and vice versa. The docker plugin accepts compose/env files
+     anywhere inside `/opt/workspace`, not only inside `project_dir`.
 2. **Implement the code in the omniagent repo in the workspace**:
    `/opt/workspace/omniagent` (mounted at `/app` inside the omnidev omniagent
    container).
-3. **Build it in the omnidev omniagent container**
-   (`omnidev-omniagent-1`) — e.g.
-   `docker exec omnidev-omniagent-1 bash -c 'cd /app && cargo build --release -p <pkg>'`
-   or `docker compose -f /opt/workspace/omni-stack/docker-compose.yml -f /opt/workspace/omni-stack/docker-compose.dev.yml -p omnidev exec omniagent bash -c 'cd /app && cargo build ...'`.
-   The omnidev dev overlay already sets `SQLX_OFFLINE: "false"`, so `sql_forge!`
-   macros are verified against the LIVE dev database at compile time — do not
-   set `SQLX_OFFLINE=true` to bypass.
+3. **Build it in the omnidev omniagent container** (`omnidev-omniagent-1`).
+   Use `docker_compose` exec with the OMNIDEV env file so the project
+   resolves to `omnidev`:
+   `docker_compose(project_dir="/opt/workspace/omni-stack", env_file="/opt/workspace/omni-deployer/omnidev.env", command="exec", service="omniagent", args="bash -c 'cd /app && cargo build --release -p omniagent'")`
+   (add `&& cargo clippy -p omniagent -- -D warnings && cargo test -p omniagent --lib` to run the full gate).
+   This is a LONG command (a Rust release build takes 1-10+ min) — the tool
+   call will return `{"status":"processing","task_id":...}` after a few
+   seconds; ALWAYS follow with `builtin_wait-task(task_id=<id>,
+   timeout_secs=300, tail=2000)` and repeat if it times out. Do NOT poll with
+   other tools.
+   The omnidev dev overlay already sets `SQLX_OFFLINE: "false"`, so
+   `sql_forge!` macros are verified against the LIVE dev database at compile
+   time — do not set `SQLX_OFFLINE=true` to bypass.
 4. NEVER run the migrator or builds against the live omnistable DB/stack.
    Your changes reach omnistable only via the next CI build from `main`.
 

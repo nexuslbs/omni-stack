@@ -287,6 +287,11 @@ and NO build toolchain:
   - Any deviations from the request and why
   - Follow-up items if any
 
+## LEARN (MANDATORY — the loop only works if you write back)
+- Before finishing (success OR interruption), promote at least ONE durable lesson/fact you learned this thread via `memory_promote-to-memory` (e.g. build commands, file anchors, root causes, what NOT to do). This is how future threads avoid repeating your work — 6 threads already died re-deriving the same harness knowledge because no one wrote it down.
+- If you have nothing durable, still write one line: what you attempted and the blocker.
+- Promoted memories are injected into EVERY future prompt under '=== Learned Knowledge ===' — the loop is closed only when you write back.
+
 ## Where to find deeper guidance
 - Tool execution details: skill `workspace-development`, `docker-compose-usage`, `git-workflow`.
 - Environment facts (mounts, port checking, compaction behavior): wiki `Reference/*` pages + MEMORY.

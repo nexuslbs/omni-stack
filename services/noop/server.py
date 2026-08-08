@@ -44,31 +44,47 @@ def _build_tool_call(tool, args, call_id):
 
 
 def _parse_script(messages):
-    """Parse script from messages. Checks all user and system messages."""
+    """Parse script from messages. Checks all user, system, and cause messages.
+
+    Kanban dispatch prefixes the task script with "{title}\\n\\n" in the thread's
+    cause message (role='cause'), so the raw content is not valid JSON: when a
+    direct parse fails on a cause message, extract the JSON array substring
+    (first '[' to last ']') and try parsing that.
+    """
     for msg in messages:
-        if msg.get("role") in ("user", "system"):
-            raw = msg.get("content", "")
-            if raw is None:
-                continue
+        if msg.get("role") not in ("user", "system", "cause"):
+            continue
+        raw = msg.get("content", "")
+        if raw is None:
+            continue
+        parsed = None
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            parsed = None
+        if parsed is None and msg.get("role") == "cause" and "[" in raw and "]" in raw:
+            sub = raw[raw.find("["):raw.rfind("]") + 1]
             try:
-                p = json.loads(raw)
-                if isinstance(p, list):
-                    _log(f"_parse_script: found {len(p)} top-level items (direct list)")
-                    return p
-                # Handle prompt_generate wrapped format:
-                if isinstance(p, dict):
-                    for field in ("user", "content", "script"):
-                        inner = p.get(field)
-                        if inner and isinstance(inner, str):
-                            try:
-                                inner_p = json.loads(inner)
-                                if isinstance(inner_p, list):
-                                    _log(f"_parse_script: found {len(inner_p)} items in wrapped '{field}' field")
-                                    return inner_p
-                            except Exception:
-                                pass
+                parsed = json.loads(sub)
             except Exception:
-                pass
+                parsed = None
+        if parsed is None:
+            continue
+        if isinstance(parsed, list):
+            _log(f"_parse_script: found {len(parsed)} top-level items (direct list)")
+            return parsed
+        # Handle prompt_generate wrapped format:
+        if isinstance(parsed, dict):
+            for field in ("user", "content", "script"):
+                inner = parsed.get(field)
+                if inner and isinstance(inner, str):
+                    try:
+                        inner_p = json.loads(inner)
+                        if isinstance(inner_p, list):
+                            _log(f"_parse_script: found {len(inner_p)} items in wrapped '{field}' field")
+                            return inner_p
+                    except Exception:
+                        pass
     return None
 
 

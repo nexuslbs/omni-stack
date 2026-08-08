@@ -43,13 +43,37 @@ def _build_tool_call(tool, args, call_id):
             "index": 0}
 
 
+def _looks_like_script(parsed):
+    """True if parsed is a list of script steps (dicts carrying a "tool" key).
+
+    Each top-level item must be a dict with a "tool" key, or a list of such
+    dicts (batch items). This keeps the system prompt's own JSON-ish text
+    (tool schemas, plan fragments, etc.) from being mistaken for a workflow
+    script: tool schemas use "name"/"description"/"parameters", never a
+    lowercase "tool" key.
+    """
+    if not isinstance(parsed, list) or not parsed:
+        return False
+    for item in parsed:
+        if isinstance(item, list):
+            if not item or not all(isinstance(s, dict) and "tool" in s for s in item):
+                return False
+        elif not (isinstance(item, dict) and "tool" in item):
+            return False
+    return True
+
+
 def _parse_script(messages):
     """Parse script from messages. Checks all user, system, and cause messages.
 
-    Kanban dispatch prefixes the task script with "{title}\\n\\n" in the thread's
-    cause message (role='cause'), so the raw content is not valid JSON: when a
-    direct parse fails on a cause message, extract the JSON array substring
-    (first '[' to last ']') and try parsing that.
+    Kanban dispatch prefixes the task script with "{title}\\n\\n" in the
+    thread's cause message, and the executor converts that cause message to
+    role='user' before sending it to the provider -- so the raw content is not
+    valid JSON and may arrive under ANY of the roles above. When a direct
+    parse fails, extract the JSON array substring (first '[' to last ']') for
+    any of those roles and try parsing that; accept it only if it looks like a
+    script (list of dicts with "tool" keys) so the system prompt's own
+    JSON-ish text is never mistaken for a script.
     """
     for msg in messages:
         if msg.get("role") not in ("user", "system", "cause"):
@@ -62,10 +86,12 @@ def _parse_script(messages):
             parsed = json.loads(raw)
         except Exception:
             parsed = None
-        if parsed is None and msg.get("role") == "cause" and "[" in raw and "]" in raw:
+        if parsed is None and "[" in raw and "]" in raw:
             sub = raw[raw.find("["):raw.rfind("]") + 1]
             try:
-                parsed = json.loads(sub)
+                candidate = json.loads(sub)
+                if _looks_like_script(candidate):
+                    parsed = candidate
             except Exception:
                 parsed = None
         if parsed is None:

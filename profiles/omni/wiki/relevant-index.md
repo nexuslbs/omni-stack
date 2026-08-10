@@ -1,11 +1,9 @@
 # Relevant Wiki Pages
 
-- [index.md](index.md) --- score: 40
-- [log.md](log.md) --- score: 40
-- [Todo/WorkflowImplementation.md](Todo/WorkflowImplementation.md) --- score: 30
-- [Reference/Verification-and-Review.md](Reference/Verification-and-Review.md) --- score: 40
-- [Reference/Budget-and-Context.md](Reference/Budget-and-Context.md) --- score: 30
-- [Reference/Deployment-Checklist.md](Reference/Deployment-Checklist.md) --- score: 30
-- [Reference/Agent-Guidance-Architecture.md](Reference/Agent-Guidance-Architecture.md) --- score: 30
-- [Reference/Container-Mount-Map.md](Reference/Container-Mount-Map.md) --- score: 30
-- [Reference/Omniagent-Mattermost-Platform.md](Reference/Omniagent-Mattermost-Platform.md) --- score: 10
+- [Todo/OmniAgent-Smartness-Plan.md](Todo/OmniAgent-Smartness-Plan.md) --- score: 40
+- [Memory/Promoted/omnidev-stack-binaries-predate-recent-commits.md](Memory/Promoted/omnidev-stack-binaries-predate-recent-commits.md) --- score: 40
+- [Memory/Promoted/r7-wf-final-state-725aebe-channel-35-renamed.md](Memory/Promoted/r7-wf-final-state-725aebe-channel-35-renamed.md) --- score: 40
+- [Memory/Promoted/r8-docker-plugin-workspace-sandbox-complete.md](Memory/Promoted/r8-docker-plugin-workspace-sandbox-complete.md) --- score: 40
+- [Memory/Promoted/r7-wf-name-based-dedicated-channel-committed.md](Memory/Promoted/r7-wf-name-based-dedicated-channel-committed.md) --- score: 40
+- [Memory/Promoted/group22-deployed-omnistable-image-stale-r7-d4.md](Memory/Promoted/group22-deployed-omnistable-image-stale-r7-d4.md) --- score: 40
+- [Memory/Promoted/smartness-durable-memory-6-ws-landed.md](Memory/Promoted/smartness-durable-memory-6-ws-landed.md) --- score: 40

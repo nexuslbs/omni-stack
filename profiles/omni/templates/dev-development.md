@@ -11,9 +11,16 @@
   only a short excerpt of tool results, so after a compaction you will NOT remember full
   file contents — that is not a reason to re-read; write the facts you need into your
   working notes or a scratch file (outside the repo) as you read.
-- LARGE FILES: use `filesystem_read` paging (offset/limit) or `docker_compose exec <service>`
-  with `sed -n 'A,Bp'` / `grep -n` for exact lines. Do NOT read a big file "whole" —
-  you can only ever see a slice, and re-reading the same slice teaches you nothing.
+- LARGE FILES: use `filesystem_read` with offset/limit paging (read ONCE, page forward
+  through the file, extract what you need into your working notes as you go). Do NOT read
+  a big file "whole" — you can only ever see a slice, and re-reading the same slice
+  teaches you nothing. Do NOT use `docker_compose exec ... sed -n 'A,Bp'` / `grep -n`
+  to read file contents: `filesystem_read` is the ONLY file-reading tool and costs ONE
+  call per page. `docker_compose` is for RUNNING commands/builds, never for reading
+  files. If you find yourself re-reading overlapping line ranges of the same file, STOP —
+  that is the #1 budget killer (threads have died at 120/120 after 100+ sed windows with
+  zero commits). Write the facts into your working notes (`prompt_note-write`) after the
+  FIRST read; consult notes, never the disk again.
   See skill `workspace-development` for the exact patterns.
 - COMMIT PARTIAL WORK: commit after each logical unit (a file written, a test passing).
   A thread can die at any moment; only committed work survives. Do not hold changes for

@@ -48,6 +48,13 @@ memory:
   wiki_vectorization_protocol: openai
 
 unsorted:
+  auto_note_entry_chars: 3000
+  auto_note_max_chars: 24000
   max_pool_connections: 5
+  prompt_read_excerpt_chars: 2000
+  prompt_tool_excerpt_chars: 800
+  prompt_total_excerpt_cap: 4000
+  read_excerpt_chars: 2000
+  read_keep_last: 3
   watchdog_default: ''
 

@@ -17,6 +17,7 @@ platforms:
     enabled: true
     source: built-in
     config: {}
+
 tools:
   actions:
     enabled: true
@@ -69,6 +70,11 @@ tools:
     enabled: true
     source: built-in
     config: {}
+  notes:
+    enabled: true
+    source: built-in
+    config:
+      omni_dir: $env:OMNI_DIR
   plugin-manager:
     enabled: true
     source: built-in
@@ -98,14 +104,11 @@ tools:
     enabled: true
     source: bundled
     config: {}
-  test-python:
-    enabled: true
-    source: bundled
-    config: {}
   test-rust-tool:
     enabled: true
     source: remote
     config: {}
+
 providers:
   deepseek:
     enabled: true

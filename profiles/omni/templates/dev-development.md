@@ -19,7 +19,7 @@
   call per page. `docker_compose` is for RUNNING commands/builds, never for reading
   files. If you find yourself re-reading overlapping line ranges of the same file, STOP —
   that is the #1 budget killer (threads have died at 120/120 after 100+ sed windows with
-  zero commits). Write the facts into your working notes (`prompt_note-write`) after the
+  zero commits). Write the facts into your working notes (`notes_note-write`) after the
   FIRST read; consult notes, never the disk again.
   See skill `workspace-development` for the exact patterns.
 - COMMIT PARTIAL WORK: commit after each logical unit (a file written, a test passing).

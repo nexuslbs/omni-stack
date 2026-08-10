@@ -6,7 +6,7 @@ platforms:
       server_url: http://mattermost:8065
       access_token_name: MATTERMOST_ACCESS_TOKEN
       setup_team: omni
-      setup_channel: stable-channel
+      setup_channel: setup
       admin_user: lucasbasquerotto
       admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
       test_user: testuser
@@ -42,8 +42,8 @@ tools:
     enabled: true
     source: built-in
     config:
-      github_app_id: '3967918'
-      github_installation_id: '138119822'
+      github_app_id: 3967918
+      github_installation_id: 138119822
       github_app_private_key: $secret:GITHUB_APP_KEY
   hindsight:
     enabled: false
@@ -75,7 +75,7 @@ tools:
     config: {}
   prompt:
     enabled: true
-    source: remote
+    source: built-in
     config: {}
   query:
     enabled: true
@@ -114,7 +114,7 @@ providers:
       api_key: $secret:DEEPSEEK_API_KEY
   noop:
     enabled: true
-    source: built-in
+    source: bundled
     config: {}
   noop-full:
     enabled: true

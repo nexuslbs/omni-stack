@@ -6,5 +6,5 @@ tools:
     url: file:///opt/workspace/omni-plugins
     path: tools/prompt
   test-rust-tool:
-    url: https://github.com/nexuslbs/omni-plugins.git
+    url: file:///opt/workspace/omni-plugins
     path: tools/test-rust-tool

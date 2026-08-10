@@ -23,7 +23,6 @@ COMMIT_MSG.txt
 *.bak
 scripts/__pycache__/
 docs/
-notes/
 
 # ── OS files ──
 .DS_Store

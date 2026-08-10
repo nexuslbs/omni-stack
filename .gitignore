@@ -33,6 +33,7 @@ Thumbs.db
 *.log
 tmp/
 profiles/default/tmp/
+profiles/default/wiki/
 
 # ── Eliminated struct — workspace root, each plugin has own Cargo.toml ──
 /Cargo.toml

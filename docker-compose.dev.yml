@@ -25,7 +25,9 @@ services:
     build:
       context: /opt/workspace/omni-dashboard
       dockerfile: Dockerfile
-    command: ["node", "/opt/repo/server-dist/index.js"]
+    # The image copies the compiled backend to /app/server; /opt/repo is the
+    # source bind mount and does not contain generated server-dist output.
+    command: ["node", "/app/server/index.js"]
     # Dev-only host access: publish dashboard + mattermost to the host here,
     # never in the base compose (host ports are a shared, finite resource).
     ports:

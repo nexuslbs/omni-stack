@@ -33,8 +33,9 @@ services:
     ports:
       - "12346:3001"
     volumes:
+      # Keep the production dependencies installed in the image. Mounting the
+      # host node_modules can hide them (and the host may not have them).
       - /opt/workspace/omni-dashboard:/opt/repo:rw
-      - /opt/workspace/omni-dashboard/node_modules:/app/node_modules:ro
 
   mattermost:
     ports:

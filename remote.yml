@@ -1,10 +1,4 @@
 tools:
-  memory:
-    url: file:///opt/workspace/omni-plugins
-    path: tools/memory
-  prompt:
-    url: file:///opt/workspace/omni-plugins
-    path: tools/prompt
   test-rust-tool:
-    url: file:///opt/workspace/omni-plugins
+    url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-rust-tool

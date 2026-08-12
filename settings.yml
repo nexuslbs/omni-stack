@@ -14,6 +14,10 @@ general:
   temperature: 0.7
   thread_summary_tokens: 2048
   tokenizer_encoding: gpt-4
+  read_keep_last: 3
+  read_excerpt_chars: 2000
+  auto_note_max_chars: 24000
+  auto_note_entry_chars: 3000
 
 execution:
   max_iterations_no_plan: 60
@@ -29,6 +33,9 @@ prompt:
   prompt_token_budget_hard: 350000
   prompt_token_budget_soft: 200000
   prompt_token_safety_factor: 15.0
+  prompt_tool_excerpt_chars: 800
+  prompt_total_excerpt_cap: 4000
+  prompt_read_excerpt_chars: 2000
 
 memory:
   memory_max_chars: 5000
@@ -48,13 +55,6 @@ memory:
   wiki_vectorization_protocol: openai
 
 unsorted:
-  auto_note_entry_chars: 3000
-  auto_note_max_chars: 24000
   max_pool_connections: 5
-  prompt_read_excerpt_chars: 2000
-  prompt_tool_excerpt_chars: 800
-  prompt_total_excerpt_cap: 4000
-  read_excerpt_chars: 2000
-  read_keep_last: 3
   watchdog_default: ''
 

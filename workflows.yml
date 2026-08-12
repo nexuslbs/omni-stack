@@ -22,14 +22,14 @@ workflows:
         profile: null
         provider: null
         model: null
-        plan_mode: null
+        plan_mode: on
         retries: 9
       tester:
         template: dev-tester
         profile: null
         provider: null
         model: null
-        plan_mode: null
+        plan_mode: on
         retries: 3
   wf_probe_final:
     profile: null

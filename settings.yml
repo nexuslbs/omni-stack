@@ -20,7 +20,7 @@ general:
   auto_note_entry_chars: 3000
 
 execution:
-  max_iterations_no_plan: 60
+  max_iterations_no_plan: 150
   max_iterations_plan: 300
   tool_bg_secs: 5
 

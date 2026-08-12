@@ -13,3 +13,9 @@ Constraints:
 - Do not modify production services (omnistable). Test against omnidev only.
 - If the implementation is missing or broken, fail loudly with the real reason.
 - If the implementation is already done and tested, say so explicitly with evidence — do not fabricate new tests.
+
+Timeouts (CRITICAL — iteration budget killer):
+- `docker_compose` LONG COMMANDS: NEVER pass the `timeout` parameter — it kills the command at the limit and forces a full re-run. The tool returns `{"status":"processing","task_id":...}` and the command runs until it finishes.
+- After launching a long command, call `builtin_wait-task` with a GENEROUS `timeout_secs` matching the operation: `timeout_secs=900` for a Rust build or a test-group run (5-15 min), `timeout_secs=1800` for a full deploy/test pass. There is NO hard cap — if it returns `status: timeout`, call it AGAIN (each wait is still just ONE call).
+- Never guess a small timeout (e.g. 5-15s) for a build or test run — a `cargo build --release` or a GROUP run takes minutes. Small timeouts force 5-20 polling iterations per command and blow the budget.
+- Every `builtin_wait-task` call MUST include `timeout_secs` explicitly — never call it with only `task_id`.

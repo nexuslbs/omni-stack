@@ -17,7 +17,7 @@ general:
 
 execution:
   max_iterations_no_plan: 60
-  max_iterations_plan: 120
+  max_iterations_plan: 300
   tool_bg_secs: 5
 
 prompt:

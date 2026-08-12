@@ -25,7 +25,7 @@ prompt:
   prompt_char_budget_soft: 350000
   prompt_compact_messages_tool: prompt_compact-messages
   prompt_generate_tool: prompt_generate
-  prompt_log_level: first
+  prompt_log_level: all
   prompt_token_budget_hard: 350000
   prompt_token_budget_soft: 200000
   prompt_token_safety_factor: 15.0

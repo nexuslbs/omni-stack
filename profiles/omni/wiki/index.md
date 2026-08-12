@@ -3,6 +3,7 @@
 ## Index
 
 - **Todo/**
+  - [Hooks Implementation](./Todo/HooksImplementation.md): Plan of action for the event-driven Hooks system (thread_started/thread_finished/new_message) — counters, scopes, execution modes, loop protection, error isolation
   - [Workflow Implementation](./Todo/WorkflowImplementation.md): Plan of action for the role-based kanban workflow (executor/tester/reviewer) — schema, status machine, fail matrix, phases, test matrix
 - **Reference/**
   - [Agent Guidance Architecture](./Reference/Agent-Guidance-Architecture.md): The 4-layer guidance model (memory → templates → skills → wiki), what goes where, and conventions

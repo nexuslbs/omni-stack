@@ -1,5 +1,16 @@
 # Log
 
+## 2026-08-12
+
+- Added `Todo/HooksImplementation.md` (NEW): the versioned implementation plan for the
+  event-driven Hooks system (thread_started / thread_finished / new_message) — hook
+  definition fields, counter semantics (default 1, JSON per-scope counters, trigger+reset),
+  scope resolution (global / channel by name or all / profile by name or all), both execution
+  modes (agentic thread spawn + actions.yml action), infinite-loop protection (hook-caused
+  threads/messages never re-trigger), and error isolation (hook failures never affect the
+  main agent loop). Mirrors kanban task `task_18cb1c10324f7240` (omniagent-dev workflow,
+  thread 74). Updated index.md.
+
 ## 2026-08-04
 
 - Added `Todo/WorkflowImplementation.md` (NEW): the versioned implementation plan for the

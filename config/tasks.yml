@@ -1,0 +1,45 @@
+# OmniAgent tasks: cron schedules + hooks (source of truth)
+#
+# This file is the git-tracked source of truth for recurring task definitions.
+# It replaces the legacy `cron_jobs` and `hooks` database tables (now dormant).
+# Runtime state is NOT stored here:
+#   - schedule runs are observable via the threads they create
+#     (threads.schedule_task_id = the schedule key)
+#   - hook runs are observable via hook_caused threads
+#     (threads.hook_caused = true, metadata hook_id/hook_name)
+#   - hook counters live in the `hook_counters` table
+#   - scheduler cadence bookkeeping lives in the `task_runs` table
+#
+# File is re-read on every scheduler tick / hook event / API call, so edits
+# take effect immediately without a restart.
+
+schedules:
+  # knowledge_pipeline:
+  #   enabled: true
+  #   channel: cron            # channel NAME (resolved to channel_id at load;
+  #                            # unknown/missing -> default channel)
+  #   profile: omni
+  #   planning_mode: true      # true/false/"on"/"off"/"plan_with_subtasks"...
+  #   cron: 0 6 * * *          # 5-field Linux cron expression
+  #   prompt: Run the knowledge pipeline maintenance
+  #   # action: some-action    # presence implies mode=action (else agentic)
+  #   # template: my-template
+  #   # skills: "[\"knowledge-pipeline\"]"
+  #   # silent: false
+  #   # display_name: Knowledge Pipeline
+
+hooks:
+  # after_thread:
+  #   enabled: true
+  #   channel: my-channel      # channel NAME (unknown/missing -> default)
+  #   profile: omni
+  #   planning_mode: true
+  #   event: thread_started    # thread_started | thread_finished | new_message
+  #   scope: channel           # global | channel | profile
+  #   target: my-scoped-channel  # optional named channel/profile filter
+  #   count: 20                # trigger threshold (default 1)
+  #   prompt: Some hook prompt here
+  #   # action: some-action    # presence implies mode=action (else agentic)
+  #   # mode: agentic          # explicit mode override
+  #   # template: my-template
+  #   # display_name: After Thread

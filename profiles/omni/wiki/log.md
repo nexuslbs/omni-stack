@@ -1,5 +1,39 @@
 # Log
 
+## 2026-08-13
+
+- Added `Todo/DefaultChannelsImplementation.md` (NEW): four default-channel
+  settings (cli/schedule/hook/kanban) as selects over existing channels;
+  platform-less channel = type cli; empty channel → thread created with '' then
+  fails "no channel defined" with the record kept; remove kanban/cron/hook
+  channel platforms + ensure_cron_channel. Mirrors kanban task (omniagent-dev
+  workflow). Updated index.md.
+- Amended channels.yml task body (task_18cb400db3daa540): 'kanban'/'cron' seed
+  channels keep their names but have NO platform (platform-less = cli); the
+  legacy `platform: kanban` / `platform: cron` values are gone from
+  channels.yml; scheduler resolves 'cron' by NAME (sibling default-channels
+  task replaces ensure_cron_channel with the default-schedule-channel setting).
+- Added `Todo/PlanNormalizationImplementation.md` (NEW): eliminate the legacy
+  `planning_mode` field everywhere — drop `planning_mode` columns from
+  threads/kanban_tasks (channels/hooks/cron_jobs die with sibling table drops),
+  remove the `PlanningMode` bool|string enum from tasks.yml (schedules/hooks)
+  and the API/dashboard fields; single `plan` bool remains. Mirrors kanban task
+  (omniagent-dev workflow). Updated index.md.
+- Amended channels.yml task body (task_18cb400db3daa540): channels.yml identity
+  is `platform` + `resource_identifier` ONLY (no external_id — always equal,
+  derived for API compat); single `plan` bool field (not planning_mode —
+  aligned with the normalization task); create_channel upserts by NAME and
+  rewrites platform+resource_identifier when the same name arrives from a
+  different platform (channel is not pinned to its first platform).
+- Added `Todo/PluginRestartEndpointImplementation.md` (NEW): fix
+  `POST /api/plugins/{type}/{source}/{name}/restart` to dispatch by type —
+  `restart_plugin_handler` currently calls `reload_platform_plugin` only and
+  silently no-ops for tools; route it through `reload_tool_plugin` for tools /
+  `reload_platform_plugin` for platforms / provider refresh for providers.
+  Also make `enable` a no-op when the plugin is already enabled (today it
+  force-restarts the MCP client). Mirrors kanban task (omniagent-dev
+  workflow). Updated index.md.
+
 ## 2026-08-12
 
 - Added `Todo/HooksImplementation.md` (NEW): the versioned implementation plan for the

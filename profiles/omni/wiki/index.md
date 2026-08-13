@@ -5,6 +5,9 @@
 - **Todo/**
   - [Hooks Implementation](./Todo/HooksImplementation.md): Plan of action for the event-driven Hooks system (thread_started/thread_finished/new_message) — counters, scopes, execution modes, loop protection, error isolation
   - [Workflow Implementation](./Todo/WorkflowImplementation.md): Plan of action for the role-based kanban workflow (executor/tester/reviewer) — schema, status machine, fail matrix, phases, test matrix
+  - [Plan Normalization Implementation](./Todo/PlanNormalizationImplementation.md): Drop the legacy `planning_mode` field everywhere (kanban_tasks/threads columns, tasks.yml PlanningMode enum, API, dashboard) — single `plan` bool
+  - [Default Channels Implementation](./Todo/DefaultChannelsImplementation.md): Default cli/schedule/hook/kanban channel settings (selects over existing channels); platform-less channel = cli; empty channel → fail-with-record
+  - [Plugin Restart Endpoint](./Todo/PluginRestartEndpointImplementation.md): Fix `/api/plugins/{type}/{source}/{name}/restart` to dispatch by type (tool/platform/provider); make `enable` a no-op when already enabled
 - **Reference/**
   - [Agent Guidance Architecture](./Reference/Agent-Guidance-Architecture.md): The 4-layer guidance model (memory → templates → skills → wiki), what goes where, and conventions
   - [Budget & Context Mechanics](./Reference/Budget-and-Context.md): Thread budget, compaction behavior, prompt context blocks, filesystem_read paging

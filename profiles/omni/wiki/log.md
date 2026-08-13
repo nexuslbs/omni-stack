@@ -2,6 +2,12 @@
 
 ## 2026-08-13
 
+- Added `Todo/MaxTokensTruncationRetryImplementation.md` (NEW): per-role
+  `max_tokens` in workflows.yml (reviewer/tester raise above global 4096;
+  threads.max_tokens column + resolve_step_identity extension) + reasoning-aware
+  truncation retry in main_loop.rs (fail fast on reasoning-only truncation;
+  nudge shorter answers instead of "continue where you left off"). Mirrors
+  kanban task (omniagent-dev workflow). Updated index.md.
 - Added `Todo/DefaultChannelsImplementation.md` (NEW): four default-channel
   settings (cli/schedule/hook/kanban) as selects over existing channels;
   platform-less channel = type cli; empty channel → thread created with '' then

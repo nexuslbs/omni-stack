@@ -27,7 +27,7 @@ omni-stack/
 │
 ├ services/toolbox/          # Toolbox container (maintenance scripts)
 │
-├ actions.yml                # Saved action definitions
+├ config/                     # OMNI_DIR yml config (actions/plugins/remote/settings/workflows.yml)
 └ AGENTS.md                  # Operational guide for the LLM agent
 ```
 
@@ -132,7 +132,8 @@ Channels represent communication endpoints (Telegram, Mattermost, API, cron). Ea
 This repo is a **seed: it ships no `plugins/` directory and tracks zero
 plugins.** Forked repos add plugins under `plugins/{type}/{name}/` (each
 containing a `plugin.json` manifest) and configure them via YAML files in
-the repository root (`platforms.yml`, `providers.yml`, `tools.yml`). The
+the `config/` directory (`config/plugins.yml`, `config/actions.yml`, `config/remote.yml`,
+`config/settings.yml`, `config/workflows.yml`). The
 only gitignored content under `plugins/` is `.remote/` (auto-generated
 clones from remote installs) — fork-added plugins are tracked by default,
 never silently excluded. During test runs (defined in omni-deployer)

@@ -183,7 +183,11 @@ services:
   #  Memory: Hindsight (profile: memory) 
   qdrant:
     image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}
-    profiles: ["memory", "all"]
+    # Individual profiles: 'qdrant' starts ONLY qdrant; 'hindsight' starts ONLY
+    # hindsight; 'memory' (legacy) forces BOTH. Use the single-service profile
+    # when only one is needed (2026-08-13: omnistable runs neither — profiles
+    # are opt-in via COMPOSE_PROFILES/--profile).
+    profiles: ["memory", "qdrant", "all"]
     volumes:
       - qdrant_data:/qdrant/storage
     expose:
@@ -193,7 +197,11 @@ services:
 
   hindsight:
     image: ${HINDSIGHT_IMAGE:-ghcr.io/vectorize-io/hindsight:0.7.2}
-    profiles: ["memory", "all"]
+    # Individual profiles: 'hindsight' starts ONLY hindsight; 'qdrant' starts
+    # ONLY qdrant; 'memory' (legacy) forces BOTH. Use the single-service
+    # profile when only one is needed (2026-08-13: omnistable runs neither —
+    # profiles are opt-in via COMPOSE_PROFILES/--profile).
+    profiles: ["memory", "hindsight", "all"]
     restart: unless-stopped
     expose:
       - "8888"
@@ -266,8 +274,17 @@ services:
     depends_on:
       - loki
     mem_limit: 500M
+    # CRITICAL: must NOT use the journald driver (same rule as hermes-repo's
+    # vector). The console sink writes every processed log to stdout; with the
+    # journald driver that output re-enters the journald source -> infinite
+    # amplification loop. Observed 2026-08-13 in hermes: /var/log/syslog grew
+    # to 88GB in ~2 days (2.7MB/s). json-file keeps vector's own output OUT of
+    # the journald source.
     logging:
-      driver: journald
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   loki:
     profiles: ["logs", "all"]

@@ -187,12 +187,16 @@ and NO build toolchain:
    `omnistable-omniagent-1`) have `docker.sock`, `python3`, `git`, and
    `/opt/workspace` mounted, so you CAN start the dev stack yourself. Check
    first (pass the env file so the compose project resolves to `omnidev`):
-   `docker_compose(project_dir="/opt/workspace/omni-stack", env_file="/opt/workspace/omni-deployer/omnidev.env", command="ps")`
+   `docker_compose(project_dir="/opt/workspace/omni-stack", compose_file=["docker-compose.yml", "docker-compose.dev.yml"], env_file="/opt/workspace/omni-deployer/omnidev.env", command="ps")`
+   - NOTE on `compose_file`: it accepts a STRING (single file, e.g. `"docker-compose.yml"`) or an
+     ARRAY of strings — each entry becomes a repeated `-f` flag in order, merging exactly like
+     `docker compose -f docker-compose.yml -f docker-compose.dev.yml` (base first, overrides after).
+     Use the array form for omnidev so the dev overlay (SQLX_OFFLINE=false, env, mounts) applies.
    — if no containers are listed, bring omnidev up by running the dev setup
    INSIDE your own container (this is safe — it creates the OMNIDEV project;
    it does NOT touch omnistable). CRITICAL: pass `omnistable.env` here so the
    exec targets YOUR project (omnistable), NOT the default `omni` project:
-   `docker_compose(project_dir="/opt/workspace/omni-stack", env_file="/opt/workspace/omni-deployer/omnistable.env", command="exec", service="omniagent", args="python3 /opt/workspace/omni-deployer/omnidev.py setup")`
+   `docker_compose(project_dir="/opt/workspace/omni-stack", compose_file=["docker-compose.yml", "docker-compose.dev.yml"], env_file="/opt/workspace/omni-deployer/omnistable.env", command="exec", service="omniagent", args="python3 /opt/workspace/omni-deployer/omnidev.py setup")`
    - NOTE: do NOT try `command="up -d"` directly against the omni-stack dir —
      the executor blocks `up`/`restart`/`down`/`stop`/`rm`/`kill` on any
      project_dir containing `omni-stack` (self-restart guard: you run inside
@@ -208,7 +212,7 @@ and NO build toolchain:
 3. **Build it in the omnidev omniagent container** (`omnidev-omniagent-1`).
    Use `docker_compose` exec with the OMNIDEV env file so the project
    resolves to `omnidev`:
-   `docker_compose(project_dir="/opt/workspace/omni-stack", env_file="/opt/workspace/omni-deployer/omnidev.env", command="exec", service="omniagent", args="bash -c 'cd /app && cargo build --release -p omniagent'")`
+   `docker_compose(project_dir="/opt/workspace/omni-stack", compose_file=["docker-compose.yml", "docker-compose.dev.yml"], env_file="/opt/workspace/omni-deployer/omnidev.env", command="exec", service="omniagent", args="cargo build --release -p omniagent")`
    (add `&& cargo clippy -p omniagent -- -D warnings && cargo test -p omniagent --lib` to run the full gate).
    This is a LONG command (a Rust release build takes 1-10+ min) — the tool
    call will return `{"status":"processing","task_id":...}` after a few

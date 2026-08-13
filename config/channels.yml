@@ -1,0 +1,35 @@
+# OmniAgent channels: single source of truth for channel definitions AND
+# runtime state — replaces the legacy `channels` database table (dropped by
+# the migration). Channels are auto-created on demand (the yml IS the runtime
+# store), so this file only seeds the well-known channels; new channels are
+# appended when a platform registers them.
+#
+# The map KEY is the channel NAME — the stable identifier used everywhere:
+# API id (`GET /channels/{name}`), threads.channel_id, messages.channel_id,
+# kanban_tasks.channel_id, summaries.channel_id and tasks.yml `channel:`
+# references.
+#
+# Field naming is BARE (matches threads.profile/provider/model and tasks.yml
+# `profile:`): `profile`/`model`/`provider`/`plan`. No `metadata`, no
+# `external_id` (derived from resource_identifier), no `planning_mode`, no
+# `created_at`/`updated_at`.
+
+channels:
+  kanban:
+    resource_identifier: kanban
+    cause: system
+    profile: omni
+  cron:
+    resource_identifier: cron
+    cause: system
+    profile: omni
+  mattermost-stable-channel:
+    platform: mattermost
+    resource_identifier: 6jqmhxs67jfqjjt55mgf6xybtw
+    cause: setup
+    profile: omni
+  mattermost-af66ardb:
+    platform: mattermost
+    resource_identifier: af66ardbd3dffe7gwxnokzi19c
+    cause: user
+    profile: omni

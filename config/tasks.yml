@@ -19,7 +19,7 @@ schedules:
   #   channel: cron            # channel NAME (resolved to channel_id at load;
   #                            # unknown/missing -> default channel)
   #   profile: omni
-  #   planning_mode: true      # true/false/"on"/"off"/"plan_with_subtasks"...
+  #   plan: true               # true/false
   #   cron: 0 6 * * *          # 5-field Linux cron expression
   #   prompt: Run the knowledge pipeline maintenance
   #   # action: some-action    # presence implies mode=action (else agentic)
@@ -33,7 +33,7 @@ hooks:
   #   enabled: true
   #   channel: my-channel      # channel NAME (unknown/missing -> default)
   #   profile: omni
-  #   planning_mode: true
+  #   plan: true
   #   event: thread_started    # thread_started | thread_finished | new_message
   #   scope: channel           # global | channel | profile
   #   target: my-scoped-channel  # optional named channel/profile filter

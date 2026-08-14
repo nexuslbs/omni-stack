@@ -63,12 +63,15 @@ after it. This preserves DeepSeek prefix caching across iterations.
    summary block; the remaining tail keeps its relative order and is appended
    after the block. Avoid per-message inline markers at scattered positions.
 4. **Keep the null-contract.** No drain → `"messages": null` → core unchanged.
-5. **Budget alignment is a prerequisite.** The design only pays off if
-   compaction stops firing every iteration. Align the plugin's char/token
-   budgets with the core's (`settings.yml` `prompt_char_budget_hard: 500000` /
-   `soft: 350000`; `prompt_token_budget_hard: 350000` / `soft: 200000`) and/or
-   set `tokenizer_encoding: gpt-4` in the plugin config so real tokens are
-   measured. State the chosen values in the PR.
+5. **Budget coherence rule (user, 2026-08-14): char ≈ 4× token.** The plugin's
+   char budgets must be ~4× the token budgets (1 token ≈ 4 chars). The live
+   config had `char_budget_hard: 100000` == `token_budget_hard: 100000` (1:1,
+   incoherent). Coherent set now applied to `plugins.yml` (root live) +
+   `config/plugins.yml` (tracked source): char 400K/200K, token 100K/50K.
+   DO NOT re-align the plugin to the core's settings.yml char values
+   (500K/350K) — those are the core's char-only prune budgets, not 4:1 with
+   the token budgets, and the plugin reads its own config from plugins.yml.
+   If you change token budgets, keep char = 4× token.
 
 ## Non-goals / DO NOT CHANGE
 

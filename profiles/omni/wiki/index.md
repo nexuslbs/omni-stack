@@ -9,6 +9,7 @@
   - [Default Channels Implementation](./Todo/DefaultChannelsImplementation.md): Default cli/schedule/hook/kanban channel settings (selects over existing channels); platform-less channel = cli; empty channel → fail-with-record
   - [Plugin Restart Endpoint](./Todo/PluginRestartEndpointImplementation.md): Fix `/api/plugins/{type}/{source}/{name}/restart` to dispatch by type (tool/platform/provider); make `enable` a no-op when already enabled
   - [Max Tokens + Truncation Retry](./Todo/MaxTokensTruncationRetryImplementation.md): Per-role `max_tokens` (reviewer/tester raise above global 4096) + reasoning-aware truncation retry (fail fast on reasoning-only truncation; nudge shorter answers instead of "continue where you left off")
+  - [Cache-Friendly Compaction](./Todo/CacheFriendlyCompactionImplementation.md): Stable summary block reused verbatim so DeepSeek prefix caching survives compaction; align plugin budgets with core
 - **Reference/**
   - [Agent Guidance Architecture](./Reference/Agent-Guidance-Architecture.md): The 4-layer guidance model (memory → templates → skills → wiki), what goes where, and conventions
   - [Budget & Context Mechanics](./Reference/Budget-and-Context.md): Thread budget, compaction behavior, prompt context blocks, filesystem_read paging

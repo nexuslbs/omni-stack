@@ -1,5 +1,8 @@
 # Log
 
+## 2026-08-14
+
+- Added `Todo/CacheFriendlyCompactionImplementation.md` (NEW): compaction must produce a stable summary block reused verbatim so DeepSeek prefix caching survives; align plugin char/token budgets with the core (plugin was at 100K chars vs 501K-char live threads → compaction every iteration → cached_tokens frozen at ~12K).
 ## 2026-08-13
 
 - Added `Todo/MaxTokensTruncationRetryImplementation.md` (NEW): per-role

@@ -8,6 +8,7 @@ general:
   llm_provider: opencode-go
   max_inline_file_kb: 100
   max_tokens: 4096
+  max_tokens_on_truncation: 16384
   max_unfinished_subtask_retries: 3
   old_message_char_budget: 100000
   soul_max_chars: 1000
@@ -64,4 +65,3 @@ unsorted:
   max_pool_connections: 5
   prompt_token_safety_factor: 15.0
   watchdog_default: ''
-

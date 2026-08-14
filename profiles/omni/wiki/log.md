@@ -5,12 +5,7 @@
 - Added `Todo/CacheFriendlyCompactionImplementation.md` (NEW): compaction must produce a stable summary block reused verbatim so DeepSeek prefix caching survives; align plugin char/token budgets with the core (plugin was at 100K chars vs 501K-char live threads → compaction every iteration → cached_tokens frozen at ~12K).
 ## 2026-08-13
 
-- Added `Todo/MaxTokensTruncationRetryImplementation.md` (NEW): per-role
-  `max_tokens` in workflows.yml (reviewer/tester raise above global 4096;
-  threads.max_tokens column + resolve_step_identity extension) + reasoning-aware
-  truncation retry in main_loop.rs (fail fast on reasoning-only truncation;
-  nudge shorter answers instead of "continue where you left off"). Mirrors
-  kanban task (omniagent-dev workflow). Updated index.md.
+- Added `Todo/MaxTokensTruncationRetryImplementation.md` (NEW, rewritten 2026-08-14): global `max_tokens_on_truncation` escalation — normal calls keep `max_tokens: 4096`, `finish_reason=length` retries ONCE with the larger budget + preserved reasoning + shorter-answer nudge, second truncation fails fast. Replaces the earlier per-role max_tokens design (threads.max_tokens column + migration + workflows.yml role fields) and the fail-fast-on-reasoning-only heuristic — both rejected by the operator 2026-08-14. Mirrors kanban task (omniagent-dev workflow). Updated index.md.
 - Added `Todo/DefaultChannelsImplementation.md` (NEW): four default-channel
   settings (cli/schedule/hook/kanban) as selects over existing channels;
   platform-less channel = type cli; empty channel → thread created with '' then

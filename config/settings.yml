@@ -4,9 +4,10 @@
 general:
   condense_keep_turns: 4
   delete_after_days: 30
+  default_provider: opencode-go
   llm_provider: opencode-go
   max_inline_file_kb: 100
-  max_tokens: 32768
+  max_tokens: 4096
   max_unfinished_subtask_retries: 3
   old_message_char_budget: 100000
   soul_max_chars: 1000
@@ -32,7 +33,6 @@ prompt:
   prompt_log_level: all
   prompt_token_budget_hard: 350000
   prompt_token_budget_soft: 200000
-  prompt_token_safety_factor: 15.0
   prompt_tool_excerpt_chars: 800
   prompt_total_excerpt_cap: 4000
   prompt_read_excerpt_chars: 2000
@@ -54,7 +54,14 @@ memory:
   wiki_vectorization_method: local
   wiki_vectorization_protocol: openai
 
+channels:
+  default_cli_channel: ''
+  default_schedule_channel: cron
+  default_hook_channel: ''
+  default_kanban_channel: kanban
+
 unsorted:
   max_pool_connections: 5
+  prompt_token_safety_factor: 15.0
   watchdog_default: ''
 

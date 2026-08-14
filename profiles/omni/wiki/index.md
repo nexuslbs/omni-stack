@@ -9,6 +9,7 @@
   - [Default Channels Implementation](./Todo/DefaultChannelsImplementation.md): Default cli/schedule/hook/kanban channel settings (selects over existing channels); platform-less channel = cli; empty channel → fail-with-record
   - [Plugin Restart Endpoint](./Todo/PluginRestartEndpointImplementation.md): Fix `/api/plugins/{type}/{source}/{name}/restart` to dispatch by type (tool/platform/provider); make `enable` a no-op when already enabled
   - [Max Tokens + Truncation Retry](./Todo/MaxTokensTruncationRetryImplementation.md): Global `max_tokens_on_truncation` escalation — normal calls keep max_tokens 4096, truncated responses retry once with a larger budget + preserved reasoning, still truncates → fail fast
+  - [Kanban Status-Change Dispatch + /redispatch](./Todo/KanbanStatusChangeDispatchImplementation.md): status change dispatches the mapped workflow role (running→executor, testing→tester, review→reviewer); stale threads skipped first; new /redispatch endpoint recreates the role thread without changing status; dispatcher action simplified to move-to-running; startup recovery unified
   - [Cache-Friendly Compaction](./Todo/CacheFriendlyCompactionImplementation.md): Stable summary block reused verbatim so DeepSeek prefix caching survives compaction; align plugin budgets with core
 - **Reference/**
   - [Agent Guidance Architecture](./Reference/Agent-Guidance-Architecture.md): The 4-layer guidance model (memory → templates → skills → wiki), what goes where, and conventions

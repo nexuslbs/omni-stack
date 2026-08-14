@@ -2,6 +2,7 @@
 
 ## 2026-08-14
 
+- Added `Todo/KanbanStatusChangeDispatchImplementation.md` (NEW): dispatch a kanban task when its status is CHANGED (running→executor, testing→tester, review→reviewer, role-gated; stale pending/processing threads skipped to terminal `skipped` first); `POST /kanban/tasks/{id}/redispatch` recreates the role thread for a task already in running/testing/review WITHOUT changing status (no-op when a non-terminal thread exists or the role isn't defined); `POST /kanban/dispatch` simplifies to move-to-running via the shared dispatch code (no duplicate thread creation); startup recovery unified with the redispatch logic. Mirrors kanban task `task_18cbc3b0765efa85` (omniagent-dev workflow). Updated index.md. Amended post-creation: cross-task coordination note routing the stale-thread skip through the terminal-status-invariant task's single choke point (task_18cb83096b238872) when it exists.
 - Added `Todo/CacheFriendlyCompactionImplementation.md` (NEW): compaction must produce a stable summary block reused verbatim so DeepSeek prefix caching survives; align plugin char/token budgets with the core (plugin was at 100K chars vs 501K-char live threads → compaction every iteration → cached_tokens frozen at ~12K).
 ## 2026-08-13
 

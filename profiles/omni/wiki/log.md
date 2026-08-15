@@ -2,6 +2,32 @@
 
 ## 2026-08-15
 
+- Added `Reference/Omni-Deployer.md` (NEW): deploy harness reference — deploy.py
+  dev pipeline (verified exit 0, run #10), noop-only rule (deploy DB has no LLM
+  secrets; cron channel pinned to noop/test-tool-caller via
+  `patch_deploy_channels_noop()`), omnistable safety invariant
+  (`DEV_STOP_EXCLUDE={"omnistable"}`; omnistable only via
+  `omnistable.py`/`omnistable.env`), fresh-DB-every-run constraint, root-owned
+  config writes (sudo mv), schema facts that bite tests (channels table dropped
+  → channel_id is a NAME; seq-0 role='cause'; task-delete detaches threads),
+  test-fix patterns table (wf9 drain, atomic tasks.yml, g29/g30 races, query
+  args), quick shared-tool-test iteration snippet, secrets hygiene. Updated
+  index.md.
+
+- Completed `Todo/DeployPyDevRunImplementation.md` + kanban task
+  `task_18cbd58896d6500b`: `python3 deploy.py dev` now exits 0 (run #10,
+  2026-08-15) — pretests fmt/check/clippy/unit green, api_tests + plugin_tests
+  green, Python integration PASS 1 + PASS 2 both ALL TESTS PASSED, shared tool
+  tests 156/156 (22 tools × 3 states), omni-stack restored clean, omnistable
+  never stopped (7 containers up, /health ok). Task moved to done via API with
+  a completion record. The 1,238 executor threads failed on 401s — LLM key
+  credits hit 0 at ~11:00 (user clarification), not a code failure. Harness
+  fixes pushed to nexuslbs/omni-deployer (`8da7bd9`): noop channel pin, wf9
+  channel drain, atomic tasks.yml writes, g29/g30 race fixes, query tool args
+  aligned to post-migration schema.
+
+## 2026-08-15 (earlier)
+
 - Added `Reference/DeepSeek-Prefix-Cache.md` (NEW): root-cause + fix report for
   the systemic LLM prefix-cache misses. Symptom: thread 514 cached_tokens
   frozen at exactly 7,424 (static preamble) with 6.9% hit rate; ALL threads

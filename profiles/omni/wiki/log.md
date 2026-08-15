@@ -2,6 +2,18 @@
 
 ## 2026-08-15
 
+- Added `Reference/DeepSeek-Prefix-Cache.md` (NEW): root-cause + fix report for
+  the systemic LLM prefix-cache misses. Symptom: thread 514 cached_tokens
+  frozen at exactly 7,424 (static preamble) with 6.9% hit rate; ALL threads
+  5–12%. Root cause: DeepSeek hoists `system`-role messages into the cache key;
+  `upsert_system_message` remove-and-reinserts the Budget/Working Notes/
+  Auto-Saved Reads blocks with changing text every iteration, breaking the
+  byte-identical prefix at the static head on every call. Reproduced
+  empirically (probe_final2.py: user-role rides 98.8%→99.7%, system-role
+  frozen at 7,424). Fix: omniagent `9c5bb60` upserts dynamic context blocks as
+  USER role (stays at conversation tail). Verified: omnidev threads 395/396 at
+  52%/66.5% aggregate, steady-state 90–93%. Updated index.md.
+
 - Added `Todo/DeployPyDevRunImplementation.md` (NEW): run `python3 deploy.py dev`
   in /opt/workspace/omni-deployer to successful completion (build → dbs →
   migrations → pretests → shared tool tests → start), fixing issues mid-run.

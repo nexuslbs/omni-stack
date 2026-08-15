@@ -1,6 +1,6 @@
 # Kanban Status-Change Dispatch + `/redispatch` (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** Implemented — omniagent `18d723f` (2026-08-15); board task in testing/review
 **Date:** 2026-08-14
 **Scope:** omniagent (core + actions MCP plugin), omni-stack (workflows.yml untouched)
 
@@ -215,3 +215,14 @@ skipped-with-terminal=false bug the invariant task is fixing.
 - Commit + push to origin/main: **omniagent** (core + actions plugin, if the
   plugin needs changes) + **omni-stack** (wiki spec/index/log). Report commit
   SHAs.
+
+
+## Implementation summary (2026-08-15)
+
+Implemented and pushed as **omniagent `18d723f`** (`feat(kanban): status-change dispatch + /redispatch`), all gates green (`cargo check`/`test --workspace`/`fmt --check`/`clippy -D warnings`, plus `SQLX_OFFLINE=true` check after `.sqlx` regeneration).
+
+- `src/db/threads.rs`: new `create_kanban_step_thread(pool, data_dir, task_id, status, skip_stale)` — loads the task, resolves the role via `role_for_step` + `workflows.resolve_role`, gates through pure `kanban_step_actionable` (running always runs; testing/review only when the workflow defines the role), skips stale `pending`/`processing` threads through the `mark_thread_terminal` choke point (with per-skip `kanban_history` audit), resolves channel/profile/plan/template (role template wins; running fallback task → channel → `dev-development` per R8-J) and creates the thread via `create_thread_with_cause` with `workflow_step=status`, then sets `kanban_tasks.thread_status='scheduled'`. `dispatch_task_for_status` = skip_stale wrapper. `skip_all_pending_threads(pool, data_dir)` unified: mark all pending/processing terminal, then redispatch every task in running/testing/review without an active thread (old per-thread `skip_recovery` Reschedule branch removed; `skip_recovery` stays for the closed-channel path).
+- `src/server/kanban.rs`: `change_status_handler` dispatches after the column move when the status actually changed (best-effort, non-fatal); NEW `POST /kanban/tasks/{id}/redispatch` — no-op (`redispatch:false`) for statuses without a role or when an active thread exists, otherwise creates the role thread for the task's CURRENT status WITHOUT changing it; `dispatch_handler` simplified to eligibility gates + `dispatch_task_for_status(...,"running")` + mark-running (duplicate resolution code removed).
+- `src/agent/mod.rs` + `src/main.rs`: `skip_on_startup(pool, data_dir)` forwards to the unified recovery.
+- Unit tests: `kanban_step_actionable` gates, `resolve_kanban_thread_template` precedence, `kanban_thread_content`.
+- Live (scratch instance, port 18080, scratch DB): PATCH todo→running created executor thread (`workflow_step='running'`, template `dev-executor`; no-workflow task got `dev-development` fallback); PATCH running→testing created tester (`dev-tester`) and skipped the stale running thread; PATCH testing→review created reviewer (`dev-reviewer`) and skipped the stale tester; redispatch on a task with only a failed thread → new thread, task status unchanged; redispatch with an active thread → `"already active"`; redispatch on testing/todo without a role → `"status 'X' has no role to run"`; `thread_status='scheduled'` set after creation.

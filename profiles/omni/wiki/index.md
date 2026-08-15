@@ -18,6 +18,7 @@
   - [Budget & Context Mechanics](./Reference/Budget-and-Context.md): Thread budget, compaction behavior, prompt context blocks, filesystem_read paging
   - [DeepSeek Prefix-Cache Misses](./Reference/DeepSeek-Prefix-Cache.md): Why cached_tokens froze at 7,424 (system-role upserts break the cache key) and the user-role fix (omniagent 9c5bb60) — 6.9% → 90%+ hit rate
   - [Deployment Checklist](./Reference/Deployment-Checklist.md): How to deploy services correctly via compose
+  - [Omni-Deployer](./Reference/Omni-Deployer.md): The deploy harness — deploy.py dev pipeline (verified exit 0), noop-only rule, omnistable safety invariant, schema facts that bite tests, test-fix patterns
   - [Container Mount Map](./Reference/Container-Mount-Map.md): Volume mount mapping between host and container (omni-stack → /opt/omni, NOT /opt/data)
   - [Omniagent Mattermost Platform](./Reference/Omniagent-Mattermost-Platform.md): Mattermost platform architecture, setup, invariants, and recovery
   - [Verification & Review Requirements](./Reference/Verification-and-Review.md): Mandatory functional verification + review-before-commit for code deliverables (plugins, tools, services)

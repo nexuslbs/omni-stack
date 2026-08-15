@@ -2,6 +2,18 @@
 
 ## 2026-08-15
 
+- Added `Todo/DeployPyDevRunImplementation.md` (NEW): run `python3 deploy.py dev`
+  in /opt/workspace/omni-deployer to successful completion (build → dbs →
+  migrations → pretests → shared tool tests → start), fixing issues mid-run.
+  deploy.py dev WILL stop omnidev (fine/expected) but must NEVER stop omnistable
+  — the agent's own stack; verified `STOP_TARGETS["omnideploy"] =
+  ["omnidev","omnistable"]` (shared.py:398-402) currently stops both, so the
+  task first fixes the deploy script (mode-aware: dev stops only omnidev, CI
+  clean-slate preserved), then runs deploy.py dev to exit 0, then verifies
+  omnistable-* containers still running. Normal omniagent-dev task (no
+  workspace routing). Mirrors kanban task (chained to board tail
+  task_18cbcd7a8c4a6f5e). Updated index.md.
+
 - IMPLEMENTED `Todo/KanbanStatusChangeDispatchImplementation.md` (omniagent `18d723f`): PATCH /kanban/tasks/{id}/status now dispatches the mapped role thread (running→executor, testing→tester, review→reviewer, role-gated; stale pending/processing threads skipped to terminal `skipped` first via the `mark_thread_terminal` choke point); NEW POST /kanban/tasks/{id}/redispatch recreates the role thread for a task already in running/testing/review without changing status (no-op when an active thread exists or the role isn't defined); POST /kanban/dispatch simplified to move-to-running through the shared dispatch code (duplicate thread-creation removed); startup recovery unified (skip_all_pending_threads marks terminal then redispatches stuck workflow-column tasks). Spec updated with implementation summary.
 
 ## 2026-08-14

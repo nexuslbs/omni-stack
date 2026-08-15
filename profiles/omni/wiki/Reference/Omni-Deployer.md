@@ -106,6 +106,23 @@ cd /opt/workspace/omni-deployer && python3 deploy.py dev > /tmp/deploy-dev.log 2
 # ~28–30 min; exit 0 = fully green
 ```
 
+## sqlx offline cache (prepare.py)
+
+- `prepare.py` regenerates the offline caches: `cargo sqlx prepare --workspace`
+  at the root, then per-plugin for every plugin using `sql_forge!()` /
+  `sqlx::query!()`. The caches MUST be committed (SQLX_OFFLINE=true builds
+  resolve queries from them).
+- Plugin prepares run `cargo sqlx prepare -- --tests` — the `--tests` matters:
+  a lib-only prepare drops queries that only appear inside test modules and
+  leaves a dirty tree every deploy run (prompt plugin's `#[tokio::test]`
+  continuation query was silently deleted before the fix).
+- The deploy surfaces cache drift: run #10 regenerated the memory plugin
+  cache (11 stale removed, 19 missing added) and the query plugin cache
+  (165 entries were never committed). Commit regenerated caches with a
+  `chore(sqlx): sync offline query caches` commit; container runs write the
+  files as root — `chown` them back before committing.
+
+
 Quick shared-tool-test iteration without the full pipeline (stack already up):
 
 ```python

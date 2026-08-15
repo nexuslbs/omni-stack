@@ -11,8 +11,15 @@
   config writes (sudo mv), schema facts that bite tests (channels table dropped
   → channel_id is a NAME; seq-0 role='cause'; task-delete detaches threads),
   test-fix patterns table (wf9 drain, atomic tasks.yml, g29/g30 races, query
-  args), quick shared-tool-test iteration snippet, secrets hygiene. Updated
-  index.md.
+  args), quick shared-tool-test iteration snippet, secrets hygiene, sqlx
+  offline-cache sync notes (prepare.py `-- --tests`, chown after container
+  runs). Updated index.md.
+
+- SYNCED plugin sqlx offline caches after run #10 surfaced drift: omniagent
+  `f0c3c44` (memory: 11 stale removed + 19 missing added; query: 165 entries
+  never committed — now complete), and omni-deployer `1937e6e` (prepare.py
+  plugin step now `cargo sqlx prepare -- --tests` so test-module queries stay
+  in the cache instead of leaving a dirty tree every run).
 
 - Completed `Todo/DeployPyDevRunImplementation.md` + kanban task
   `task_18cbd58896d6500b`: `python3 deploy.py dev` now exits 0 (run #10,

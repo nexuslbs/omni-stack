@@ -1,5 +1,9 @@
 # Log
 
+## 2026-08-15
+
+- IMPLEMENTED `Todo/KanbanStatusChangeDispatchImplementation.md` (omniagent `18d723f`): PATCH /kanban/tasks/{id}/status now dispatches the mapped role thread (running→executor, testing→tester, review→reviewer, role-gated; stale pending/processing threads skipped to terminal `skipped` first via the `mark_thread_terminal` choke point); NEW POST /kanban/tasks/{id}/redispatch recreates the role thread for a task already in running/testing/review without changing status (no-op when an active thread exists or the role isn't defined); POST /kanban/dispatch simplified to move-to-running through the shared dispatch code (duplicate thread-creation removed); startup recovery unified (skip_all_pending_threads marks terminal then redispatches stuck workflow-column tasks). Spec updated with implementation summary.
+
 ## 2026-08-14
 
 - Added `Todo/StopThreadSurgicalImplementation.md` (NEW): `POST /stop-thread/{id}` must be SURGICAL — it currently cancels the channel's processing token unconditionally (`src/server/mod.rs:486-497`), and the handler's prompt `tokio::select!` cancellation drops whatever thread is mid-`process_thread`, orphaning it in `status='processing'` forever (respawned handler only claims `pending`). Incident 2026-08-14: stopping thread 420 killed the dispatch-gate TESTER 412 mid-verification for 1h48m; its task kept a stale `thread_status='running'`. Fix: cancel the handler only when the target IS the active thread; always clear the stopped kanban thread's task `thread_status` (honor `StopRecovery::Block.clear_thread_status`, clear on Noop-when-set); handler cancellation branch skips its in-flight thread as a safety net. Mirrors kanban task (omniagent-dev workflow). Updated index.md.

@@ -11,3 +11,5 @@
 - [Todo/SkippedTerminalSinglePointImplementation.md](Todo/SkippedTerminalSinglePointImplementation.md) --- score: 30
 - [Todo/HooksImplementation.md](Todo/HooksImplementation.md) --- score: 30
 - [Todo/OmniAgent-Smartness-Plan.md](Todo/OmniAgent-Smartness-Plan.md) --- score: 30
+- [Todo/SshPluginImplementation.md](Todo/SshPluginImplementation.md) --- score: 30
+- [Todo/SubtasksImprovement.md](Todo/SubtasksImprovement.md) --- score: 30

@@ -1,0 +1,22 @@
+# Kanban boards (omnidev dev config — feature gate)
+# A board groups kanban tasks and carries default execution options
+# (channel, profile, workflow, plan, ...). The kanban board feature is
+# ACTIVE only while this file exists; omnistable has no boards.yml, so
+# all kanban behavior there is unchanged.
+#
+# Resolution order for a thread created from a kanban task:
+#   Workflow Role > Workflow > Kanban Task > Board > Channel > Global Settings
+# (boards.yml fields act as the task's fallback when the task does not set
+# the option; the resolved channel's settings and global settings still
+# apply below the board).
+boards:
+  main:
+    channel: kanban
+    profile: omni
+    workflow: omniagent-dev
+    plan: false
+  dev:
+    channel: mattermost-stable-channel
+    profile: omni
+    workflow: omniagent-dev
+    plan: true

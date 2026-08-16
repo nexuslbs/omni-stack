@@ -1,5 +1,22 @@
 # Log
 
+## 2026-08-16 (subtasks improvement task)
+
+- Updated `Todo/SubtasksImprovement.md` (Planned → In implementation): added
+  user-spec testing requirements — (1) automated tests with the noop provider
+  `test-tool-caller` (fake agent driving tools through the real agent loop via
+  JSON scripts, GROUP 12/13/14 pattern on the dedicated mattermost-test-channel);
+  (2) real manual end-to-end tests: create a real omnidev dev-workflow task
+  that asks the omnidev agent to run a task using subtasks, verify it runs
+  successfully (subtasks created from plan → updated → thread `completed`,
+  never force-failed); manual runs by BOTH executor and tester, kept SHORT
+  (3-6 steps, no long builds, no local-state changes except a throwaway test
+  project), omnidev only. Refreshed verified line refs (prompt_builder.rs now
+  at plugins/tools/prompt/src/, response_handler.rs:323, config.rs:230/329/412,
+  main_loop.rs:911/1630 injections, enable_subtasks=should_plan at main_loop
+  .rs:65). Mirrored as an omnistable mm-kanban dev-workflow task (chained
+  after SSH plugin task).
+
 ## 2026-08-16 (SSH plugin + subtasks research)
 
 - Added `Todo/SshPluginImplementation.md` (NEW): builtin `ssh` tool plugin

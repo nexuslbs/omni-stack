@@ -307,3 +307,24 @@ and NO build toolchain:
 - Tool execution details: skill `workspace-development`, `docker-compose-usage`, `git-workflow`.
 - Environment facts (mounts, port checking, compaction behavior): wiki `Reference/*` pages + MEMORY.
 - Repo-specific conventions: the repo's own README/AGENTS.md.
+
+## Remote Machines (SSH)
+
+For work on a REMOTE machine (a different host than the agent container), use
+the `ssh` plugin instead of docker/filesystem:
+
+- `ssh_run` — run a shell command on the remote host (alias from the ssh config
+  in `{OMNI_DIR}/data/ssh/config`, or inline `user@host:port`). Pass
+  `timeout` for short commands; for long-running remote commands (builds,
+  `compose up`) omit the timeout and follow with `builtin_wait-task` /
+  `poll-task` / `cancel-task` exactly as with local docker compose.
+- `ssh_copy` — copy files to/from the remote (`direction: to-remote` to push
+  secrets/env/keys, `from-remote` to pull logs/artifacts; `recursive: true`
+  for directories).
+- `ssh_status` — cheap connectivity check; run it first to fail fast before a
+  long setup.
+
+Same discipline as local dev: verify remote state cheaply before acting, never
+redo verified work, keep working notes, commit partial work. The plugin is
+agnostic — it only runs ssh/scp; the remote-dev workflow (clone → copy secrets
+→ compose up → wait → logs) is a skill layered on top.

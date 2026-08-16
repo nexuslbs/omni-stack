@@ -328,3 +328,15 @@ Same discipline as local dev: verify remote state cheaply before acting, never
 redo verified work, keep working notes, commit partial work. The plugin is
 agnostic — it only runs ssh/scp; the remote-dev workflow (clone → copy secrets
 → compose up → wait → logs) is a skill layered on top.
+
+## Subtasks: plan-progress layer (MANDATORY for multi-step tasks)
+- Plan-mode threads auto-create one subtask per plan step via
+  `subtasks_manage-subtasks` (the engine parses the `<plan>` block into
+  subtasks at thread start).
+- Keep subtasks updated as you work: mark each subtask `completed` as you finish
+  it (`subtasks_manage-subtasks` action="update", subtask_id=N, status="completed");
+  cancel any subtask that is no longer needed (status="cancelled").
+- BEFORE your final answer, complete or cancel ALL subtasks — the enforcement
+  nudge fires at most once if any remain pending (never force-fail on a nudge).
+- Subtasks complement notes: notes = "what I learned"; subtasks = "what remains"
+  (plan progress). Both survive compaction and thread death.

@@ -1,11 +1,11 @@
 # Knowledge Pipeline
 
-**IMPORTANT: Use YOUR current thread_id for manage_subtasks calls.** Do NOT reuse thread_ids from previous runs or examples. Your thread_id is the one that was created for THIS cron execution.
+**IMPORTANT: Use YOUR current thread_id for subtask calls.** Do NOT reuse thread_ids from previous runs or examples. Your thread_id is the one that was created for THIS cron execution.
 
 ## Steps (Execute In Order)
 
 ### Step A: Create Subtasks
-Call `manage_subtasks` with THIS thread's actual ID (not from examples or previous runs) for all 6 steps. Give them priority 6→1.
+Call `subtasks_manage-subtasks` (action="add", thread_id=THIS_ID, description=..., priority=N) with THIS thread's actual ID (not from examples or previous runs) for all 6 steps. Give them priority 6→1.
 
 ### Step B: Channel Summarization
 Query channels + summaries. Verify each active channel has at least one summary.
@@ -26,4 +26,4 @@ Run tool: `actions_hindsight_populator`. If hindsight unavailable → cancel ste
 If hindsight enabled, POST to `http://omniagent-hindsight:8888/v1/default/banks/omniagent/consolidate`. If not enabled → cancel step.
 
 ## After All Steps
-Call `manage_subtasks(thread_id=THIS_ID, action="list")` to verify. Write a final message summarizing which steps succeeded/failed/skipped.
+Call `subtasks_manage-subtasks` (thread_id=THIS_ID, action="list") to verify. Write a final message summarizing which steps succeeded/failed/skipped.

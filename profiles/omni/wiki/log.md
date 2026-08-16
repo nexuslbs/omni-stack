@@ -226,3 +226,13 @@
   - Container volume mount map
   - Port checking limitation
 
+
+## 2026-08-16 (SSH plugin task COMPLETED)
+
+- Task `task_18cc5aff745ee42c` (SSH Plugin, omniagent-dev workflow) DONE — threads 79 (executor, 152 iters, 92.0% cache), 80 (tester, 17 iters, 89.0%), 81 (reviewer, 31 iters, 92.5%) all terminal; tester PASS + reviewer APPROVE.
+- Deliveries (all origin/main, 0/0):
+  - omniagent `04f56d6` (492bd03 feat ssh-plugin + 04f56d6 plugin_tests): plugins/tools/ssh/ mcp-server-ssh — ssh_run/ssh_copy/ssh_status agnostic wrappers over ssh/scp (run_git subprocess hygiene, kill_on_drop, BatchMode, -F config, ssh_dir chmod-600 + re-verify), 15 unit tests.
+  - omni-deployer `a69bac7`: GROUP 34 integration tests + _run_g34.py driver — verified independently: 3/3 PASS against REAL local sshd.
+  - omni-stack `468d0e0`: plugins.yml ssh enable, config.json allowed_tools, dev-development.md remote paragraph, new remote-development skill.
+- Live check: /api/plugins shows ssh built-in tool, status enabled.
+- Note: /dev/null was missing in omnidev container mid-task (broke ssh-keygen/git) — recreated as char device; executor recovered.

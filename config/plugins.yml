@@ -74,6 +74,12 @@ tools:
     source: built-in
     config:
       omni_dir: $env:OMNI_DIR
+  paperclip:
+    enabled: true
+    source: remote
+    config:
+      PAPERCLIP_API_URL: http://paperclip:3100
+      PAPERCLIP_API_KEY: $secret:PAPERCLIP_API_KEY
   plugin-manager:
     enabled: true
     source: built-in
@@ -138,4 +144,3 @@ providers:
     source: built-in
     config:
       api_key: $secret:OPENCODE_API_KEY
-

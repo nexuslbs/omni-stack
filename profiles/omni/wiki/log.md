@@ -1,5 +1,21 @@
 # Log
 
+## 2026-08-16 (paperclip service task)
+
+- Added `Todo/PaperclipServiceImplementation.md` (NEW): add a `paperclip`
+  service to omni-stack compose — profiles `paperclip` + `all` (user's `full`
+  mapped to the repo's umbrella profile `all`), pinned fixed GHCR sha
+  (verified: newest release v2026.722.0 = commit e55d702 = `sha-e55d702`;
+  GHCR has no semver tags, only sha-*/latest/canary/nightly/beta; `latest`
+  points to a NEWER build than the newest release — do NOT use it).
+  Integration decision (researched): paperclip ships the OFFICIAL
+  `@paperclipai/mcp-server` (30+ typed tools + `paperclipApiRequest` escape
+  hatch, Node stdio, config = API URL + key) → use it as an external MCP
+  plugin via a thin omni-plugins wrapper. Rejected: custom Python plugin
+  (maintenance burden as paperclip expands), skill+fetch (boilerplate).
+  Fallback: thin fetch-based plugin (agent defines path/params/body).
+  Mirrored as an omnistable mm-kanban dev-workflow task.
+
 ## 2026-08-16 (subtasks task completed)
 
 - Task `task_18cc62fa1b4db34c` (Subtasks improvement) **DONE** via omnistable

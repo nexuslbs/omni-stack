@@ -37,6 +37,16 @@ profiles/default/wiki/
 # ── Eliminated struct — workspace root, each plugin has own Cargo.toml ──
 /Cargo.toml
 
+# ── Runtime config artifacts created at repo root by deploy/test tooling ──
+/actions.yml
+/plugins.yml
+/remote.yml
+/settings.yml
+/workflows.yml
+
+# ── taskj patch artifacts (kanban task tool) ──
+.taskj-*.patch
+
 /data/
 # ── Auto-generated remote plugin clones (ignored per type dir) ──
 # ONLY these are gitignored: tests install remote plugins via install-git

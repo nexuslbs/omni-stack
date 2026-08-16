@@ -192,9 +192,11 @@ services:
     # build than the newest release), canary/beta/nightly, and one sha-<7>
     # tag per build. sha-e55d702 matches release v2026.722.0 (verified
     # 2026-08-16 via `docker manifest inspect`); do NOT switch to `latest`.
-    # Required env: BETTER_AUTH_SECRET (vendor-enforced). LLM keys
-    # (OPENAI_API_KEY / ANTHROPIC_API_KEY) are operator-provided via
-    # env/secrets when agents need them — intentionally not hardcoded here.
+    # BETTER_AUTH_SECRET is REQUIRED (vendor-enforced at container start —
+    # paperclip refuses to run without it; compose stays green so other
+    # profiles are unaffected). LLM keys (OPENAI_API_KEY / ANTHROPIC_API_KEY)
+    # are operator-provided via env/secrets when agents need them —
+    # intentionally not hardcoded here.
     image: ${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:sha-e55d702}
     profiles: ["paperclip", "all"]
     restart: unless-stopped
@@ -208,7 +210,7 @@ services:
       PAPERCLIP_DEPLOYMENT_MODE: "${PAPERCLIP_DEPLOYMENT_MODE:-authenticated}"
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "${PAPERCLIP_DEPLOYMENT_EXPOSURE:-private}"
       PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://paperclip:3100}"
-      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:-}"
       PAPERCLIP_TOOL_ACTION_SIGNING_SECRET: "${PAPERCLIP_TOOL_ACTION_SIGNING_SECRET:-}"
     volumes:
       - paperclip-data:/paperclip

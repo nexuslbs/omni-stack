@@ -20,6 +20,9 @@ tools:
   mcp-time:
     url: https://github.com/modelcontextprotocol/servers.git
     path: ''
+  paperclip:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/paperclip
   test-rust-tool:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-rust-tool

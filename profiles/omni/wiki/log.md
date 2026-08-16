@@ -1,5 +1,25 @@
 # Log
 
+## 2026-08-16 (SSH plugin + subtasks research)
+
+- Added `Todo/SshPluginImplementation.md` (NEW): builtin `ssh` tool plugin
+  (plugins/tools/ssh/, mcp-server-ssh) — ssh_run/ssh_copy/ssh_status over the
+  ssh/scp CLIs (present in image), keys/config from `{OMNI_DIR}/data/ssh/`
+  (ssh_dir config, chmod 600 enforcement), background-task integration
+  (wait-task/poll-task/cancel-task), agnostic of use; remote-development
+  workflow lives in a skill + template, not the plugin; 5 registration points
+  (Cargo members, Dockerfile dep-cache COPY, plugins.yml, config.json
+  allowed_tools, plugin_tests.rs); G34 integration tests (local throwaway
+  sshd preferred, fake-shim fallback). omnidev-only; mirrored as an omnistable
+  mm-kanban dev-workflow task.
+- Added `Todo/SubtasksImprovement.md` (NEW): research spec — subtasks are
+  inert (0 rows in thread_subtasks): manage_subtasks tool never registered,
+  write tools disabled in allowed_tools, auto-create expects JSON steps while
+  real plans are `<plan>` markdown, prompt never references them, enforcement
+  would force-fail if they existed. Path A-lite: add real manage_subtasks
+  tool, parse markdown plans, enable tools, prompt guidance, token-safe
+  enforcement (retries=1, user-role appended injection, no 3-round nudge).
+
 ## 2026-08-16
 
 - Added `Todo/PythonTelegramPlatformImplementation.md` (NEW): Python telegram

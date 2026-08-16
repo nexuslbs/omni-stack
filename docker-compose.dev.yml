@@ -41,6 +41,10 @@ services:
     ports:
       - "12349:8065"
 
+  paperclip:
+    ports:
+      - "3101:3100"
+
 networks:
   default:
     driver: bridge

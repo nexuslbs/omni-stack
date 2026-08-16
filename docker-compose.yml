@@ -185,6 +185,36 @@ services:
     logging:
       driver: journald
 
+  #  Paperclip (profile: paperclip) 
+  paperclip:
+    # Pinned to the last FIXED release tag (v2026.722.0, commit e55d702).
+    # GHCR carries no semver tags — only `latest` (MUTABLE, currently a newer
+    # build than the newest release), canary/beta/nightly, and one sha-<7>
+    # tag per build. sha-e55d702 matches release v2026.722.0 (verified
+    # 2026-08-16 via `docker manifest inspect`); do NOT switch to `latest`.
+    # Required env: BETTER_AUTH_SECRET (vendor-enforced). LLM keys
+    # (OPENAI_API_KEY / ANTHROPIC_API_KEY) are operator-provided via
+    # env/secrets when agents need them — intentionally not hardcoded here.
+    image: ${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:sha-e55d702}
+    profiles: ["paperclip", "all"]
+    restart: unless-stopped
+    expose:
+      - "3100"
+    # Host port publishing for the paperclip UI lives in the dev overlay
+    # (docker-compose.dev.yml), matching the mattermost/dashboard pattern.
+    environment:
+      HOST: "0.0.0.0"
+      PAPERCLIP_HOME: "/paperclip"
+      PAPERCLIP_DEPLOYMENT_MODE: "${PAPERCLIP_DEPLOYMENT_MODE:-authenticated}"
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: "${PAPERCLIP_DEPLOYMENT_EXPOSURE:-private}"
+      PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://paperclip:3100}"
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}"
+      PAPERCLIP_TOOL_ACTION_SIGNING_SECRET: "${PAPERCLIP_TOOL_ACTION_SIGNING_SECRET:-}"
+    volumes:
+      - paperclip-data:/paperclip
+    logging:
+      driver: journald
+
   #  Memory: Hindsight (profile: memory) 
   qdrant:
     image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}
@@ -364,6 +394,7 @@ volumes:
   mm-data:
   mm-logs:
   mm-plugins:
+  paperclip-data:
   omni-toolbox-cron:
   loki-vol:
   grafana-vol:

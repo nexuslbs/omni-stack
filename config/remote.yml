@@ -1,4 +1,25 @@
 tools:
+  mcp-everything:
+    url: https://github.com/modelcontextprotocol/servers.git
+    path: ''
+  mcp-fetch:
+    url: https://github.com/modelcontextprotocol/servers.git
+    path: ''
+  mcp-filesystem:
+    url: https://github.com/modelcontextprotocol/servers.git
+    path: ''
+  mcp-git:
+    url: https://github.com/modelcontextprotocol/servers.git
+    path: ''
+  mcp-memory:
+    url: https://github.com/modelcontextprotocol/servers.git
+    path: ''
+  mcp-sequentialthinking:
+    url: https://github.com/modelcontextprotocol/servers.git
+    path: ''
+  mcp-time:
+    url: https://github.com/modelcontextprotocol/servers.git
+    path: ''
   test-rust-tool:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-rust-tool

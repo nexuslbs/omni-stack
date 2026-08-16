@@ -1,5 +1,21 @@
 # Log
 
+## 2026-08-16 (subtasks task completed)
+
+- Task `task_18cc62fa1b4db34c` (Subtasks improvement) **DONE** via omnistable
+  omniagent-dev workflow: executor 170 iters (92.4% cache), tester 27 iters
+  (PASS, 83.0% aggregate / 90% steady-state), reviewer 26 iters (APPROVE).
+  Deliverables on origin/main: omniagent `f81f91b` (efd95aa feat: unified
+  manage_subtasks tool + extract_plan_steps markdown parser + user-role
+  appended enforcement + retries 3→1 + categorizer fix + TOOL_GUIDANCE 13;
+  f81f91b fix: numeric-string ids) — 16+8 unit tests; omni-deployer `fe4a913`
+  GROUP 35 (noop test-tool-caller plan-mode e2e); omni-stack `89b8ba2`
+  (allowed_tools 6× subtasks_*, template guidance). Full suite green twice
+  (499 passed). Live MCP E2E against real DB confirmed manage_subtasks
+  add/list/update/get_counts/delete + thread_subtasks rows. Caveat (both
+  executor+tester honest, verified): running omnidev binary predates commits
+  → GROUP 35 live agent-loop run deferred to next omnidev restart.
+
 ## 2026-08-16 (subtasks improvement task)
 
 - Updated `Todo/SubtasksImprovement.md` (Planned → In implementation): added

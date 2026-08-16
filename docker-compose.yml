@@ -29,14 +29,15 @@ services:
       driver: journald
 
   omniagent:
+    # Image-only service (like dashboard): the base compose is the stable/
+    # runtime definition and carries NO build section — it consumes a
+    # pre-built image by tag. omnistable pulls the GHCR CI image;
+    # deploy.py hybrid builds the production Dockerfile locally and tags it
+    # local/omniagent:latest (omni.env) before `up`. Only the dev overlay
+    # (docker-compose.dev.yml) adds a build section (Dockerfile.dev) for
+    # omnidev source builds. (Regression note: 3d4bfd2 had pointed the base
+    # compose at Dockerfile.dev; reverted to image-only in d552b9f.)
     image: ${OMNIAGENT_IMAGE:-omniagent-dev:latest}
-    build:
-      # Production Dockerfile — base compose is the stable/image definition
-      # (CI builds this). The dev overlay (docker-compose.dev.yml) overrides
-      # this to Dockerfile.dev for omnidev source builds. Regression fix:
-      # 3d4bfd2 had wrongly pointed the base compose at Dockerfile.dev.
-      dockerfile: Dockerfile
-      context: ${WORKSPACE_DIR:-/opt/workspace}/omniagent
     depends_on:
       postgres:
         condition: service_healthy

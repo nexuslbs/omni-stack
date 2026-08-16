@@ -1,5 +1,33 @@
 # Log
 
+## 2026-08-16
+
+- Added `Todo/McpExternalServersImplementation.md` (NEW): external/agnostic MCP
+  server support — add the 7 modelcontextprotocol Reference Servers (Everything,
+  Fetch, Filesystem, Git, Memory, Sequential Thinking, Time) as remote MCPs via
+  the plugin API with ≥1 live tool call each; extend the cargo-only install API
+  for Python (requirements.txt) / NodeJS (package.json) deps; external OS
+  binaries belong in the image, not the API; integration tests ≥1 tool per
+  server with correct-return assertions. omnidev-only; mirrored as an omnistable
+  mm-kanban dev-workflow task (depends on the done Kanban Boards task).
+- Committed wiki spec `Todo/KanbanBoardsImplementation.md` + index/log updates
+  (the boards task itself completed earlier today: omniagent 311e4f7,
+  omni-dashboard de2ab45+fb4ba1c, omni-stack 2ef0569, omni-deployer c64f81e —
+  GROUP 31 board integration tests).
+
+## 2026-08-16 (boards spec creation)
+
+- Added `Todo/KanbanBoardsImplementation.md` (NEW): boards concept for kanban
+  — `config/boards.yml` in OMNIDIR (gated by file presence so omnistable is
+  unaffected), `kanban_tasks.board` column, invalid-board tasks skipped by the
+  dispatcher and failed truthfully on any thread-creation path (reusing
+  `fail_thread`), resolution order extended to
+  Workflow Role > Workflow > Kanban Task > Board > Channel > Global Settings,
+  dashboard board selector (localStorage redirect, No-board reset, create/edit
+  modals, delete-with-confirmation, move-to-board on task details). Dev-only;
+  mirrored as an omnistable mm-kanban dev-workflow task (kanban board was
+  empty — first task, no dependency chain).
+
 ## 2026-08-15
 
 - Added `Reference/Omni-Deployer.md` (NEW): deploy harness reference — deploy.py

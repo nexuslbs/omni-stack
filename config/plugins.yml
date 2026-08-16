@@ -99,6 +99,10 @@ tools:
     enabled: true
     source: built-in
     config: {}
+  ssh:
+    enabled: true
+    source: built-in
+    config: {}
   subtasks:
     enabled: true
     source: built-in

@@ -2,6 +2,15 @@
 
 ## 2026-08-16
 
+- Added `Todo/PythonTelegramPlatformImplementation.md` (NEW): Python telegram
+  platform plugin in omni-plugins — platform protocol + Telegram Bot API
+  (outbound send/edit/delete + inbound getUpdates polling); mock-based testing
+  (no real token — never reuse hermes' bot); G33 integration tests against the
+  mock; real full test needs a fresh @BotFather token for omniagent.
+  omnidev-only; mirrored as an omnistable mm-kanban dev-workflow task.
+
+## 2026-08-16 (external MCP task)
+
 - Added `Todo/McpExternalServersImplementation.md` (NEW): external/agnostic MCP
   server support — add the 7 modelcontextprotocol Reference Servers (Everything,
   Fetch, Filesystem, Git, Memory, Sequential Thinking, Time) as remote MCPs via

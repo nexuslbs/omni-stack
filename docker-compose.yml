@@ -31,7 +31,11 @@ services:
   omniagent:
     image: ${OMNIAGENT_IMAGE:-omniagent-dev:latest}
     build:
-      dockerfile: Dockerfile.dev
+      # Production Dockerfile — base compose is the stable/image definition
+      # (CI builds this). The dev overlay (docker-compose.dev.yml) overrides
+      # this to Dockerfile.dev for omnidev source builds. Regression fix:
+      # 3d4bfd2 had wrongly pointed the base compose at Dockerfile.dev.
+      dockerfile: Dockerfile
       context: ${WORKSPACE_DIR:-/opt/workspace}/omniagent
     depends_on:
       postgres:

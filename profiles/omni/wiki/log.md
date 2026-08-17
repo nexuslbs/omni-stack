@@ -402,3 +402,20 @@
   are false. No db-migrations.
 - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
   plugin-consolidation task (serial chain) — last in chain.
+- **2026-08-17 (fail-thread routing fix task)**
+  - Added `Todo/FailThreadRoutingReviewOnFailImplementation.md` (NEW): fix the
+    double normalization in fail_thread.rs (engine_transition re-normalizes the
+    already-normalized fail-thread step: "" → "executor" → "invalid" → blocked;
+    F0 must re-run the executor); wire `review_on_fail=true` into the fail
+    matrix — tester F0 → review (reviewer decides), only the reviewer can send
+    blocked (explicit fail or reviewer retry limit, plus skip), non-reviewer
+    blocked/invalid/retry-limit → review; tester adds unit + integration tests
+    for (1) go-to-executor and (2) tester-fail-without-target, each with the
+    flag true and false.
+  - Observed live (task_18cc95fc8fbba9e0 thread #112): tester called
+    fail-thread with NO workflow_step → task BLOCKED ("invalid workflow_step
+    for status testing") instead of executor re-run; reviewer thread #110 with
+    explicit workflow_step="running" correctly created re-run thread #111.
+  - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
+    workflow-mode task (task_18cc95fc8fbba9e0), before the deploy.py dev task
+    — deploy task re-chained to depend on this new task.

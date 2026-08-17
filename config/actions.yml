@@ -22,12 +22,6 @@ actions:
     params:
       path: /tmp/test.txt
     description: TestReadAttach
-  builtin_kanban_dispatcher:
-    enabled: true
-    tool_name: actions_kanban-dispatcher
-    params: {}
-    description: Pick up pending kanban tasks and create agent threads
-    is_builtin: true
   builtin_setup_knowledge_pipeline:
     enabled: false
     tool_name: actions_setup-knowledge-pipeline

@@ -9,7 +9,7 @@ platforms:
       bot_password: $secret:MATTERMOST_BOT_PASSWORD
       bot_user: omnibot
       server_url: http://mattermost:8065
-      setup_channel: stable-channel
+      setup_channel: setup
       setup_team: omni
       test_password: $secret:MATTERMOST_TEST_PASSWORD
       test_user: testuser

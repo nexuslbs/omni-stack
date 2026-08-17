@@ -9,12 +9,24 @@ workflows:
     plan_mode: null
     retries: 3
     clear_executions_on_review: true
+    # auto_approve: optional, default false. When true the workflow has NO
+    # effective reviewer: tasks that would go to review go DIRECTLY to done,
+    # and review_on_fail is forced false (ignored).
+    auto_approve: false
+    # review_on_fail: optional, default false. When true, failed steps go to
+    # review instead of blocked (ignored while auto_approve is enabled).
+    review_on_fail: false
     roles:
       executor:
         # Template is a FILE NAME resolved against
         # profiles/<profile>/templates/<name>.md (e.g. omni ->
         # profiles/omni/templates/dev-executor.md).
+        # Role mode: optional, 'agent' (default) | 'action'. Action mode runs
+        # the actions.yml tool named by action_id INSTEAD of the agent loop
+        # (executor fail -> blocked; tester fail -> review; reviewer fail ->
+        # blocked). No template needed in action mode.
         template: dev-executor
+        mode: agent
         profile: null
         provider: null
         model: null
@@ -22,6 +34,7 @@ workflows:
         retries: 3
       reviewer:
         template: dev-reviewer
+        mode: agent
         profile: null
         provider: null
         model: null
@@ -29,6 +42,7 @@ workflows:
         retries: 9
       tester:
         template: dev-tester
+        mode: agent
         profile: null
         provider: null
         model: null
@@ -41,6 +55,8 @@ workflows:
     plan_mode: off
     retries: 1
     clear_executions_on_review: false
+    auto_approve: false
+    review_on_fail: false
     roles:
       executor:
         template: null

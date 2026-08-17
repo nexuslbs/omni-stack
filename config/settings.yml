@@ -13,6 +13,7 @@ general:
   old_message_char_budget: 100000
   soul_max_chars: 1000
   state_block_update_interval: 5
+  kanban_dispatcher_interval: 15
   temperature: 0.7
   thread_summary_tokens: 2048
   tokenizer_encoding: gpt-4

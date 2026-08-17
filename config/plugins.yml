@@ -20,8 +20,10 @@ platforms:
 tools:
   actions:
     enabled: true
-    source: built-in
-    config: {}
+    source: remote
+    config:
+      database_url: $env:DATABASE_URL
+      omni_dir: $env:OMNI_DIR
   cron:
     enabled: true
     source: built-in

@@ -7,7 +7,7 @@ general:
   default_provider: opencode-go
   llm_provider: opencode-go
   max_inline_file_kb: 100
-  max_tokens: 4096
+  max_tokens: 8192
   max_tokens_on_truncation: 32768
   max_unfinished_subtask_retries: 3
   old_message_char_budget: 100000

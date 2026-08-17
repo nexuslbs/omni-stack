@@ -29,6 +29,13 @@ tools:
   actions:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/actions
+  hindsight:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/hindsight
+platforms:
+  telegram:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: platforms/telegram
 providers:
   noop:
     url: https://github.com/nexuslbs/omni-plugins.git

@@ -320,3 +320,18 @@
   the core loop fixes this. HTTP /kanban/dispatch stays for tests.
 - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
   hooks-event-meta task (serial chain).
+
+## 2026-08-17 (actions plugin → omni-plugins task)
+
+- Added `Todo/ActionsPluginPythonOmniPluginsImplementation.md` (NEW): after the
+  core-dispatcher task removes `kanban_dispatcher` from the built-in actions
+  plugin, the remaining 3 action tools (hindsight_populator, relevance_indexer,
+  setup_knowledge_pipeline) move to a NEW python MCP plugin in
+  omni-plugins/tools/actions/ (copy the tools/memory python pattern —
+  plugin.json + mcp-config.json + server.py with psycopg2). Rationale (user):
+  ops-side tools evolve/are replaced without releasing a new omniagent version.
+  omniagent: delete plugins/tools/actions/ + Cargo workspace member + refs.
+  omni-stack: remote.yml + plugins.yml source: remote. Same observable behavior
+  (watermark, relevant-index.md, tasks.yml knowledge_pipeline schedule).
+- Kanban task queued (todo) on the omniagent-dev workflow, depends on the
+  cleanup+core-dispatcher task (serial chain).

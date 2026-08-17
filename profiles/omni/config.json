@@ -2,7 +2,7 @@
   "provider": "deepseek",
   "model": "deepseek-v4-flash",
   "allowed_tools": [
-    "cron_list-cron-jobs",
+    "builtin_omniagent-api",
     "docker_compose",
     "fetch_fetch",
     "filesystem_read",
@@ -15,8 +15,6 @@
     "git_commit-and-push",
     "git_create-github-repo",
     "git_run-command",
-    "kanban_list-kanban-tasks",
-    "metrics_get-metrics",
     "prompt_generate",
     "prompt_compact-messages",
     "notes_note-append",
@@ -67,6 +65,11 @@
     "paperclip_paperclipWaitForIssueWorkspaceService",
     "search_messages",
     "search_wiki",
+    "search_database",
+    "search_thread_messages",
+    "search_channel_prompts",
+    "search_channels",
+    "search_metrics",
     "ssh_copy",
     "ssh_run",
     "ssh_status",
@@ -83,7 +86,6 @@
     "memory_promote-to-memory",
     "memory_review-memories",
     "memory_generate-summary",
-    "query_database",
     "skills_list-skills",
     "skills_create-skill"
   ]

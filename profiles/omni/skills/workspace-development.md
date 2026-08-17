@@ -53,7 +53,7 @@ Prefer the project's own service if it has the tools; `toolbox` is the generic f
 - **`filesystem_write` / `filesystem_read` / `filesystem_info` / `filesystem_search`**: create and edit project files
 - **`docker_compose`**: `build`, `up -d`, `exec`, `down`, `logs -n 50`, `ps`: all Docker operations. The compose MCP tool is registered as `docker_compose` — the bare name `compose` does NOT exist; always call it as `docker_compose(...)`.
 - **`commit_and_push`**: git commit + push (registered as `git_commit-and-push`)
-- **`query_database`**: run SQL on the shared PostgreSQL to retrieve agent memories, past messages, threads, kanban tasks and config info (for context, not for building)
+- **`search_database`**: run SQL on the shared PostgreSQL to retrieve agent memories, past messages, threads, kanban tasks and config info (for context, not for building)
 - **`clone_repo` / `create_github_repo`**: manage git repos (registered as `git_clone-repo` / `git_create-github-repo`)
 
 ## Workspace Layout

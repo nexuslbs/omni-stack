@@ -17,7 +17,7 @@
 1. If the prompt already contains the question, use it directly: no separate file needed.
 2. ALWAYS `search_messages` first for past context; `search_wiki` for existing knowledge.
    Past research, decisions, and conventions may already cover the topic.
-3. Gather internal context (search_messages / search_wiki / query_database) BEFORE
+3. Gather internal context (search_messages / search_wiki / search_database) BEFORE
    fetching external data — you need to know what's already known.
 4. Fetch ALL external data in ONE batch. Batch = one tool call that pulls several
    sources, or at minimum group your fetches so you never round-trip one URL at a time.

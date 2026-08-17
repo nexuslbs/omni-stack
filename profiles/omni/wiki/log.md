@@ -419,3 +419,5 @@
   - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
     workflow-mode task (task_18cc95fc8fbba9e0), before the deploy.py dev task
     — deploy task re-chained to depend on this new task.
+
+2026-08-17 (2): Applied max_tokens_on_truncation 16384 -> 32768 live in omnistable via PUT /settings (API shape: {"updates":[{"name":"...","value":"..."}]}, writes {data_dir}/config/settings.yml + hot-reloads global config). First PUT got wiped by reviewer thread 117 spawn (executor config-restore `git checkout HEAD -- config/...` — known channel-wipe pattern applies to settings too). Durable fix: committed to omni-stack HEAD (6203a5e) so config-restores restore 32768, not 16384. Verified: git HEAD, disk, live API all 32768. Note: API write_settings_file reorders sections (kanban_dispatcher_interval moved to unsorted) — cosmetic, loader flattens sections; restored original layout before commit.

@@ -97,8 +97,14 @@ The workflow-level `review_on_fail` flag (added by the sibling task) must be
 honored by `route_fail_tool` / `engine_transition`:
 
 **When `review_on_fail = true`:**
-- **Tester fail with NO `workflow_step` (F0) → go to REVIEW** (reviewer step),
-  NOT blocked, NOT executor re-run. The reviewer decides.
+- **ANY non-reviewer fail → go to REVIEW** (reviewer step), NOT blocked, NOT
+  executor re-run. This includes the tester F0 (no `workflow_step`) case AND
+  the executor F0 case: the reviewer decides. (Executor fail → blocked and
+  executor F0 → executor re-run are both overridden by the flag.)
+- **The ONLY case that returns to the executor (same-step re-run) is an
+  INTERRUPTED thread (max LLM calls reached, `RerunKind::Interrupted`) while
+  `execution_count < retry limit`** — that path is UNCHANGED by the flag
+  (same-step re-run until retries+1, then the flag-aware outcome below).
 - **Only the reviewer can send the task to `blocked`**, in exactly these cases:
   1. reviewer explicitly calls fail-thread with `workflow_step: "blocked"`; or
   2. the reviewer's retry limit is reached (D7 guard — reviewer is never
@@ -107,10 +113,8 @@ honored by `route_fail_tool` / `engine_transition`:
   R3 re-schedule, no retry consumed, status unchanged.)
 - Therefore, with the flag true, ANY non-reviewer fail request that would land
   on `blocked` must instead route to **review**:
-  - F0 from a tester → review (explicit user rule above).
-  - F0 from an executor → executor re-run is NOT blocked, so keep F0 executor
-    re-run? NO — user rule for the flag: failed steps go to review instead of
-    blocked, and the reviewer decides. See the matrix below.
+  - F0 from a tester → review (explicit user rule).
+  - F0 from an executor → review (NOT executor re-run — the flag overrides).
   - F3 explicit `workflow_step: "blocked"` from a non-reviewer → review
     (the flag means only the reviewer may block).
   - F4 invalid value from a non-reviewer → review.
@@ -136,7 +140,8 @@ D7 as today).
 | reviewer | blocked | blocked | blocked (reviewer may block) |
 | reviewer | testing | testing (re-test) | testing |
 | any | invalid F4 | blocked | **review** (non-reviewer) / blocked (reviewer) |
-| any | retry-limit hit (non-reviewer step) | blocked (or review if D7 clear) | **review** (non-reviewer) / blocked (reviewer) |
+| any | interrupted (max LLM calls), count < limit | same-step re-run (unchanged) | same-step re-run (unchanged) |
+| any | interrupted (max LLM calls), count = limit | blocked (or review if D7 clear) | **review** (non-reviewer) / blocked (reviewer) |
 | any | skip (stop/close) | same-step re-schedule, no retry | unchanged |
 
 Implementation notes:
@@ -162,6 +167,15 @@ The tester role MUST add tests covering these transition cases, each with
    `workflow_step` (F0) from a tester thread:
    - `review_on_fail=false` → executor re-run (task `running`).
    - `review_on_fail=true` → review (reviewer thread created / task `review`).
+3. **Executor failed WITHOUT specifying to go to anyone** — fail-thread with
+   NO `workflow_step` (F0) from an executor thread:
+   - `review_on_fail=false` → executor re-run (task `running`).
+   - `review_on_fail=true` → review (NOT executor re-run — the flag overrides;
+     the reviewer decides).
+4. **Interrupted (max LLM calls) within retry budget** — regardless of the
+   flag, the SAME step re-runs (executor interrupted → executor re-run) until
+   `execution_count = retry limit`; at the limit the flag-aware outcome
+   applies (non-reviewer step + flag true → review).
 
 Plus, at minimum, unit tests for:
 - F0 empty default after the double-normalization fix

@@ -335,3 +335,24 @@
   (watermark, relevant-index.md, tasks.yml knowledge_pipeline schedule).
 - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
   cleanup+core-dispatcher task (serial chain).
+
+## 2026-08-17 (skills gap task)
+
+- Added `Todo/SkillsGapImplementation.md` (NEW): closes the skills lifecycle
+  loop. Verified from omnistable DB: `skills_create-skill` 0 calls,
+  `skills_view-skill` 0 calls, `skills_list-skills` 3 calls (old threads
+  61-63) — the agent never creates or reads skills, yet follows the 7
+  hand-written skill descriptions injected into every prompt. Three fixes:
+  (1) prompt plugin `get_skills` (main.rs:1188) renders the file's FIRST LINE
+  as description — a create_skill file starting with `---` frontmatter would
+  show as `- <name>: ---`; parse frontmatter `description:` with fallback to
+  `#`-stripped line, and support the SKILL.md dir layout. (2) create_skill
+  writes flat `<cat>/<name>.md`; align with Hermes conventions
+  (skills/<cat>/<name>/SKILL.md + license + metadata.hermes.tags/
+  related_skills + "Use when" description ≤1024). (3) prompt nudge: the
+  "read one with view_skill" line never fires — add an actionable create
+  trigger. Notes plugin verified healthy (63 calls, threads 71-90, durable
+  working memory) — explicitly out of scope. Skills stays Rust built-in (no
+  python port exists).
+- Kanban task queued (todo) on the omniagent-dev workflow, depends on the
+  actions-python task (serial chain).

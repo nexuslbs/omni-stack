@@ -356,3 +356,25 @@
   python port exists).
 - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
   actions-python task (serial chain).
+
+## 2026-08-17 (plugin consolidation task)
+
+- Added `Todo/PluginConsolidationImplementation.md` (NEW): one consolidation
+  pass over the plugin surface, per user direction. (1) prompt: Rust built-in
+  stays default; omni-plugins tools/prompt python port (exists, unwired) is the
+  experimental channel — keep both, document the source switch. (2) telegram:
+  remove stale core manifest (points at nonexistent binary); python platform
+  in omni-plugins (ddbc385) is real — wire remote. (3) hindsight: move to
+  omni-plugins (may stay Rust), wire remote keep disabled, remove from core.
+  (4) search(358)+query(929)+metrics(401) → single search plugin, tools kept
+  and renamed search_* (7 tools). (5) fetch/skills/notes stay. (6) cron+kanban
+  → ONE generic core builtin `omniagent-api` tool in src/mcp/mod.rs (same
+  family as builtin_wait-task; kanban plugin is already a pure HTTP client,
+  cron is duplicated by the core /schedule API) + ADD the missing
+  DELETE /schedule/{id} (dashboard never had a delete — verified git history)
+  + a skill md documenting the API surface. Verified builtin registration
+  points: src/mcp/mod.rs :387-508 builtin_* tools. Non-goals: no touching
+  docker/filesystem/git/ssh/plugin-manager/mattermost (security-sensitive);
+  no prompt behavior change; no db-migrations.
+- Kanban task queued (todo) on the omniagent-dev workflow, depends on the
+  skills-gap task (serial chain) — last in chain.

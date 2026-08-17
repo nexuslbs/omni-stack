@@ -47,3 +47,14 @@ channels:
     resource_identifier: g30-b
     cause: system
     profile: omni
+  # mm-kanban (mattermost-d6bmh64b) is the live serial kanban channel for the
+  # dev workflow — the paperclip executor's config-restore git checkout wiped
+  # this auto-created channel from the yml (2026-08-17), which made kanban
+  # dispatch fail with "no channel defined" (dispatch validates channel
+  # existence; workflow step threads do not). Seeded here so restores cannot
+  # drop it again.
+  mattermost-d6bmh64b:
+    platform: mattermost
+    resource_identifier: d6bmh64bk7foukhw31ga4rhm3a
+    cause: user
+    profile: omni

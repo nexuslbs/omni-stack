@@ -127,6 +127,20 @@ honored by `route_fail_tool` / `engine_transition`:
 the double-normalization fix (F0 → executor re-run, F1/F2/F3/F4 as today,
 D7 as today).
 
+**Interaction with `auto_approve` (sibling task, user rule):** when the
+workflow's `auto_approve = true`, `review_on_fail` is FORCED to `false` (even
+if the workflows.yml file sets it true — auto_approve means there is no
+effective reviewer). Concretely, with `auto_approve = true`:
+- Failed, interrupted (when no retries remain), and skipped executor/tester
+  threads go DIRECTLY to `blocked` (the default no-flag routing).
+- The review_on_fail=true matrix below does NOT apply — review_on_fail behaves
+  as if it were false, always.
+- The ONLY paths out of `blocked` are none (terminal), and tasks that reach
+  `review` go straight to `done` (auto_approve semantics from the sibling
+  task). This task must simply resolve `review_on_fail` as
+  `effective_review_on_fail = workflow.review_on_fail && !workflow.auto_approve`
+  when routing fails.
+
 **Routing matrix (target status):**
 
 | Caller | workflow_step | review_on_fail=false | review_on_fail=true |
@@ -149,11 +163,13 @@ Implementation notes:
   (and the caller's role — it already receives `caller_step`, so the reviewer
   caller can be detected via `caller_step == Some("review")`).
 - `engine_transition` resolves the flag from the task's workflow
-  (`workflows.yml` → `workflow.auto_approve`/`review_on_fail`); remember the
-  sibling task's rule: `auto_approve=true` forces `review_on_fail=false`.
-- When routing to `review` with the flag true, mirror the existing D7 review
-  thread creation path (create a review thread when the workflow has a
-  reviewer role; otherwise land the task in `review` as a manual state).
+  (`workflows.yml` → `workflow.auto_approve`/`review_on_fail`); use
+  `effective_review_on_fail = review_on_fail && !auto_approve` (auto_approve
+  forces review_on_fail false — user rule; with auto_approve=true,
+  executor/tester failed/interrupted-at-limit/skipped → blocked directly).
+  When routing to `review` with the effective flag true, mirror the existing
+  D7 review thread creation path (create a review thread when the workflow has
+  a reviewer role; otherwise land the task in `review` as a manual state).
 
 ### 3. Tester adds transition tests (unit + integration)
 
@@ -176,6 +192,12 @@ The tester role MUST add tests covering these transition cases, each with
    flag, the SAME step re-runs (executor interrupted → executor re-run) until
    `execution_count = retry limit`; at the limit the flag-aware outcome
    applies (non-reviewer step + flag true → review).
+5. **auto_approve=true forces review_on_fail=false** — with
+   `auto_approve=true` and `review_on_fail=true` in workflows.yml, an
+   executor/tester fail (F0), an interruption at the retry limit, and a skip
+   all go DIRECTLY to `blocked` (review_on_fail must behave as false). This
+   is the auto_approve user rule — include it in the tests so the sibling
+   task's flag wiring is verified end-to-end.
 
 Plus, at minimum, unit tests for:
 - F0 empty default after the double-normalization fix

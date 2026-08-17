@@ -302,3 +302,21 @@
   protection stays. No schema/migration change (JSONB shape only).
 - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
   paperclip task (serial chain).
+
+## 2026-08-17 (cleanup + core dispatcher task)
+
+- Added `Todo/CleanupAndCoreDispatcherImplementation.md` (NEW): two-part task.
+  (1) Extend the daily age-based cleanup (`src/main.rs:277-302`, currently
+  messages + summaries only) to also delete old terminal threads (messages →
+  thread_subtasks → threads, parent_id self-ref handled, non-terminal kept)
+  and old kanban_history (no FK); reuse existing `delete_after_days` setting
+  (default 30) with a NEW 0 = disabled guard (today 0 would delete everything).
+  (2) Move the kanban dispatcher into core: extract `dispatch_handler`
+  (src/server/kanban.rs:2285) into an in-process function + background loop in
+  main.rs (no HTTP round-trip, no cron), new `kanban_dispatcher_interval`
+  setting default 15s, remove `kanban_dispatcher` tool from the actions plugin
+  (keep the other 3) + `builtin_kanban_dispatcher` from actions.yml. Fresh
+  stacks currently have NO auto-dispatch (tasks.yml schedules commented out) —
+  the core loop fixes this. HTTP /kanban/dispatch stays for tests.
+- Kanban task queued (todo) on the omniagent-dev workflow, depends on the
+  hooks-event-meta task (serial chain).

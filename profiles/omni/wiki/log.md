@@ -378,3 +378,27 @@
   no prompt behavior change; no db-migrations.
 - Kanban task queued (todo) on the omniagent-dev workflow, depends on the
   skills-gap task (serial chain) — last in chain.
+
+## 2026-08-17 (workflow role mode + auto-approve task)
+
+- Added `Todo/WorkflowRoleModeAutoApproveImplementation.md` (NEW): per-role
+  `mode: agent|action` in workflows.yml (default agent, mirroring hooks/schedule
+  action semantics). Action-mode roles execute the actions.yml tool call via
+  the plugin manager (reuse scheduler::resolve_action/handle_action_mode
+  pattern) instead of spawning an agent loop; step-thread creation hooks in
+  create_kanban_step_thread (db/threads.rs:1115). Action-mode routing (user
+  rule): executor fail → blocked, tester fail → review (NOT executor re-run —
+  differs from agent-mode D5), reviewer fail → blocked; interruption retries
+  use the existing engine_transition guard (same-step re-run until retries+1,
+  then blocked). New workflow-level `auto_approve` (default false): reviewer
+  ignored, review→done directly, review_on_fail forced false; new
+  `review_on_fail` flag (default false): when true failed steps go to review
+  instead of blocked. Dashboard workflows page: role Mode select (action
+  select replaces template select in action mode), auto_approve + review_on_fail
+  checkboxes (review_on_fail disabled/unchecked under auto_approve). Verified:
+  NO existing mode/auto_approve/review_on_fail anywhere (grep zero); workflows
+  CRUD via /workflows PUT (server/kanban.rs:111-114); actions.yml is the action
+  select source; agent-mode routing + retry guard stay untouched when flags
+  are false. No db-migrations.
+- Kanban task queued (todo) on the omniagent-dev workflow, depends on the
+  plugin-consolidation task (serial chain) — last in chain.

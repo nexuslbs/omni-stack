@@ -285,3 +285,20 @@
   - omni-stack `468d0e0`: plugins.yml ssh enable, config.json allowed_tools, dev-development.md remote paragraph, new remote-development skill.
 - Live check: /api/plugins shows ssh built-in tool, status enabled.
 - Note: /dev/null was missing in omnidev container mid-task (broke ssh-keygen/git) — recreated as char device; executor recovered.
+
+## 2026-08-16 (hooks event meta task)
+
+- Added `Todo/HooksEventMetaImplementation.md` (NEW): hooks counter JSON
+  (`hook_counters.counter`) gains a top-level `meta` object with
+  `last_thread`/`last_message` = the previous trigger's `current_thread` /
+  `current_message`. Every trigger builds + delivers an event object
+  (`last_thread`, `last_message`, `current_thread`, `current_message`,
+  `channel`, `profile`) — action-mode hooks receive it merged into the action
+  tool-call arguments (`arguments["event"]`), agentic-mode hooks embed it as
+  JSON in the spawned thread's prompt. `new_message` events use the (currently
+  unused) message_id param; thread events use the thread's last message id
+  (global max messages.id when the thread has none). NEW guard: threads with
+  empty channel_id or profile never trigger hooks. Existing hook-caused loop
+  protection stays. No schema/migration change (JSONB shape only).
+- Kanban task queued (todo) on the omniagent-dev workflow, depends on the
+  paperclip task (serial chain).

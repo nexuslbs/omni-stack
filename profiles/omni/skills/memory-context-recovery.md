@@ -14,8 +14,8 @@ The wiki is the durable knowledge base for this profile. It lives under `profile
 All past agent conversations (threads and messages) are stored in the omniagent PostgreSQL database. The consolidated `search` plugin provides all retrieval tools (the former query_*/metrics_* tools were merged into it).
 
 - **`search_messages`** — search past messages/threads by keyword (ILIKE). Use this to recall what was done in previous sessions, what decisions were made, and how problems were solved.
-- **`search_thread_messages`** — read all messages in a conversation thread. Defaults to the current thread; pass `thread_id` for another.
-- **`search_channel_prompts`** — list the first message (prompt) of every thread in a channel. Defaults to the current channel.
+- **`search_thread-messages`** — read all messages in a conversation thread. Defaults to the current thread; pass `thread_id` for another.
+- **`search_channel-prompts`** — list the first message (prompt) of every thread in a channel. Defaults to the current channel.
 - **`search_channels`** — list channels (id, name, platform, cause) to find the `channel_id` for channel-scoped queries.
 - **`search_database`** — run read-only SQL against the omniagent database when you need structured queries:
   - Threads: `SELECT id, channel_id, status, cause, provider, model, created_at FROM threads ORDER BY id DESC LIMIT 20;`
@@ -40,7 +40,7 @@ The memory tool maintains an explicit memory store for the agent.
 |------|------|
 | Project conventions / known pitfalls | `search_wiki` |
 | What was done in a previous session | `search_messages` |
-| Full contents of a past thread | `search_thread_messages` |
+| Full contents of a past thread | `search_thread-messages` |
 | Find channel ids for scoped queries | `search_channels` |
 | Structured lookups (threads, tasks, channels) | `search_database` |
 | Agent performance / usage stats | `search_metrics` |

@@ -26,6 +26,9 @@ tools:
   test-rust-tool:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/test-rust-tool
+  actions:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/actions
 providers:
   noop:
     url: https://github.com/nexuslbs/omni-plugins.git

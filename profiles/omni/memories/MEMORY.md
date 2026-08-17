@@ -53,7 +53,7 @@ DOCKER CODE EXECUTION:
 NO SHELL TOOL AVAILABLE:
 - You have NO shell/terminal tool. You can ONLY use registered MCP tools.
 - Docker operations: `docker_compose` MCP tool. File operations: filesystem_* tools.
-- HTTP: `fetch_fetch`. DB: `query_database`.
+- HTTP: `fetch_fetch`. DB: `search_database`.
 
 §
 

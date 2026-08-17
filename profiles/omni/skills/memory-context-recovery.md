@@ -11,18 +11,18 @@ The wiki is the durable knowledge base for this profile. It lives under `profile
 
 ## 2. Messages / Threads Database
 
-All past agent conversations (threads and messages) are stored in the omniagent PostgreSQL database.
+All past agent conversations (threads and messages) are stored in the omniagent PostgreSQL database. The consolidated `search` plugin provides all retrieval tools (the former query_*/metrics_* tools were merged into it).
 
-- **`search_messages`** — search past messages/threads by text. Use this to recall what was done in previous sessions, what decisions were made, and how problems were solved.
-- **`query_search-messages`** — vector search over message content. Uses `embedding_vec` (vectorization enabled by default: `vectorize_messages: true` in settings). New messages get embeddings automatically; pre-existing rows without `embedding_vec` are backfilled by the background vectorizer. Defaults to the current channel.
-- **`query_thread-messages`** — read all messages in a conversation thread. Defaults to the current thread; pass `thread_id` for another.
-- **`query_channel-prompts`** — list the first message (prompt) of every thread in a channel. Defaults to the current channel.
-- **`query_channels`** — list channels (id, name, platform, cause) to find the `channel_id` for channel-scoped queries.
-- **`query_database`** — run read-only SQL against the omniagent database when you need structured queries:
+- **`search_messages`** — search past messages/threads by keyword (ILIKE). Use this to recall what was done in previous sessions, what decisions were made, and how problems were solved.
+- **`search_thread_messages`** — read all messages in a conversation thread. Defaults to the current thread; pass `thread_id` for another.
+- **`search_channel_prompts`** — list the first message (prompt) of every thread in a channel. Defaults to the current channel.
+- **`search_channels`** — list channels (id, name, platform, cause) to find the `channel_id` for channel-scoped queries.
+- **`search_database`** — run read-only SQL against the omniagent database when you need structured queries:
   - Threads: `SELECT id, channel_id, status, cause, provider, model, created_at FROM threads ORDER BY id DESC LIMIT 20;`
   - Messages: `SELECT id, thread_id, role, thread_sequence, substr(content,1,200) FROM messages WHERE thread_id = <id> ORDER BY thread_sequence;`
   - Channels: `SELECT id, name, platform, resource_identifier, current_provider, current_model FROM channels;`
   - Kanban: `SELECT id, title, status, priority, channel_id, profile FROM kanban_tasks ORDER BY id DESC LIMIT 20;`
+- **`search_metrics`** — agent metrics (token usage, latency, message counts, groundedness) aggregated from the messages table.
 
 ## 3. Agent Memories
 
@@ -40,15 +40,15 @@ The memory tool maintains an explicit memory store for the agent.
 |------|------|
 | Project conventions / known pitfalls | `search_wiki` |
 | What was done in a previous session | `search_messages` |
-| Meaning-based recall (paraphrases, concepts) | `query_search-messages` — vector search over message content (vectorization enabled by default) |
-| Full contents of a past thread | `query_thread-messages` |
-| Find channel ids for scoped queries | `query_channels` |
-| Structured lookups (threads, tasks, channels) | `query_database` |
+| Full contents of a past thread | `search_thread_messages` |
+| Find channel ids for scoped queries | `search_channels` |
+| Structured lookups (threads, tasks, channels) | `search_database` |
+| Agent performance / usage stats | `search_metrics` |
 | Facts you want the agent to retain | `memory_manage-memory` / `memory_promote-to-memory` |
 
 ## Pitfalls
 
 - Prefer `search_wiki` and `search_messages` over raw SQL for free-text recall — they handle relevance ranking for you.
-- Use `query_database` only for read-only queries; never modify the database directly.
+- Use `search_database` only for read-only queries; never modify the database directly.
 - Do not store transient task state in memory — memory is for durable facts that matter across sessions.
 - If a prior session's work is relevant to the current task, search for it BEFORE asking the user to repeat themselves.

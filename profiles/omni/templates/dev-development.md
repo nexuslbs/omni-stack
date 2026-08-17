@@ -95,7 +95,7 @@ already did. Establish state cheaply, then act:**
    it died mid-way — resume from its last recorded state.
 4. **Check prior threads of OTHER tasks on THIS CHANNEL that touched the same repos/files**
    (the channel is serial — earlier tasks on the same channel often solved the exact problem you
-   are about to investigate). Query the channel's recent thread messages (`query_database` on
+   are about to investigate). Query the channel's recent thread messages (`search_database` on
    `threads`/`messages`, or search_messages) and read the FINAL messages / status reports of the
    last 1-3 relevant threads. Harvest their verified facts: canonical build commands, error
    signatures, root causes, workarounds. **If a prior thread already documented an investigation

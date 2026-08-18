@@ -489,3 +489,17 @@ retry inheritance) is LANDED on omniagent main (f32e760/1c19ca5/cfad535/0443a96,
 verified live in the omnistable image: plugins/tools/prompt/src/notes.rs
 present) — check prior threads/notes before re-running, never re-derive state
 from scratch. Skipped: weakening tests (assertions stay meaningful).
+
+2026-08-18 (omnidev board convention): Created `omnidev` board in
+config/boards.yml — the canonical board for ALL new omniagent development
+tasks. The dev workflow (omniagent-dev) is defined AT THE BOARD level
+(workflow: omniagent-dev, channel: mattermost-wkbugy5x [mm-kanban MM channel
+wkbugy5xcff1teeqgnty5ck4io], profile: omni, plan: true); tasks on this board
+carry NO workflow_id/channel_id/profile of their own and fall back to the
+board (resolution chain: task > board > channel > global). Moved the Kanban
+board-validation task from board dev to omnidev: recreated as
+task_18cd0853ef74a388 (board: omnidev, workflow_id/channel_id/profile NULL),
+chained depends_on task_18cd061e85394a52, archived the old
+task_18cd074f62d194f2. API note: PATCH cannot clear workflow_id to NULL
+(empty string = keep existing); moving a task to a board-defaulted workflow
+requires recreate-via-API + archive-old.

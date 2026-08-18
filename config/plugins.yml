@@ -62,11 +62,7 @@ tools:
   memory:
     enabled: true
     source: built-in
-    config:
-      channel_summary_tokens: 2048
-      summarize_after_days: 7
-      summary_model: deepseek-v4-flash
-      summary_provider: opencode-go
+    config: {}
   notes:
     enabled: true
     source: built-in

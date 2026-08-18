@@ -85,7 +85,7 @@
     "memory_manage-memory",
     "memory_promote-to-memory",
     "memory_review-memories",
-    "memory_generate-summary",
+    "memory_save-summary",
     "skills_list-skills",
     "skills_create-skill"
   ]

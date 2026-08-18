@@ -32,7 +32,7 @@ The memory tool maintains an explicit memory store for the agent.
 - **`memory_manage-memory`** — add, update, or remove memory entries.
 - **`memory_promote-to-memory`** — promote validated facts from conversations into durable memory.
 - **`memory_review-memories`** — review memory health (expired/stale entries).
-- **`memory_generate-summary`** — generate a summary of a conversation or channel for later recall.
+- **`memory_save-summary`** — generate a summary of a conversation or channel for later recall.
 
 ## When to Use Which
 

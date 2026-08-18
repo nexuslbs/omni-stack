@@ -3,16 +3,16 @@ platforms:
     enabled: true
     source: built-in
     config:
-      access_token_name: MATTERMOST_ACCESS_TOKEN
-      admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
-      admin_user: lucasbasquerotto
-      bot_password: $secret:MATTERMOST_BOT_PASSWORD
-      bot_user: omnibot
       server_url: http://mattermost:8065
-      setup_channel: setup
+      access_token_name: MATTERMOST_ACCESS_TOKEN
       setup_team: omni
-      test_password: $secret:MATTERMOST_TEST_PASSWORD
+      setup_channel: stable-channel
+      admin_user: lucasbasquerotto
+      admin_password: $secret:MATTERMOST_ADMIN_PASSWORD
       test_user: testuser
+      test_password: $secret:MATTERMOST_TEST_PASSWORD
+      bot_user: omnibot
+      bot_password: $secret:MATTERMOST_BOT_PASSWORD
   telegram:
     enabled: true
     source: remote
@@ -25,7 +25,7 @@ tools:
       database_url: $env:DATABASE_URL
       omni_dir: $env:OMNI_DIR
   cron:
-    enabled: false
+    enabled: true
     source: built-in
     config: {}
   docker:
@@ -56,7 +56,7 @@ tools:
       hindsight_limit: 5
       hindsight_url: http://hindsight:8888
   kanban:
-    enabled: false
+    enabled: true
     source: built-in
     config: {}
   memory:

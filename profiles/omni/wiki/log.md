@@ -518,3 +518,36 @@ archived the old task_18cd0a6c7ef43217 (wrong design), re-chained dashboard
 task to board-validation, created task_18cd0ab3aef76f8b ($new [name]:
 optional first arg creates/updates channel by that name) chained after
 RemoveChannelCause (last task).
+
+
+## 2026-08-18 (wiki-maintenance hook run #1 — threads 1-11)
+
+First trigger of the profile-scoped wiki/templates/skills maintenance hook
+(thread_finished, count 10, agentic; event: last_thread=null, current_thread=11).
+Window threads 1-11 (all profile omni):
+
+- **Hooks wiki/summaries task COMPLETED** (threads 2 executor, 3 tester PASS,
+  4 reviewer APPROVE) — omniagent `56b486b` `feat(hooks): per-scope-key counter
+  meta + replace auto-summary with save-summary tool`; omni-stack side:
+  tasks.yml defines the 2 agentic thread_finished hooks (count 10, scope
+  profile/channel) + skills wiki-maintenance.md + channel-summary.md. Todo
+  `HooksWikiSummariesImplementation.md` marked IMPLEMENTED.
+- **Kanban board validation task COMPLETED** (threads 5 executor, 7 tester PASS,
+  9 reviewer APPROVE, 10 tester caveat, 11 smoke PASS) — omniagent `9a7f8c0`
+  `feat(kanban): require board on task create/update when boards.yml present`.
+  Live smoke (thread 11) against the new binary via the ISOLATED omnidev-toolbox
+  stack: POST without board → 400, unknown board → 400, PATCH board "" → 400,
+  valid board → ok + auto-dispatched via in-process dispatcher; artifacts
+  cleaned + verified. Caveat confirmed: the deployed stack still runs the
+  PRE-CHANGE binary until restarted. Todo
+  `KanbanBoardValidationImplementation.md` marked IMPLEMENTED.
+- Thread 6 failed: LLM provider rate-limited (HTTP 429, retry after 416342s) →
+  thread marked failed — operational noise, no spec impact.
+- NEW skill `profiles/omni/skills/live-smoke-toolbox.md`: repeatable procedure
+  for live-smoke-testing a new omniagent build (fresh pgvector DB + release
+  binary from current HEAD) without touching the deployed stack.
+- Thread 1 was a trivial math test (no durable facts). This maintenance run
+  updated: Todo/KanbanBoardValidationImplementation.md (implemented),
+  Todo/HooksWikiSummariesImplementation.md (implemented), index.md (new skill +
+  done markers), log.md (this entry); created skill live-smoke-toolbox.md.
+  No template changes (nothing REALLY valuable enough for prompt-space cost).

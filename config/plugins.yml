@@ -25,7 +25,7 @@ tools:
       database_url: $env:DATABASE_URL
       omni_dir: $env:OMNI_DIR
   cron:
-    enabled: true
+    enabled: false
     source: built-in
     config: {}
   docker:
@@ -56,7 +56,7 @@ tools:
       hindsight_limit: 5
       hindsight_url: http://hindsight:8888
   kanban:
-    enabled: true
+    enabled: false
     source: built-in
     config: {}
   memory:

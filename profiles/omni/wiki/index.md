@@ -2,6 +2,9 @@
 
 ## Index
 
+- **Skills** (in `profiles/omni/skills/`):
+  - [Deploy Suite Debugging](./skills/deploy-suite-debugging.md): lessons from the actions-plugin saga — "tool not found" is an ordering/registration bug first; test incrementally (group → neighbors → full deploy) with self-contained tests; reuse prior-execution context (Smartness notes.md / context dumps / prior threads) instead of re-deriving state
+
 - **Todo/**
   - [Hooks Implementation](./Todo/HooksImplementation.md): Plan of action for the event-driven Hooks system (thread_started/thread_finished/new_message) — counters, scopes, execution modes, loop protection, error isolation
   - [Workflow Implementation](./Todo/WorkflowImplementation.md): Plan of action for the role-based kanban workflow (executor/tester/reviewer) — schema, status machine, fail matrix, phases, test matrix

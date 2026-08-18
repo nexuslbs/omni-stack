@@ -1,5 +1,26 @@
 # Log
 
+## 2026-08-18 (deploy-suite-debugging skill)
+
+Post-mortem of the actions-plugin saga (Aug 15–16, ~11.5h / 860 iterations /
+16 iteration-cap resets / 6 compactions) distilled into NEW skill
+`profiles/omni/skills/deploy-suite-debugging.md`:
+
+1. **"tool not found" = ordering/registration bug first, harness second** — the
+   actions_* tools failed because registration ran BEFORE install-git; no error
+   points at the real cause (indirect-failure trap).
+2. **Test incrementally**: run the failing group alone, then neighbors, only
+   then the full deploy (30+ min per full run); every test must be
+   self-contained — no dependence on a prior test having run.
+3. **Reuse prior-execution context**: Smartness WS-1..6 durable working memory
+   (notes.md per thread + context-*.json dumps + read guards + retry
+   inheritance) is LANDED on omniagent main
+   (f32e760/1c19ca5/cfad535/0443a96, verified live in the omnistable image:
+   `plugins/tools/prompt/src/notes.rs` present) — check prior threads/notes
+   before re-running, never re-derive state from scratch.
+
+Skipped: weakening tests (assertions stay meaningful).
+
 ## 2026-08-16 (paperclip service task)
 
 - Added `Todo/PaperclipServiceImplementation.md` (NEW): add a `paperclip`
@@ -429,3 +450,18 @@
 2026-08-17 (5): User decision — max_tokens & max_tokens_on_truncation should default to NONE (provider default; never cap output arbitrarily). Code currently u32 everywhere (AgentConfig, CompletionRequest, llm_proxy, JSON body always includes max_tokens) → task_18ccb0a9ec956199 Subtask 3 rewritten: add Option<u32> support end-to-end (config.rs, llm/mod.rs body building, llm_proxy.rs, main_loop effective_max_tokens), settings.yml keeps 16k/64k explicit overrides. Also added Subtask 4: remove thread_summary_tokens entirely (summary+planning calls get max_tokens: None; prompt instructs "reasonably brief"; no cap → task can never fail on summary limit). settings.yml line 18 thread_summary_tokens: 2048 to be removed by the task. Applied live values remain 16384/65536 (committed 6c9b958).
 
 2026-08-17 (5b): CORRECTION to task_18ccb0a9ec956199 Subtask 4 — summary/planning calls must NOT hardcode max_tokens: None. They use the SAME cfg.config_snapshot().max_tokens (Option<u32>, MAY be None) as normal messages. thread_summary_tokens is still removed (no separate small cap), but the global max_tokens (16384 live) applies to summaries/planning too. Task body updated.
+
+2026-08-18 (deploy-suite-debugging skill): Post-mortem of the actions-plugin
+saga (Aug 15–16, ~11.5h / 860 iterations / 16 iteration-cap resets / 6
+compactions) distilled into NEW skill `profiles/omni/skills/deploy-suite-debugging.md`:
+(1) "tool not found" = ordering/registration bug first, harness second — the
+actions_* tools failed because registration ran BEFORE install-git; no error
+points at the real cause (indirect-failure trap). (2) Test incrementally: run
+the failing group alone, then neighbors, only then the full deploy (30+ min
+per full run); every test must be self-contained — no dependence on a prior
+test having run. (3) Reuse prior-execution context: Smartness WS-1..6 durable
+working memory (notes.md per thread + context-*.json dumps + read guards +
+retry inheritance) is LANDED on omniagent main (f32e760/1c19ca5/cfad535/0443a96,
+verified live in the omnistable image: plugins/tools/prompt/src/notes.rs
+present) — check prior threads/notes before re-running, never re-derive state
+from scratch. Skipped: weakening tests (assertions stay meaningful).

@@ -1,6 +1,6 @@
 # Hooks: Profile-scoped Wiki/Templates/Skills Maintenance + Channel-scoped Summaries
 
-> Status: planned (kanban task TBD)
+> Status: **IMPLEMENTED** (2026-08-18, omniagent `56b486b` + omni-stack hooks/skills, pushed)
 > Scope: omniagent (core) + omni-stack (config/skills) — shared repo, applies to both omnistable and omnidev.
 
 ## Goal
@@ -201,3 +201,20 @@ scope key K must contain K's own previous last_thread/last_message.
   - `omniagent` (meta fix, summary tool changes) — report commit SHA
   - `omni-stack` (tasks.yml hooks, 2 new skills, plugins.yml memory config key
     removal if applicable) — report commit SHA
+
+---
+
+## IMPLEMENTED — 2026-08-18
+
+- **Commits**: omniagent `56b486b` — `feat(hooks): per-scope-key counter meta +
+  replace auto-summary with save-summary tool` (pushed to origin/main). omni-stack
+  side: `config/tasks.yml` defines the 2 hooks (thread_finished, scope profile /
+  channel, count 10, agentic) + the 2 new skills (`wiki-maintenance.md`,
+  `channel-summary.md`) landed.
+- **Verification (all green)**: executor thread 2 implemented + pushed (plan doc
+  first committed `863bb87`); tester thread 3 PASSED (fmt/check/clippy/tests +
+  hooks meta unit tests updated for per-scope-key); reviewer thread 4 APPROVED
+  (independently re-verified git history + code + run output).
+- **First live trigger**: this maintenance thread itself is the profile-scoped
+  hook's first trigger — the Event JSON (`last_thread:null`, `current_thread:11`,
+  profile omni) is delivered in the prompt as specified.

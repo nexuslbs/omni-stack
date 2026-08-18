@@ -1,6 +1,6 @@
 # Kanban API: Require `board` on Task Create/Edit when Boards Enabled
 
-> Status: planned (kanban task TBD)
+> Status: **IMPLEMENTED** (2026-08-18, omniagent `9a7f8c0`, pushed to origin/main)
 > Scope: omniagent core (src/server/kanban.rs) — omnistable + omnidev (shared repo)
 
 ## Goal
@@ -122,3 +122,29 @@ boards:
 
 - Commit + push to `omniagent` (src/server/kanban.rs validation + tests) — report
   the commit SHA. No omni-stack changes expected (boards.yml untouched).
+
+---
+
+## IMPLEMENTED — 2026-08-18
+
+- **Commit**: omniagent `9a7f8c0` — `feat(kanban): require board on task
+  create/update when boards.yml present` (pushed to origin/main, HEAD == origin).
+- **Verification (all green)**:
+  - Executor (thread 5) implemented and pushed; tester threads 7 + 10 verified:
+    unit tests cover boards-enabled create missing board → error, unknown board →
+    error, valid board → ok, boards-disabled → ok, update clearing board → error.
+  - Reviewer (thread 9) independently re-verified code + git history → APPROVED.
+  - Live smoke (thread 11, via the omnidev-toolbox isolated stack — see skill
+    `live-smoke-toolbox.md`): new binary built from HEAD `9a7f8c0`;
+    - POST without board → **HTTP 400** "board is required when boards are
+      enabled";
+    - POST with unknown board → **HTTP 400**;
+    - POST with `board: "dev"` → success;
+    - PATCH clearing board (`""`) → **HTTP 400**;
+    - PATCH keeping existing valid board → ok;
+    - created task **auto-dispatched** via the in-process 15s dispatcher
+      (thread spawned, no manual dispatch); smoke artifacts deleted + verified
+      empty via DB query afterwards.
+- **Caveat (still true)**: the RUNNING deployed stack may run a pre-change binary —
+  unit/integration tests + toolbox smoke validate the new code, but the live API
+  keeps old behavior until the stack is rebuilt/restarted (see thread 10).

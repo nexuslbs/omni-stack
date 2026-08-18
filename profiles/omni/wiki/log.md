@@ -503,3 +503,5 @@ chained depends_on task_18cd061e85394a52, archived the old
 task_18cd074f62d194f2. API note: PATCH cannot clear workflow_id to NULL
 (empty string = keep existing); moving a task to a board-defaulted workflow
 requires recreate-via-API + archive-old.
+
+2026-08-18 (channel naming + dashboard workflow display): Two new planned specs. (1) ChannelNamingMmKanban: `$new <name>` drops the name text — handle_new_external (src/commands.rs:256-280) derives `{platform}-{first8}` = mattermost-wkbugy5x for the mm-kanban MM channel; change: pass the name from `$new mm-kanban` verbatim as the channel key, boards.yml omnidev channel -> mm-kanban, rename channels.yml key. (2) DashboardBoardWorkflowDisplay: BoardConfig.workflow exists in the API but the dashboard never shows a board's workflow and the board modal workflow field is free-text; change: workflow select from fetchWorkflows() + workflow display in board selector/choose-buttons. Both mirrored as omnidev board tasks.

@@ -1,5 +1,6 @@
 # Relevant Wiki Pages
 
+- [skills/deploy-suite-debugging.md](skills/deploy-suite-debugging.md) --- score: 45
 - [index.md](index.md) --- score: 40
 - [log.md](log.md) --- score: 40
 - [Reference/Omni-Deployer.md](Reference/Omni-Deployer.md) --- score: 40

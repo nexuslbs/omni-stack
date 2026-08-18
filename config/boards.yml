@@ -20,3 +20,12 @@ boards:
     profile: omni
     workflow: omniagent-dev
     plan: true
+  # Workflow-less board for PLAIN kanban tasks (no workflow_id). Boards
+  # main/dev carry workflow: omniagent-dev, which the resolution chain
+  # would inject into a task that does not set its own workflow_id — turning
+  # a "plain" task into a workflow task. The deploy integration suite tests
+  # the plain-task path (GROUP 26/29), so it needs a board that leaves the
+  # task plain (channel/profile still resolve; workflow stays NULL).
+  plain:
+    channel: kanban
+    profile: omni

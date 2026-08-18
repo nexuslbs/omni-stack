@@ -507,3 +507,14 @@ requires recreate-via-API + archive-old.
 2026-08-18 (channel naming + dashboard workflow display): Two new planned specs. (1) ChannelNamingMmKanban: `$new <name>` drops the name text — handle_new_external (src/commands.rs:256-280) derives `{platform}-{first8}` = mattermost-wkbugy5x for the mm-kanban MM channel; change: pass the name from `$new mm-kanban` verbatim as the channel key, boards.yml omnidev channel -> mm-kanban, rename channels.yml key. (2) DashboardBoardWorkflowDisplay: BoardConfig.workflow exists in the API but the dashboard never shows a board's workflow and the board modal workflow field is free-text; change: workflow select from fetchWorkflows() + workflow display in board selector/choose-buttons. Both mirrored as omnidev board tasks.
 
 2026-08-18 (remove channel cause): User: "channels.yml should not have a cause field; the omniagent API that stores/reads it also shouldn't." Verified inventory: ChannelDef.cause (channels_yaml.rs:100-101 + default_cause :122 + validate :300-304), Channel.cause (types.rs:306 + Default :326), CreateChannelParams.cause (:252), ChannelEntry.cause (server/channels.rs:59/:83), constructions at commands.rs:274 ($new), plugins_setup.rs:582 (setup), settings.rs:968 + threads.rs:2153 tests; channels.yml has 10 cause lines. No behavioral consumer, no dashboard/deploy-test read. Spec: RemoveChannelCauseImplementation; mirrored as omnidev board task.
+
+2026-08-18 (channel-naming design correction): User corrected the $new
+design: "$new accepts an OPTIONAL first argument. When defined, it creates a
+channel with THAT name (or updates the existing channel with that name)."
+The earlier ChannelNamingMmKanban spec (pass name verbatim, keep
+{platform}-{first8} fallback) was wrong — upsert-by-name semantics, NOT a
+fresh create. Updated ChannelNamingMmKanbanImplementation.md accordingly;
+archived the old task_18cd0a6c7ef43217 (wrong design), re-chained dashboard
+task to board-validation, created task_18cd0ab3aef76f8b ($new [name]:
+optional first arg creates/updates channel by that name) chained after
+RemoveChannelCause (last task).

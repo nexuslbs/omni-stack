@@ -1,5 +1,16 @@
 # Log
 
+## 2026-08-18 (Kanban API board validation)
+
+Created `Todo/KanbanBoardValidationImplementation.md` — require `board` on
+POST/PATCH /kanban/tasks when boards.yml present. Trigger: task_18cd061e85394a52
+(hooks wiki/summaries) created via API without board sat in `todo` while the 15s
+auto-dispatcher silently skipped it (kanban_dispatch.rs board gate); only after
+PATCH set `board: dev` did it auto-dispatch. Verified: create handler validates
+only title (src/server/kanban.rs:642), board inserted NULLIF → NULL; update
+handler allows clearing board to NULL; `boards_enabled` + `task_board` helpers
+already exist in src/boards.rs:175/186.
+
 ## 2026-08-18 (Hooks wiki/summaries spec)
 
 Created `Todo/HooksWikiSummariesImplementation.md` — 2 agentic `thread_finished`

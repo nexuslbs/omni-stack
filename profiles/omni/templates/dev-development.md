@@ -305,6 +305,9 @@ and NO build toolchain:
 
 ## Where to find deeper guidance
 - Tool execution details: skill `workspace-development`, `docker-compose-usage`, `git-workflow`.
+- Running/fixing deploy.py dev or the integration suite: skill `deploy-suite-debugging`
+  (test incrementally — group → neighbors → full deploy; "tool not found" =
+  registration/ordering bug first; reuse prior-execution context).
 - Environment facts (mounts, port checking, compaction behavior): wiki `Reference/*` pages + MEMORY.
 - Repo-specific conventions: the repo's own README/AGENTS.md.
 

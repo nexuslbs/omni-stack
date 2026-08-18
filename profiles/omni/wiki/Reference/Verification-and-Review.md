@@ -16,7 +16,7 @@ APIs, agents. "It compiles" / "tests pass" / "process started" are NOT sufficien
 ## Mandatory checks before commit
 
 1. **Exact names.** The caller invokes tools by EXACT name (e.g. executor calls
-   `prompt_generate`, `promote_to_memory`, `generate_summary`). A renamed or mismatched
+   `prompt_generate`, `promote_to_memory`, `save_summary`). A renamed or mismatched
    tool silently breaks the feature. List registered tools, compare against the names
    the executor/API expects.
 2. **Functional call.** Install/start the deliverable, then CALL each tool/endpoint with

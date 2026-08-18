@@ -1,5 +1,18 @@
 # Log
 
+## 2026-08-18 (Hooks wiki/summaries spec)
+
+Created `Todo/HooksWikiSummariesImplementation.md` — 2 agentic `thread_finished`
+hooks (count 10): profile-scoped wiki/templates/skills maintenance + channel-scoped
+summaries (existing `summaries` table, channel_id field). Verified: hooks engine
+already has the event/scope/count/agentic infra + event payload
+(`last_thread`/`current_thread`/`channel`/`profile`); the counter `meta`
+(last_thread/last_message) is SHARED top-level across scope keys and must become
+per-scope-key for per-profile/per-channel correctness; `generate_summary` tool in
+the memory plugin is the auto-summary-creation code to remove (replace with a
+minimal save-summary tool). 2 new skills to create: wiki-maintenance,
+channel-summary.
+
 ## 2026-08-18 (deploy-suite-debugging skill)
 
 Post-mortem of the actions-plugin saga (Aug 15–16, ~11.5h / 860 iterations /

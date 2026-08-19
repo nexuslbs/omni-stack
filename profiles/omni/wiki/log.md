@@ -1,5 +1,26 @@
 # Log
 
+## 2026-08-19 (budget architecture v2 — global settings + compact-messages params)
+
+User decision v2 (supersedes the "budgets in prompt plugin only" part of
+task 15): hard/soft budgets are **GLOBAL SETTINGS in omniagent**
+(`prompt_token_budget_hard/soft`, AgentConfig `token_budget_hard/soft` from
+task 12) and the **compact-messages tool receives them as PARAMS**
+(`soft_budget`/`hard_budget`). The prompt plugin has NO budget config and
+stays AGNOSTIC of models.yml — omniagent resolves the effective per-thread
+budgets (model > provider > settings, the models.yml task feeds this) and
+passes them in. Updates applied:
+- Task 12 body: core fields RENAMED to token_budget_* (global settings — the
+  earlier defer-to-task-15 scope update superseded); plugin token budgets stay
+  INTERIM until task 15's params interface; char budgets removed everywhere.
+- Task 15 spec + body: architecture rule v2 (global budgets + params; core
+  KEEPS the budget fields, removes only the pruning USE); compact-messages
+  REQUIRES soft/hard budget params; gates updated (no prune in core; budget
+  keys present as global settings).
+- Task 16 spec + body: budget precedence flow — omniagent resolves model >
+  provider > settings and passes as compact-messages params; prompt plugin
+  agnostic of models.yml.
+
 ## 2026-08-19 (models.yml task refined — Import on /models page)
 
 User refinement folded into `Todo/ModelOverridesConfigImplementation.md`

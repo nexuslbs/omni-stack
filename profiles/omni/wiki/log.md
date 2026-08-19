@@ -551,3 +551,5 @@ Window threads 1-11 (all profile omni):
   Todo/HooksWikiSummariesImplementation.md (implemented), index.md (new skill +
   done markers), log.md (this entry); created skill live-smoke-toolbox.md.
   No template changes (nothing REALLY valuable enough for prompt-space cost).
+
+2026-08-18 (dispatcher archived + provider relative path): Two new planned specs. (1) DispatcherArchivedFilter: dispatch_todo_tasks scan (kanban_dispatch.rs:137-143) has no `archived` filter — archived task_18cd0a6c7ef43217 was promoted and ran despite archived=t (stopped via stop-thread + status:blocked); fix = AND archived=false + regression test. (2) ProviderRelativeEntrypoint: platform loader resolves relative entrypoint args against plugin dir (external/mod.rs:158-180) but provider loader does not (plugins_env.rs:119-181 only string-prefix replaces remote args; provider spawn has no current_dir); noop-full plugin.json hardcodes /opt/omni/plugins/providers/noop-full/client.py → breaks with non-default OMNI_DIR; fix = mirror platform resolution for providers + current_dir + change plugin.json arg to client.py. Both mirrored as omnidev board tasks.

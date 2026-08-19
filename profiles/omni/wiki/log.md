@@ -1,5 +1,24 @@
 # Log
 
+## 2026-08-19 (task 17 generalized — resolve task fallbacks once at load)
+
+User principle (refines the fail-routing board-fallback bug): ANY code that
+uses kanban task fields with fallbacks — workflow, channel, profile, plan,
+provider, model, similar — MUST resolve them FIRST before shallow use of the
+raw fields; the fix applies to ALL such cases; resolve fallbacks as EARLY as
+possible (closer to where values are loaded). `Todo/
+FailRoutingBoardFallbackImplementation.md` rewritten to the generalized scope:
+ONE shared `resolve_task_defaults` (task → board → channel/global settings,
+per the documented resolution order) computed right after the task row loads;
+ALL consumers switch to resolved values — fail_thread.rs (engine_transition +
+manual-review + re-run thread creation), db/threads.rs thread creation,
+kanban_dispatch.rs (replace the local resolve_task_channel), status-change
+dispatch, /redispatch, startup recovery, kanban_action.rs context,
+server/kanban.rs transitions. Display-only API keeps raw fields; behavior uses
+resolved. Regression tests per consumer (board-task F1/F2/F3/F0, dispatch/
+redispatch, thread-creation plan/profile/provider/model from board; non-board
+unchanged). Task 17 body updated to match (PUT 2026-08-19).
+
 ## 2026-08-19 (reviewer template + fail-routing board-fallback bug)
 
 Task 12 (budget unification) went BLOCKED not because the reviewer misbehaved

@@ -1,6 +1,6 @@
 # Plugins: omni_dir Config Field for OMNI_DIR (remove hardcoded /opt/omni)
 
-> Status: planned (omnidev board task)
+> Status: **IMPLEMENTED 2026-08-19** (omni-plugins `19bb5bc` + omni-deployer `dedc5e3` GROUP 42; executor #33, tester #34 PASS — reviewer thread outside this window)
 > Scope: omni-plugins (tools/memory, tools/actions, tools/prompt + any other
 > plugin with a hardcoded OMNI_DIR fallback)
 
@@ -86,3 +86,29 @@ the plugins work with any custom OMNI_DIR value.
 Commit + push to origin/main, report the commit SHA. All plugins resolve
 their data dir via the `omni_dir` config field (default `$env:OMNI_DIR`),
 no hardcoded paths, working with custom OMNI_DIR values.
+
+---
+
+## Implementation (2026-08-19)
+
+- omni-plugins **`19bb5bc16ec32b4e56881eb0e1287c2a6d1e05ac`** `fix(plugins):
+  resolve data dir via omni_dir config field, drop hardcoded /opt/omni and
+  ~/.omniagent fallbacks` (pushed origin/main, verified via `git ls-remote`
+  by tester #34) — 4 files from the spec:
+  1. `tools/memory/server.py` — `get_omni_dir()` →
+     `cfg_env("omni_dir") or os.environ.get("OMNI_DIR") or _fail_omni_dir()`;
+     new `_fail_omni_dir()` raises a clear `RuntimeError` naming the
+     `omni_dir` config field.
+  2. `tools/actions/server.py` — same `get_omni_dir()` change.
+  3. `tools/prompt/server.py` — same pattern at the `data_dir` site;
+     `tools/prompt/plugin.json` gains an `omni_dir` config_schema entry
+     (default `$env:OMNI_DIR`).
+  4. Audit: no remaining bare `/opt/omni` / `~/.omniagent` fixed-path
+     fallbacks in entrypoint/config sites.
+- omni-deployer **`dedc5e3`** (tester): NEW **GROUP 42** (3 tests) in
+  tests.py — existing groups did not cover this change; ran hermetic
+  3/3 PASS against omnidev-toolbox (python3+psycopg2+postgres) since the
+  omnidev stack was down (Hermes owns lifecycle); GROUP 37/38 need the live
+  stack.
+- Tester verdict PASS (reviewer thread for task_18cd0c7a02d3884f = thread
+  35+, outside this maintenance window).

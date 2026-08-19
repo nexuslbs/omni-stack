@@ -1,6 +1,6 @@
 # Dispatcher: Archived Tasks Must Never Be Dispatched
 
-> Status: planned (omnidev board task)
+> Status: **IMPLEMENTED 2026-08-19** (omniagent `070e8f4`; executor #27, tester #28 PASS, reviewer #29 APPROVE)
 > Scope: omniagent core (src/kanban_dispatch.rs) + tests
 
 ## Goal
@@ -62,3 +62,22 @@ not scanned — but the dispatcher itself must be fixed.)
 
 Commit + push to origin/main, report the commit SHA. Archived tasks are
 never dispatched by the auto-dispatcher (or any status-change dispatch).
+
+---
+
+## Implementation (2026-08-19)
+
+- omniagent **`070e8f45615c0e57c731fb4953c88977240a2568`** `fix(kanban):
+  never dispatch archived tasks (scan SQL + status-dispatch gate)` (pushed
+  origin/main, verified via GitHub API by tester #28 + reviewer #29):
+  1. `src/kanban_dispatch.rs` — auto-dispatcher todo-scan SQL now
+     `WHERE status = :status AND archived = false` PLUS a Rust-side backstop
+     `scan_row_eligible(status, archived)` (NULL `archived` = not archived)
+     filtering fetched rows; regression unit test added (would fail on the
+     old SQL: archived task was promoted before the fix).
+  2. `src/db/threads.rs` — `create_kanban_step_thread` now loads `archived`
+     and returns `Ok(None)` for archived tasks — backstops ALL dispatch
+     paths (status-change dispatch, /redispatch, startup redispatch,
+     auto-dispatch).
+- Tester verdict PASS (existing coverage is the right one; no new tests by
+  tester), reviewer verdict APPROVE.

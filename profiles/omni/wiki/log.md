@@ -757,3 +757,48 @@ Window threads 23-34 (all profile omni; thread 25 = hook-caused, skipped):
 - This maintenance run updated: 4 Todo specs (implemented), index.md
   (implemented markers), log.md (this entry). No template changes (nothing
   REALLY valuable enough for the prompt-space cost).
+
+## 2026-08-19 (wiki-maintenance hook run #2 — threads 34-46)
+
+Second trigger of the profile-scoped wiki/templates/skills maintenance hook
+(event: last_thread=34, current_thread=46; all profile omni). Window
+threads 34-46 covered 4 completed omnidev workflow tasks (reviewer APPROVE
+on all); hook-caused threads 36/38 skipped:
+
+- **Sub-Prompts Append COMPLETED** (threads 37 executor, 39 tester PASS,
+  40 reviewer APPROVE) — omniagent `5d17bd3` `feat(sub-prompts): append
+  pending user prompts to running thread (parent_id, before condense)`;
+  omni-stack `7268d2e` (settings.yml `sub_prompt_max_chars: 4000`,
+  `sub_prompt_iteration_percent: 50`); omni-deployer `20a3778` (GROUP 43
+  4/4 PASS, fix commits `aa7f577` FK-parent + `9107d40` rollback cleanup).
+  `messages.original_thread_id` column; injection BEFORE the condense call;
+  Todo/SubPromptsAppendImplementation.md marked IMPLEMENTED with summary.
+- **Builtin omniagent-api + fetch allow_unsafe_methods COMPLETED**
+  (threads 41 executor, 42 tester PASS, 43 reviewer APPROVE) — omniagent
+  `0ecb985`: `omniagent_api_tool` (src/mcp/mod.rs :819/:873) gains 30s
+  timeout + non-2xx tool errors; fetch plugin `allow_unsafe_methods` config
+  (default false); Dockerfile ships api-reference.md → `/opt/omni/docs/
+  api.md`; omni-deployer `a287ffe` GROUP 44 3/3 PASS + fetch unit tests
+  5/5 PASS; omni-stack `f85f9bb` skill omniagent-api.md updated. NEW
+  Todo/OmniagentApiBuiltinImplementation.md.
+- **yml/API Field Naming Parity COMPLETED** (threads 44 executor, 45
+  tester PASS, 46 reviewer APPROVE) — API JSON field names unified to yml
+  property names: `channel_id`/`channel_name`→`channel`,
+  `workflow_id`→`workflow`, `schedule`(cron expr)→`cron`,
+  `current_profile/provider/model`→bare (omniagent `9c52028` refactor,
+  10 src/server/*.rs files, NO DB migration — 1:1 SQL boundary mapping;
+  docs `f147c52`); omni-dashboard `305199d` TS renames + `bc4e622` tsc
+  fixes (threads.ts duplicate channel TS2300 + 4 pre-existing type errors);
+  omni-deployer `3833c0c` tests.py + `500e1a4` tester fix (3 stale
+  schedule→cron spots); omni-stack `f3ebfdf` skill omniagent-api.md kanban
+  create uses `channel`. Audit: plan_mode tri-state, /stop/{channel_id}
+  path params, schedule_task_id (DB-only), kanban history JSON keys
+  KEEP-DOCUMENTED; actions/plugins/remote/settings/boards.yml CONSISTENT.
+  NEW Todo/YamlApiFieldParityImplementation.md. SQL/DB references
+  (threads.channel_id etc.) remain valid — the rename was API-only.
+- Maintenance actions this run: 2 new Todo pages, 1 spec marked
+  IMPLEMENTED + summary, index.md updated (2 new entries + sub-prompts
+  marker). No template changes (none warranted). omniagent-api skill was
+  already updated during the threads (f85f9bb/f3ebfdf) and verified
+  current. The omni_dir task (threads 34/35) and plugin consolidation were
+  already documented (PluginOmniDirConfigImplementation.md etc.).

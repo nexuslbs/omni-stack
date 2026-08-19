@@ -20,6 +20,8 @@ general:
   read_excerpt_chars: 2000
   auto_note_max_chars: 24000
   auto_note_entry_chars: 3000
+  sub_prompt_max_chars: 4000
+  sub_prompt_iteration_percent: 50
 
 execution:
   max_iterations_no_plan: 150

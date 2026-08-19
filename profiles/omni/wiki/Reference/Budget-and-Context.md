@@ -12,10 +12,18 @@ be written (and tasks dispatched) against reality.
 
 ## Compaction (prompt plugin `compact.rs`)
 
-- Compaction triggers when conversation size exceeds the HARD token budget
-  (default token_budget_hard = 100000; without a tokenizer the chars/4 proxy
-  applies, so a 200K-char context counts as 50K tokens), reducing it TO the
-  soft budget (50000 tokens).
+- Budgets are TOKEN-ONLY (char budgets removed 2026-08-19, task 12). Compaction
+  triggers when conversation size exceeds the HARD token budget (default
+  `prompt_token_budget_hard` = **500000**), reducing it TO the soft budget
+  (`prompt_token_budget_soft` = **100000**); without a tokenizer the **chars/4
+  proxy** applies, so a 200K-char context counts as 50K tokens.
+- Budgets are GLOBAL SETTINGS in omniagent (`src/agent/config.rs`
+  `token_budget_hard/soft`, defaults soft 100000 / hard 500000 at both load
+  sites) and are passed to the compact-messages tool as
+  `soft_budget`/`hard_budget` PARAMS — the prompt plugin has NO budget config.
+  Effective per-thread values resolve the chain **model (models.yml) >
+  provider (models.yml) > global settings** (task 16); see
+  `Todo/ContextBudgetUnificationImplementation.md` and log 2026-08-19.
 - What compaction does: old assistant tool-call messages are replaced with a
   `[compact: tool_a(), ...]` marker, and the tool-role messages are drained —
   BUT the marker now embeds a content excerpt of each drained tool result

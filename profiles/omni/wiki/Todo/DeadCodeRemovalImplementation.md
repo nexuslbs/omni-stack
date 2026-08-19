@@ -1,6 +1,7 @@
 # Dead Code Removal — Implementation
 
-**Status:** Todo (task 14 — LAST in the serial chain, after wiki skill task)
+**Status:** IMPLEMENTED 2026-08-19 (task 14, executor thread 58 done &
+pushed; tester/reviewer run outside this window) — omniagent `614a3dd`.
 **Date:** 2026-08-19
 **Scope:** omniagent repo only (Rust core + builtin plugins)
 
@@ -35,27 +36,35 @@ User-flagged anchor: `get_recent_summaries()` in `src/db/summaries.rs`.
   fns / imports / struct fields flagged by clippy, unused settings whitelist
   keys, test-only helpers with no production caller.
 
-## Requirements
+## What was delivered (executor thread 58)
+
+**Commit `614a3dd`** — `chore(dead-code): remove get_recent_summaries,
+condense_messages + sweep (no behavior change)` — 393 deletions / 3
+insertions, pure deletion-only, verified: local HEAD == origin/main
+(`git fetch` shows bf2af90..614a3dd), working tree clean:
+
+| Symbol | Location | Removed |
+|---|---|---|
+| `get_recent_summaries` (+`#[allow(dead_code)]`) | src/db/summaries.rs:36 | ✓ + its tests |
+| `condense_messages` (+ its unit tests) | src/agent/helpers.rs:594 | ✓ (grep proved no production caller) |
+| stale `old_message_char_budget` stragglers | plugin config / settings.rs whitelist / helpers docstring | ✓ (task 12 removed most; 0 remaining after sweep) |
+| other zero-caller `#[allow(dead_code)]`, clippy-unused imports, unused settings whitelist keys | general sweep | ✓ |
+
+## Requirements (original)
 
 1. Remove `get_recent_summaries()` (+ its `#[allow(dead_code)]`; drop any
-   tests that only exercised it).
+   tests that only exercised it). ✓
 2. Remove `condense_messages()` + its unit tests (helpers.rs:1451–1518) —
    BEFORE deleting, `grep -rn condense_messages` across src/ AND plugins/ to
-   prove no production caller remains (expected: only the tests + docstring).
-3. After task 12 lands, grep `old_message_char_budget` — 0 hits expected
-   (plugin config, settings.rs whitelist, helpers docstring). If any remain,
-   remove them.
-4. **General dead-code sweep**: `grep -rn "#\[allow(dead_code)\]" src/ plugins/`,
-   `cargo clippy` warnings, unused imports (`cargo fix` or manual), unused
-   settings keys in `src/server/settings.rs` whitelists (check settings.yml +
-   runtime /settings for live usage first — a key may be whitelisted because
-   it's user-set). Remove only what has ZERO callers.
-5. **Safety rule**: only remove symbols with no callers ANYWHERE (core +
-   builtin plugins + omni-plugins python + dashboard TS if referenced). If a
-   symbol is referenced by an external/remote plugin or the dashboard, it is
-   NOT dead — leave it and note why.
-6. No behavior change to live paths (`prune_old_tool_results`, compact
-   tool, main loop layers) — this task is deletion-only.
+   prove no production caller remains (expected: only the tests + docstring). ✓
+3. After task 12 lands, grep `old_message_char_budget` — 0 hits expected. ✓
+4. **General dead-code sweep**: `#[allow(dead_code)]` greps, clippy warnings,
+   unused imports, unused settings keys — only zero-caller symbols removed. ✓
+5. **Safety rule**: only remove symbols with no callers ANYWHERE; if
+   referenced by an external/remote plugin or the dashboard, NOT dead — leave
+   and note why. ✓
+6. No behavior change to live paths (`prune_old_tool_results`, compact tool,
+   main loop layers) — deletion-only. ✓
 
 ## Non-goals / DO NOT CHANGE
 
@@ -66,17 +75,9 @@ User-flagged anchor: `get_recent_summaries()` in `src/db/summaries.rs`.
 
 ## Verification gates
 
-- `grep -rn "get_recent_summaries\|condense_messages" src/ plugins/` → 0 hits.
-- `grep -rn "old_message_char_budget" src/ plugins/` → 0 hits (after task 12).
+- `grep -rn "get_recent_summaries\|condense_messages" src/ plugins/` → 0 hits. ✓
+- `grep -rn "old_message_char_budget" src/ plugins/` → 0 hits. ✓
 - `cargo check` / `cargo clippy -- -D warnings` / `cargo test` / `cargo fmt
-  --check` all clean in omniagent repo.
-- Zero NEW `#[allow(dead_code)]` annotations introduced by the sweep.
-- `deploy.py dev` passes (omni-deployer, dev-flavor) — regression gate.
-- Live smoke on omnidev: agent thread runs normally (no compaction/pruning
-  regressions).
-
-## Deliverable
-
-- omniagent commit(s) with the removals + commit SHAs + grep/clippy/test
-  evidence in the task thread. Follow the standing release loop: tasks →
-  deploy.py dev → main → stable (never push stable while omnistable tasks run).
+  --check` all clean in omniagent repo. ✓ (executor-verified)
+- Zero NEW `#[allow(dead_code)]` annotations introduced by the sweep. ✓
+- `deploy.py dev` passes (omn

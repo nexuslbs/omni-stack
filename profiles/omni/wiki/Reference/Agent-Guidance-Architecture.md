@@ -35,6 +35,12 @@ layer makes prompts bloated and guidance rot.
    code by construction; docs rot.
 6. **Keep every layer small enough to be read.** The agent reads memory every turn
    and templates at task start; long files get skimmed and key rules get missed.
+7. **Check the wiki before asking the user.** When a question may already be
+   answered by durable knowledge, consult the wiki FIRST: `search_wiki` for text
+   search, `filesystem_read` of `index.md` as the catalog (the wiki is a data
+   source — there is no wiki tool; see the `wiki` skill for the method, format,
+   and filesystem-tool walkthrough). Ask the user only for what the wiki cannot
+   answer.
 
 ## Why this matters (observed failure)
 

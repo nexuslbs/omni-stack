@@ -557,3 +557,49 @@ Window threads 1-11 (all profile omni):
 2026-08-18 (plugin omni_dir config): User: fix /opt/omni in tools/memory + tools/actions server.py (and other plugins if needed) — the plugin may define an omni_dir config field defaulting to $env:OMNI_DIR and use that config. Verified: memory/actions get_omni_dir() = os.environ.get("OMNI_DIR", "/opt/omni") (server.py:90/:69) ignoring the existing config_schema omni_dir field; prompt server.py:571 uses ~/.omniagent fallback and has NO config_schema; framework injects config_schema defaults as env (apply_config_schema_defaults mcp/external/config.rs:579-631, $env: resolved by resolve_config_value) and python cfg_env() reads them. Spec: PluginOmniDirConfigImplementation; mirrored as omnidev board task.
 
 2026-08-18 (sub-prompts append): User spec: when a channel has a running user thread (cause=user) and pending user threads (cause=user) with same channel/profile/parent_id (or pending.parent_id == running id), the next LLM call appends the pending prompt into the FULL prompt before compaction; pending marked skipped; messages gains original_thread_id (pointing to the skipped pending thread); sub_cause message type with msg_subtype = original thread id; cumulative char setting (sub_prompt_max_chars) stored/incremented across loop iterations, stops at limit with loop flag; iteration-percent setting (sub_prompt_iteration_percent, default 50%, 0 disables, 100 = check every call). Verified anchors: main_loop.rs:623 loop, condense at :645 (append BEFORE it), types.rs:380/341, messages DDL lib.rs:486, settings.rs sections/whitelist :193/:736, threads.rs:773 pending lookup + :287 skipped choke point. Spec: SubPromptsAppendImplementation; mirrored as omnidev board task.
+
+
+## 2026-08-19 (wiki-maintenance hook run #2 — threads 23-34)
+
+Second trigger of the profile-scoped wiki/templates/skills maintenance hook
+(thread_finished, count 10, agentic; event: last_thread=23, current_thread=34).
+Window threads 23-34 (all profile omni; thread 25 = hook-caused, skipped):
+
+- **`$new [name]` optional first arg COMPLETED** (threads 23 executor, 24
+  tester PASS, 26 reviewer APPROVE; task_18cd0ab3aef76f8b) — omniagent
+  `b9058c8` `feat(commands): support optional channel name in /new and $new
+  commands` (parse_new_command optional first arg; NewCommand{name:
+  Option<String>}; handle_new_external name verbatim upsert, `{platform}-
+  {first8}` fallback for bare `$new`; unit tests) + omni-stack `8f5b8f5`
+  (boards.yml omnidev channel + channels.yml key renamed to `mm-kanban`).
+  LIVE evidence: threads ≥27 have channel_id `mm-kanban` in the DB.
+  Todo `ChannelNamingMmKanbanImplementation.md` marked IMPLEMENTED.
+- **Dispatcher archived filter COMPLETED** (threads 27 executor, 28 tester
+  PASS, 29 reviewer APPROVE; task_18cd0bea01181c88) — omniagent `070e8f4`
+  `fix(kanban): never dispatch archived tasks` — scan SQL `archived = false`
+  + Rust backstop `scan_row_eligible` (NULL = not archived) + regression
+  test; `create_kanban_step_thread` returns Ok(None) for archived (backstops
+  status-change dispatch, /redispatch, startup, auto-dispatch). Todo
+  `DispatcherArchivedFilterImplementation.md` marked IMPLEMENTED.
+- **Provider relative entrypoint COMPLETED** (threads 30 executor, 31 tester
+  PASS, 32 reviewer APPROVE; task_18cd0beb88b366d1) — omniagent `d9f323d`
+  `fix(providers): resolve relative entrypoint args against plugin dir + set
+  subprocess cwd` (resolve_provider_args mirrors platform loader; provider
+  spawn current_dir) + omni-plugins `1659583` (noop-full plugin.json arg →
+  `client.py`). Tester ran the live gate (non-default OMNI_DIR + noop-full +
+  chat completion). Todo `ProviderRelativeEntrypointImplementation.md`
+  marked IMPLEMENTED.
+- **Plugin omni_dir config IMPLEMENTED + TESTED** (threads 33 executor, 34
+  tester PASS; task_18cd0c7a02d3884f — reviewer thread 35+ OUTSIDE window) —
+  omni-plugins `19bb5bc` `fix(plugins): resolve data dir via omni_dir config
+  field` (memory/actions/prompt server.py config-first +
+  `_fail_omni_dir()` RuntimeError; prompt plugin.json gains omni_dir
+  config_schema) + omni-deployer `dedc5e3` NEW GROUP 42 (3 tests, 3/3 PASS
+  hermetic in omnidev-toolbox — omnidev stack down, Hermes owns lifecycle).
+  Todo `PluginOmniDirConfigImplementation.md` marked IMPLEMENTED (reviewer
+  pending in next window).
+- Notes: git push in thread 34 used the JWT workaround (broken GitHub App
+  key); GROUP 37/38 still need the live stack.
+- This maintenance run updated: 4 Todo specs (implemented), index.md
+  (implemented markers), log.md (this entry). No template changes (nothing
+  REALLY valuable enough for the prompt-space cost).

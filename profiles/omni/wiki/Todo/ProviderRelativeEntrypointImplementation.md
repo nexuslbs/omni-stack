@@ -1,6 +1,6 @@
 # Provider Entrypoint: Resolve Relative Args Against the Plugin Directory
 
-> Status: planned (omnidev board task)
+> Status: **IMPLEMENTED 2026-08-19** (omniagent `d9f323d` + omni-plugins `1659583`; executor #30, tester #31 PASS, reviewer #32 APPROVE)
 > Scope: omniagent core (src/server/plugins_env.rs, src/provider/external/client.rs) + omni-plugins (providers/noop-full/plugin.json)
 
 ## Goal
@@ -86,3 +86,25 @@ client.py"]`, which breaks if OMNI_DIR ≠ /opt/omni.
 Commit + push to origin/main on BOTH repos, report the commit SHAs. Provider
 entrypoints support relative args resolved against the plugin dir, and
 noop-full runs with any OMNI_DIR.
+
+---
+
+## Implementation (2026-08-19)
+
+- omniagent **`d9f323d366687238025be790553ebe0edd550276`** `fix(providers):
+  resolve relative entrypoint args against plugin dir + set subprocess cwd`
+  (pushed origin/main, verified via GitHub API + `git ls-remote` by tester
+  #31 + reviewer #32) — 4 files: `src/server/plugins_env.rs` new
+  `resolve_provider_args` mirrors the platform loader (flags/absolute pass
+  through; relative joined against the install dir when the candidate
+  exists; legacy remote prefix rewrite kept as fallback); provider spawn
+  gains `current_dir: Some(plugin_dir)` in `src/provider/external/
+  client.rs` (+ `new()` callers).
+- omni-plugins **`16595831ab44213b751a8641f244eef9fae1be41`**
+  `fix(providers/noop-full): relative entrypoint arg client.py instead of
+  hardcoded /opt/omni path`.
+- Tester #31 ran the FULL live verification gate (non-default OMNI_DIR +
+  noop-full + chat completion) against a fresh build of current HEAD.
+  Executor caveat: full `GET /api/plugins` on a running stack couldn't run
+  (omnidev down) — protocol-level noop-full check with relative args + cwd
+  succeeded. Tester verdict PASS, reviewer verdict APPROVE.

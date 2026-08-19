@@ -1,6 +1,6 @@
 # `$new [name]` — Optional First Argument Creates/Updates a Channel By Name
 
-> Status: planned (omnidev board task)
+> Status: **IMPLEMENTED 2026-08-19** (omniagent `b9058c8`; executor #23, tester #24 PASS, reviewer #26 APPROVE)
 > Scope: omniagent core (src/commands.rs + src/platform/external/client.rs)
 
 ## Goal
@@ -91,3 +91,22 @@ prefix via `parse_new_command`) but the name argument is DROPPED —
 Commit + push to origin/main on BOTH repos, report the commit SHAs. After
 landing, omnistable setup+prepare must register the channel as `mm-kanban`
 (verify via GET /channels).
+
+---
+
+## Implementation (2026-08-19)
+
+- omniagent **`b9058c8`** `feat(commands): support optional channel name in
+  /new and $new commands` (pushed origin/main, verified via GitHub API by
+  tester #24 and reviewer #26): `NewCommand { name: Option<String> }`;
+  `parse_new_command` accepts optional first arg (`$new`, `$new mm-kanban`,
+  `//new`, `//new mm-kanban`, whitespace/too-many-args handled + unit tests);
+  `handle_new_external` gains `name: Option<&str>` — Some(non-empty) → key
+  used VERBATIM, None/empty → `{platform}-{first8}` fallback.
+- omni-stack **`8f5b8f5`** `feat(config): rename omnidev board channel to
+  mm-kanban ($new <name> upsert)` — boards.yml omnidev channel → `mm-kanban`,
+  channels.yml key renamed to `mm-kanban`.
+- **LIVE (evidence)**: threads created after the rename (starting thread 27)
+  have `channel_id = "mm-kanban"` — the mm-kanban channel key is live in the
+  omnistable DB.
+- Tester verdict PASS, reviewer verdict APPROVE.

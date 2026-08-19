@@ -31,6 +31,9 @@ channels:
   kanban:
     resource_identifier: kanban
     profile: omni
+  hooks:
+    resource_identifier: hooks
+    profile: omni
   mattermost-stable-channel:
     platform: mattermost
     resource_identifier: 7p9ozmn7pjbb8erza75udctwcw

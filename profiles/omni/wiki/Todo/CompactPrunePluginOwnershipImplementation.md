@@ -104,22 +104,39 @@ Requirements (cache):
    content into it only at the NEXT compaction (strict superset, append-only).
    Replace-don't-scatter: no per-message inline markers at scattered
    positions. Keep the null-contract (no drain → "messages": null).
-3. **Minimize per-iteration miss tokens — cache-safe ONLY.** Two mechanisms,
-   both prefix-safe:
-   (a) SOURCE capping (preferred): measure the top tool-result producers
-       (messages by msg_subtype / tool name, sum content length); cap/truncate
-       the biggest ones (filesystem_read etc.) WHEN THE RESULT IS CREATED,
-       before it enters context. Fewer NEW tokens appended per call = fewer
-       miss tokens + compaction delayed. Never touches existing messages.
-   (b) DRAIN-time compaction (only when over the hard budget): remove ONE
-       contiguous old region (oldest → keep-point); read-type results in the
-       drained region are excerpted INTO the frozen summary block (auto-notes
-       preserved — death-spiral fix). The surviving tail stays full + verbatim
-       ("keep last N full" = the surviving tail; "excerpt older" = drained
-       content folded into the summary). NEVER excerpt/modify a message that
-       remains in the tail (user-corrected anti-pattern: in-place rewrites
-       increase cache misses). Do NOT make the agent dumb: read results stay
-       preserved via auto-notes.
+3. **Minimize per-iteration miss tokens — via AGENT-SIDE WINDOWING, not
+   silent truncation (user-refined 2026-08-19).** Do NOT silently
+   cap/truncate tool results at the source — the full content MAY be needed,
+   and black-magic truncation makes the agent misunderstand what it read.
+   Instead:
+   (a) AGENT-SIDE WINDOWING (preferred): skills + templates teach the agent to
+       prefer SMALLER result windows and use the tools' windowing params —
+       `filesystem_read` already supports char-based offset/limit paging
+       (verified plugins/tools/filesystem/src/main.rs:173-181, default limit
+       50000); fetch should expose ranges too where the protocol allows. Read
+       a slice, not the whole file; page only when needed. The cache benefit
+       follows: fewer NEW tokens appended per call + compaction delayed —
+       from the agent's OWN explicit choice, never from silent truncation.
+   (b) SAFE CONTENT-SEARCH TOOL (grep/rg, user-suggested 2026-08-19): add a
+       file-content search tool (filesystem plugin — `filesystem_search`
+       today matches NAMES only) so the agent finds the relevant lines instead
+       of reading whole files. SAFETY-CRITICAL constraints: fixed `rg`
+       binary, path-restricted to the allowed roots (no escape), validated
+       args (pattern + path whitelist + max results/context; NO shell, NO
+       arbitrary code), returns matching lines with line numbers + context
+       window. If rg is unavailable, vendor a static binary or implement a
+       bounded in-process matcher — do NOT shell out to user-controlled
+       commands.
+   (c) DRAIN-time compaction (safety valve, only when over the hard budget):
+       remove ONE contiguous old region (oldest → keep-point); read-type
+       results in the drained region excerpted INTO the frozen summary block
+       (auto-notes preserved — death-spiral fix). Excerpts preserve MEANING
+       (what was read + why), not arbitrary head-truncation. The surviving
+       tail stays full + verbatim ("keep last N full" = the surviving tail;
+       "excerpt older" = drained content folded into the summary). NEVER
+       excerpt/modify a message that remains in the tail (user-corrected
+       anti-pattern: in-place rewrites increase cache misses). Do NOT make the
+       agent dumb: read results stay preserved via auto-notes.
 4. **Compaction cadence (threshold-gated — user-corrected 2026-08-19).** The
    compact-messages tool is CALLED every iteration but COMPACTS only when the
    hard budget is exceeded; under budget it returns "messages": null (the
@@ -139,6 +156,13 @@ Requirements (cache):
    responsibility — document it in plugin.json tool description + interface
    docs ("the returned messages array must keep the prefix byte-stable; only
    the tail may change").
+7. **Skills/templates guidance (omni-stack, the PRIMARY lever).** Update the
+   omni profile skills + templates that guide file reading to teach: (a)
+   prefer smaller result windows; (b) use `filesystem_read` offset/limit
+   paging and fetch ranges; (c) use the content-search tool BEFORE reading
+   whole files. This is the main mechanism for fewer miss tokens — NOT
+   runtime truncation. The agent should never receive a silently-truncated
+   result it doesn't know about.
 
 ## Requirements
 
@@ -219,6 +243,13 @@ Requirements (cache):
     hint sits at the end).
   - Quality guard: agent task runs complete normally (no "dumber" behavior) —
     full executor→tester→reviewer loop passes on a real task.
+  - **Content-search safety gate (if the grep/rg tool is added):** no shell
+    invocation, no arbitrary code; path-restricted to allowed roots (escape
+    attempts rejected); arg validation tests pass (pattern/path/limit);
+    `rg` fixed binary or in-process matcher only.
+  - **Guidance gate:** omni profile skills/templates contain the
+    smaller-windows + paging + search-first guidance; a read-type tool result
+    is never silently truncated (any truncation is agent-visible).
 
 ## Deliverable
 

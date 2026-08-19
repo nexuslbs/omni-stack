@@ -121,16 +121,23 @@ Semantics:
    providers with builtin formats (chat_completions/anthropic); `api_key`
    resolved via existing $env:/$secret: expansion; expose merged provider list
    (incl. models array) in the plugins/providers API the dashboard consumes.
-3. **Precedence resolution**: per-thread (provider+model) resolution of
-   api_mode, supports_reasoning, budgets (token_budget_soft/hard) and
-   max_tokens/max_tokens_on_truncation — model > provider > plugin/core.
-   Feed resolved values to the executor LLM call (max_tokens,
-   executor.rs:129 path) and to the effective per-thread token budgets —
-   omniagent RESOLVES them (model_config > provider > global settings) and
-   PASSES them as compact-messages `soft_budget`/`hard_budget` params
-   (tasks 12/15 make budgets global settings + params). **The prompt plugin
-   stays AGNOSTIC of models.yml — it only ever sees the resolved budgets as
-   params.**
+3. **Precedence resolution — exact fallback chain (user-specified
+   2026-08-19).** Per-thread (provider+model) resolution of api_mode,
+   supports_reasoning, budgets (token_budget_soft/hard) and
+   max_tokens/max_tokens_on_truncation. For EACH of soft and hard token
+   budget INDEPENDENTLY, the fallback is:
+   1. model_config budget (models.yml `model_config.<model>` soft/hard) →
+      priority;
+   2. else provider-level budget (models.yml `providers.<name>` soft/hard);
+   3. else GLOBAL settings budget (`prompt_token_budget_soft` /
+      `prompt_token_budget_hard` in settings.yml; **defaults: soft 100000,
+      hard 500000** — settings.yml must define these as the fallback
+      defaults).
+   max_tokens / max_tokens_on_truncation follow the same chain (model >
+   provider > settings). omniagent RESOLVES the effective values and PASSES
+   them as compact-messages `soft_budget`/`hard_budget` params (tasks 12/15:
+   budgets are global settings + params). **The prompt plugin stays AGNOSTIC
+   of models.yml — it only ever sees the resolved budgets as params.**
 4. **Dashboard models selector**: when models.yml defines a provider, the
    channel model selector (channel-config.ts) and provider page show the
    `models` array INSTEAD of `default_model.allowed_values`; keep

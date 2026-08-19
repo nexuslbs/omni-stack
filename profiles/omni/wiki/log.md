@@ -1,5 +1,22 @@
 # Log
 
+## 2026-08-19 (exact budget fallback chain — user-specified)
+
+User pinned the token budget fallback (folded into tasks 12/15/16):
+- **Soft budget**: model_config soft (models.yml model_config.<model>) →
+  provider soft (models.yml providers.<name>) → global settings
+  `prompt_token_budget_soft` (settings.yml).
+- **Hard budget**: same chain with hard values.
+- **Defaults**: settings.yml must define soft = **100000**, hard = **500000**
+  as the fallback defaults (task 12 renamed the keys and must set these
+  values; earlier "e.g. 200000/100000" defaults superseded).
+- max_tokens / max_tokens_on_truncation follow the same chain (model >
+  provider > settings).
+- Resolved by omniagent per thread and passed as compact-messages
+  `soft_budget`/`hard_budget` params (tasks 12/15); prompt plugin agnostic.
+- Task 16 spec req 3 now documents the exact 3-step chain; task 15 spec notes
+  the chain is owned by the models.yml task; task 12 body defaults updated.
+
 ## 2026-08-19 (budget architecture v2 — global settings + compact-messages params)
 
 User decision v2 (supersedes the "budgets in prompt plugin only" part of

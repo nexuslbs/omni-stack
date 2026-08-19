@@ -56,9 +56,11 @@ must know which messages are tool results).
   has NO budget config.
 - **compact-messages MUST receive the soft and hard token budget as PARAMS**
   (tool args, e.g. `soft_budget`/`hard_budget`). omniagent resolves the
-  effective per-thread budgets (model > provider > settings — the models.yml
-  task feeds this) and passes them in; the prompt plugin stays AGNOSTIC of
-  where the budgets come from (models.yml / providers.yml / settings).
+  effective per-thread budgets and passes them in; the prompt plugin stays
+  AGNOSTIC of where the budgets come from (models.yml / providers.yml /
+  settings). The fallback chain is owned by the models.yml task (model_config
+  > provider(models.yml) > global settings; global defaults soft 100000 /
+  hard 500000) — this task only wires the params through.
 - **No tool pruning in core.** main_loop.rs has NO prune call, NO PruneConfig.
   The AgentConfig budget FIELDS stay (they are global settings); only the
   pruning USE is removed. main_loop passes the budgets to compact-messages.

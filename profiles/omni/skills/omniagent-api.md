@@ -44,7 +44,7 @@ docker exec <container> curl -s http://localhost:8080/api/plugins | head -c 2000
 |---|---|---|
 | List board tasks | `GET /kanban/tasks` | — |
 | Task detail | `GET /kanban/tasks/{id}` | — |
-| Create task | `POST /kanban/tasks` | `{"title","status","board","profile","channel_id","priority",...}` |
+| Create task | `POST /kanban/tasks` | `{"title","status","board","profile","channel","priority",...}` |
 | Update fields | `PATCH /kanban/tasks/{id}` | partial fields |
 | Change status (move column) | `PATCH /kanban/tasks/{id}/status` | `{"status":"running"}` |
 | Change position | `PATCH /kanban/tasks/{id}/position` | `{"position":N}` |
@@ -63,7 +63,7 @@ Create task:
 
 ```json
 {"title": "Fix login bug", "status": "todo", "board": "default",
- "profile": "omni", "channel_id": 5, "priority": 10}
+ "profile": "omni", "channel": "kanban", "priority": 10}
 ```
 
 ### Schedule / cron — `/schedule...`

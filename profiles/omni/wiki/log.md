@@ -1,5 +1,27 @@
 # Log
 
+## 2026-08-19 (provider/model overrides spec — config/models.yml)
+
+`Todo/ModelOverridesConfigImplementation.md` — task 16 (end of chain, after
+compact+prune task 15). User feature: overridable provider definitions +
+per-model settings via a pure definition file `config/models.yml` in OMNI_DIR
+(NO new plugin, NO custom code). Top-level `providers`, each child = provider
+name with `plugin:` flag (use provider plugin vs builtin chat_completions /
+anthropic formats), `models` array replacing `default_model.allowed_values` in
+dashboard selectors (deepseek example: plugin.json allowed_values
+["deepseek-v4-flash","deepseek-v3","deepseek-r1"] is wrong — models.yml
+`models: ["deepseek-v4-flash","deepseek-v4-pro"]` fixes the selector without a
+new plugin). Provider-level fields (api_mode, default_base_url, refresh_url,
+default_model, api_key with $env:/$secret: expansion — resolver already exists
+src/platform/external/mod.rs:291, supports_reasoning) OVERRIDE the provider
+plugin on name match; plugin-less providers still selectable on threads.
+Per-model config: api_mode, supports_reasoning, token_budget_soft/hard,
+max_tokens, max_tokens_on_truncation; precedence model > provider >
+plugin/core. New dashboard "Models" page (/models) after Providers; API
+GET/PUT /api/models. Verified: ProviderMetadata src/llm/mod.rs:57-69,
+plugins.yml providers:114-134, refresh-models API src/server/plugins.rs:204,
+channel model selector src/lib/channel-config.ts:276-300+.
+
 ## 2026-08-19 (cache reqs refined — agent-side windowing, no black-magic truncation)
 
 User refinement folded into `Todo/CompactPrunePluginOwnershipImplementation.md`

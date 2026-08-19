@@ -10,7 +10,7 @@ general:
   max_tokens: 16384
   max_tokens_on_truncation: 65536
   max_unfinished_subtask_retries: 3
-  old_message_char_budget: 100000
+  old_message_token_budget: 100000
   soul_max_chars: 1000
   state_block_update_interval: 5
   kanban_dispatcher_interval: 15
@@ -29,8 +29,8 @@ execution:
   tool_bg_secs: 5
 
 prompt:
-  prompt_char_budget_hard: 500000
-  prompt_char_budget_soft: 350000
+  prompt_token_budget_hard: 100000
+  prompt_token_budget_soft: 50000
   prompt_compact_messages_tool: prompt_compact-messages
   prompt_generate_tool: prompt_generate
   prompt_log_level: all

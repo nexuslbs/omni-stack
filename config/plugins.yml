@@ -82,8 +82,6 @@ tools:
     enabled: true
     source: built-in
     config:
-      char_budget_hard: '400000'
-      char_budget_soft: '200000'
       token_budget_hard: '100000'
       token_budget_soft: '50000'
   search:

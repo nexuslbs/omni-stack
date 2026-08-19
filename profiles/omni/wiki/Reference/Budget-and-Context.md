@@ -12,8 +12,10 @@ be written (and tasks dispatched) against reality.
 
 ## Compaction (prompt plugin `compact.rs`)
 
-- Compaction triggers when conversation size exceeds the HARD budget (default
-  char_budget_hard = 500000), reducing it TO the soft budget (350000).
+- Compaction triggers when conversation size exceeds the HARD token budget
+  (default token_budget_hard = 100000; without a tokenizer the chars/4 proxy
+  applies, so a 200K-char context counts as 50K tokens), reducing it TO the
+  soft budget (50000 tokens).
 - What compaction does: old assistant tool-call messages are replaced with a
   `[compact: tool_a(), ...]` marker, and the tool-role messages are drained —
   BUT the marker now embeds a content excerpt of each drained tool result

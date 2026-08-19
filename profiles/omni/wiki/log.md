@@ -1,5 +1,27 @@
 # Log
 
+## 2026-08-19 (cache reqs refined — agent-side windowing, no black-magic truncation)
+
+User refinement folded into `Todo/CompactPrunePluginOwnershipImplementation.md`
+(task 15) requirement 3: silent SOURCE truncation of tool results is rejected —
+the full content MAY be needed and hidden truncation makes the agent
+misunderstand what it read. Replaced with:
+1. **Agent-side windowing (preferred)**: skills/templates teach smaller result
+   windows + use tool params — `filesystem_read` already has char-based
+   offset/limit paging (plugins/tools/filesystem/src/main.rs:173-181, default
+   limit 50000); fetch ranges where protocol allows. Cache benefit comes from
+   the agent's own explicit smaller reads, never silent truncation.
+2. **Safe grep/rg content-search tool** (user-suggested): filesystem_search
+   matches NAMES only — add file-content search so the agent finds relevant
+   lines instead of whole-file reads. Safety-critical: fixed rg binary /
+   in-process matcher, path-restricted to allowed roots, validated args, NO
+   shell / NO arbitrary code. Safety gate added.
+3. **Drain-time compaction stays** as the safety valve (over hard budget):
+   meaning-preserving excerpts (what was read + why) fold INTO the frozen
+   summary; surviving tail byte-identical.
+4. New requirement 7: skills/templates guidance is the PRIMARY lever; guidance
+   gate added (no silently-truncated results).
+
 ## 2026-08-19 (cache requirements corrected — user review)
 
 User corrections folded into `Todo/CompactPrunePluginOwnershipImplementation.md`

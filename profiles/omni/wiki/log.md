@@ -1,5 +1,18 @@
 # Log
 
+## 2026-08-19 (compact+prune+budget → plugin-only spec)
+
+`Todo/CompactPrunePluginOwnershipImplementation.md` — user architecture
+decision: context management belongs to the prompt plugin. Core must have NO
+budgets and NO tool pruning (`prune_old_tool_results`, main_loop.rs:843 Layer
+3) — the dual mechanism is code smell and blocks custom prompt plugins from
+owning context management. Budgets live only in the prompt plugin (token
+budgets, chars/4 fallback, per task 12); prune moves INTO compact-messages
+(ChatMessage carries tool_call_id/name → tool results identifiable; interface
+change allowed, e.g. thread_dir for auto-notes). Custom-plugin test required.
+Task 15, at the very end of the chain after dead-code removal. Task 12 body
+updated to defer core budget changes to this task (no core rename to token).
+
 ## 2026-08-19 (Wiki source + skill spec, dead-code removal spec)
 
 Two new Todo specs appended to the chain (after budget unification

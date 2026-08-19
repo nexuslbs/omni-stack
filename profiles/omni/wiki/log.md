@@ -1,5 +1,23 @@
 # Log
 
+## 2026-08-19 (cache requirements corrected — user review)
+
+User corrections folded into `Todo/CompactPrunePluginOwnershipImplementation.md`
+cache section (task 15):
+1. **In-place excerpting of existing messages would INCREASE cache misses**
+   (rewriting an old message shifts every byte after it → whole tail cache
+   miss). Rewrote req 1 + 3: truncation is cache-safe ONLY (a) at SOURCE (tool
+   result capped at creation, before entering context — never touches
+   existing messages) and (b) at DRAIN time (drained content folds INTO the
+   frozen summary block; never written back to its old position). Surviving
+   tail = byte-identical, full, in order. "Keep last N full" = surviving tail;
+   "excerpt older" = drained content into the summary.
+2. **Threshold-gated cadence clarified**: compact-messages is CALLED every
+   iteration but COMPACTS only when over the hard budget (null-contract no-op
+   otherwise; no-op path must be byte-identical). The 08-14 "compaction every
+   iteration" observation was a misconfiguration symptom (thread 5x over the
+   100K char hard budget), not the design.
+
 ## 2026-08-19 (cache requirements added to compact+prune task)
 
 `Todo/CompactPrunePluginOwnershipImplementation.md` extended with the user's

@@ -1,5 +1,26 @@
 # Log
 
+## 2026-08-19 (models.yml task refined — Import on /models page)
+
+User refinement folded into `Todo/ModelOverridesConfigImplementation.md`
+(task 16, task_18cd408ead8bcbbd) requirement 10 + Import gate:
+- /models page gains an **Import** button mirroring the plugins pages import
+  (src/lib/plugin-import.ts showImportModal): paste a URL to a models.yml-LIKE
+  file (any filename), fetch (direct + /api/fetch-remote fallback), parse
+  `providers`, compare against local models.yml (GET /api/models) →
+  per-provider actions: `add` (not present), `override` (present, different
+  config — "will overwrite"), `same` (identical config — "already exists",
+  removable from the import set); marked actions pending; Confirm & Execute
+  applies via the omniagent API ONLY (PUT /api/models merge — never replaces
+  the whole file; import never deletes local entries).
+- **Reuse/extract the shared code from plugin-import.ts** (one generalized
+  fetch/parse/compare/mark/execute implementation for both imports) — the only
+  differences: models.yml-like schema (provider definitions, not
+  url/path/ref) and target config/models.yml via the models API. Refactor must
+  be behavior-preserving for plugin import (regression gate).
+- Import gate added: add/override/same rendering, merge-only execution,
+  second same-URL import shows all same, plugin import regression check.
+
 ## 2026-08-19 (models.yml task refined — refresh upsert + /channels-style page)
 
 User refinements folded into `Todo/ModelOverridesConfigImplementation.md`

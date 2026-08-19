@@ -171,6 +171,33 @@ Semantics:
      write models.yml instead; keep `fetch_enum_values`; do NOT mutate the
      plugin config_schema. Works for plugin-backed AND plugin-less providers
      (a plugin-less provider with refresh_url also gets a models.yml entry).
+10. **Import on /models page (user refinement 2026-08-19) — reuse the plugin
+    import flow.** "Import" button on /models page mirroring the plugins pages
+    import (`src/lib/plugin-import.ts`, showImportModal): user pastes a URL to
+    a models.yml-LIKE file (any filename); fetch (direct browser fetch with
+    the dashboard proxy `/api/fetch-remote` fallback).
+    - Parse the YAML → `providers` section; compare each remote provider
+      against the LOCAL models.yml (GET /api/models) and suggest per-provider
+      actions:
+      * `add` → not present locally;
+      * `override` → present locally with a DIFFERENT definition (show "will
+        overwrite existing config");
+      * `same` → present locally with IDENTICAL config (show "already
+        exists"); allow REMOVING these from the import set (skip), plus the
+        revert control for any marked action, like plugin import.
+    - Marked actions are pending (NOT executed); "Confirm & Execute" applies
+      them sequentially via the omniagent API ONLY (dashboard never writes
+      files directly): add/override → PUT /api/models with the merged
+      providers (merge — never replace the whole file). Import never deletes
+      local entries by itself; deletion stays a /models page action.
+    - **Extract/reuse the shared code** from plugin-import.ts (generalize
+      fetch/parse/compare/mark/execute so both imports share ONE
+      implementation) — the ONLY differences: schema is models.yml-like
+      (provider definitions, not url/path/ref specs) and it writes
+      config/models.yml via the models API instead of plugins.yml via the
+      plugins API. Avoid unwanted behavioral differences between the two
+      imports (shared-code refactor must be behavior-preserving for plugin
+      import).
 
 ## Non-goals / DO NOT CHANGE
 
@@ -206,8 +233,15 @@ Semantics:
   updated (every other field byte-identical); plugin manifest/config_schema
   UNCHANGED (no plugin mutation — verified by diffing plugin.json/plugins.yml
   before/after); works when the provider is NOT in models.yml (creates the
-  entry) and for plugin-less providers with refresh_url. Refresh works via the
+  entry) and for plugin-less providers with refresh_url. Refresh writes via the
   omniagent API only (dashboard never writes files directly).
+- **Import gate (user-mandated):** /models Import modal shows per-provider
+  `add` / `override` (different local config — "will overwrite") / `same`
+  (identical config — "already exists", removable from the import set);
+  Confirm & Execute merges ONLY the marked providers into models.yml (add +
+  override; file otherwise untouched); a second import of the same URL shows
+  all `same`; plugin import behavior IDENTICAL before/after the shared-code
+  refactor (regression check); import executes via the omniagent API only.
 
 ## Deliverable
 

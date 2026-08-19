@@ -344,15 +344,13 @@ The `prompt` plugin (`mcp-server-prompt`) has the following config_schema fields
 | `prompt_plan_max_tokens` | integer | 2048 | Max tokens for the planning LLM call |
 | `memory_max_chars` | integer | 5000 | Max characters for the memory section in the system prompt |
 | `soul_max_chars` | integer | 1000 | Max characters for the user profile section in the system prompt |
-| `tokenizer_encoding` | string | "" | Tokenizer encoding for budget calculations (e.g. `cl100k_base`). Empty = use char counts |
-| `char_budget_soft` | integer | 350000 | Soft char budget: triggers condensation when exceeded + enough iterations elapsed |
-| `char_budget_hard` | integer | 500000 | Hard char budget: condensation triggers immediately when exceeded |
-| `token_budget_soft` | integer | 200000 | Soft token budget (used when tokenizer_encoding is set) |
-| `token_budget_hard` | integer | 350000 | Hard token budget (used when tokenizer_encoding is set) |
-| `old_message_char_budget` | integer | 100000 | Threshold for trimming old assistant messages during condensation |
+| `tokenizer_encoding` | string | "" | Tokenizer encoding for budget calculations (e.g. `cl100k_base`). Empty or invalid = tokens ≈ chars/4 fallback |
+| `token_budget_soft` | integer | 200000 | Soft token budget: triggers condensation when exceeded + enough iterations elapsed (chars/4 fallback when no tokenizer) |
+| `token_budget_hard` | integer | 350000 | Hard token budget: condensation/compaction triggers immediately when exceeded (chars/4 fallback when no tokenizer) |
+| `old_message_token_budget` | integer | 100000 | Threshold for trimming old assistant messages during condensation (tokens; chars/4 fallback when no tokenizer) |
 | `condense_keep_turns` | integer | 4 | Number of most recent assistant turns to preserve when condensing |
 
-The `tokenizer_encoding` field controls whether budgets are in characters (when empty/`None`) or tokens (when set to an encoding like `cl100k_base`). When using tokens, the character count is divided by 4 as a rough token estimate.
+The `tokenizer_encoding` field controls whether budgets are measured in real tokens (when set to a valid encoding like `cl100k_base`) or estimated with the classic chars/4 proxy (when empty or invalid): tokens ≈ chars/4.
 
 These values are read from `plugins.yaml` under the prompt plugin's config, NOT from environment variables. Example:
 
@@ -362,8 +360,8 @@ plugins:
     - name: prompt
       enabled: true
       config:
-        char_budget_soft: 250000
-        char_budget_hard: 400000
+        token_budget_soft: 50000
+        token_budget_hard: 100000
         tokenizer_encoding: "cl100k_base"
 ```
 

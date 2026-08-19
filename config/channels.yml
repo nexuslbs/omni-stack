@@ -11,7 +11,7 @@ channels:
     resource_identifier: zswtrbugn7b8mcbtarcwe6isfh
     profile: omni
     closed: false
-  mattermost-wkbugy5x:
+  mm-kanban:
     platform: mattermost
     resource_identifier: wkbugy5xcff1teeqgnty5ck4io
     profile: omni

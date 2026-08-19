@@ -24,10 +24,10 @@ boards:
   # workflow (omniagent-dev) is defined AT THE BOARD level; tasks created
   # on this board carry NO workflow_id/channel_id/profile of their own and
   # fall back to the board's defaults (workflow omniagent-dev, channel
-  # mm-kanban/mattermost-wkbugy5x, profile omni, plan true). This keeps the
+  # mm-kanban, profile omni, plan true). This keeps the
   # board as the single source of truth for where/how dev work runs.
   omnidev:
-    channel: mattermost-wkbugy5x
+    channel: mm-kanban
     profile: omni
     workflow: omniagent-dev
     plan: true

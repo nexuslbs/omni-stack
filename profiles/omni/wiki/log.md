@@ -1,5 +1,21 @@
 # Log
 
+## 2026-08-19 (task 17 broadened — universal fallback-resolution pattern)
+
+User correction: the resolve-fallbacks-first principle is NOT limited to kanban
+task fields. ANY field with a fallback chain — kanban task fields being ONE
+case, also **channel fields, provider/model fields, settings fields — anywhere
+such fallbacks exist** — must be resolved FIRST, early, close to load.
+`Todo/FailRoutingBoardFallbackImplementation.md` rewritten: universal pattern
+with per-domain resolvers resolved at load (kanban task → board → channel/
+global; channel effective name + profile/provider/model; thread provider/model
+→ channel → profile → settings → env; settings resolved-at-load snapshot),
+phased application (Phase 1 kanban = the live bug, Phase 2 channels, Phase 3
+provider/model, Phase 4 settings), one shared resolver per domain (no
+per-consumer resolvers), display APIs keep raw fields, regression tests per
+domain, Reference/Field-Resolution.md documenting the rule. Task 17 body +
+title updated to match (PUT 2026-08-19).
+
 ## 2026-08-19 (task 17 generalized — resolve task fallbacks once at load)
 
 User principle (refines the fail-routing board-fallback bug): ANY code that

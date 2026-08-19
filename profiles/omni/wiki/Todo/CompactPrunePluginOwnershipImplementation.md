@@ -41,19 +41,30 @@ must know which messages are tool results).
 - `old_message_char_budget` / `old_msg_budget`: char-based, its only consumer
   (legacy `condense_messages`, helpers.rs:594) is dead — removed by the
   dead-code task (14). Do NOT resurrect it.
-- Budget-unification task (12, runs before this) removes char budgets and
-  keeps ONLY token budgets in the prompt plugin (chars/4 fallback when no
-  tokenizer). Core budget fields are NOT renamed there (deferred to this task
-  for removal).
+- Budget-unification task (12, runs before this): removes char budgets, keeps
+  ONLY token budgets, and renames the core fields to `token_budget_hard/soft`
+  as GLOBAL SETTINGS (`prompt_token_budget_hard/soft` in settings.yml +
+  settings.rs whitelist). The plugin's token_budget_* config fields remain
+  INTERIM until THIS task moves them to compact-messages params.
 
-## Architecture rule (user, 2026-08-19 — do NOT re-litigate)
+## Architecture rule (user, 2026-08-19 v2 — do NOT re-litigate)
 
-- **No global settings budget.** No `prompt_*_budget_*` keys in settings.yml /
-  settings.rs whitelist / /settings API.
-- **No tool pruning in core.** main_loop.rs has NO prune call, NO PruneConfig,
-  NO budget fields in AgentConfig.
+- **Budgets are GLOBAL SETTINGS in omniagent** (user decision v2): hard/soft
+  token budgets live in settings.yml (`prompt_token_budget_hard/soft`) +
+  settings.rs whitelist + /settings API, with AgentConfig
+  `token_budget_hard/soft` fields (task 12 renamed them). The prompt plugin
+  has NO budget config.
+- **compact-messages MUST receive the soft and hard token budget as PARAMS**
+  (tool args, e.g. `soft_budget`/`hard_budget`). omniagent resolves the
+  effective per-thread budgets (model > provider > settings — the models.yml
+  task feeds this) and passes them in; the prompt plugin stays AGNOSTIC of
+  where the budgets come from (models.yml / providers.yml / settings).
+- **No tool pruning in core.** main_loop.rs has NO prune call, NO PruneConfig.
+  The AgentConfig budget FIELDS stay (they are global settings); only the
+  pruning USE is removed. main_loop passes the budgets to compact-messages.
 - The prune MAY exist, but **as part of compact-messages** (the prompt plugin),
-  which knows which messages are tool results.
+  which knows which messages are tool results; it uses the budget PARAMS for
+  the gate + drain.
 - A custom prompt plugin can do context management completely differently;
   only the plugin interface binds it. If the interface must change (e.g. prune
   needs to know which messages are tool results or needs thread_dir for
@@ -166,31 +177,43 @@ Requirements (cache):
 
 ## Requirements
 
-1. **Core removals** (src/):
+1. **Core changes** (src/):
    - main_loop.rs: delete the Layer-3 `prune_old_tool_results` call (843-855)
-     and its doc comments; keep the iteration "=== Budget ===" hint (WS-4c) —
-     it is iteration-based, not char-budget-based.
-   - config.rs: remove `char_budget_hard`/`char_budget_soft` (+ the pruning
-     fields read_keep_last/read_excerpt_chars/auto_note_max_chars/
+     and its doc comments; INSTEAD pass the resolved budgets
+     (`cfg_snapshot.token_budget_hard/soft`) as `soft_budget`/`hard_budget`
+     params in the compact-messages tool call (Layer 2); keep the iteration
+     "=== Budget ===" hint (WS-4c) — it is iteration-based, not
+     budget-based.
+   - config.rs: KEEP `token_budget_hard`/`token_budget_soft` (global settings
+     from task 12 — do NOT remove); remove the pruning-only fields
+     read_keep_last/read_excerpt_chars/auto_note_max_chars/
      auto_note_entry_chars ONLY if nothing else uses them — grep first;
-     if the plugin takes them over, they become plugin config).
+     if the plugin takes them over, they become plugin config or params.
    - helpers.rs: remove `prune_old_tool_results` + PruneConfig (move the
      retained behavior into the plugin); keep `estimate_chars`/`count_tokens`
      if genuinely reused elsewhere (document).
-   - settings.rs: remove prompt_char_budget_* from categories + writable
-     whitelist (task 12 already did the key rename/removal — verify).
+   - settings.rs: KEEP `prompt_token_budget_hard/soft` in categories +
+     writable whitelist (global settings — task 12 renamed them; they are NOT
+     removed).
 2. **Plugin implementation** (plugins/tools/prompt):
-   - Budgets: ONLY `token_budget_soft`/`token_budget_hard` (from task 12) in
-     PluginConfig; chars/4 fallback when tokenizer missing/invalid.
+   - REMOVE budget fields from PluginConfig (`token_budget_soft`/`token_budget_hard`
+     + any leftover char fields from task 12). Budgets come ONLY as
+     compact-messages params.
+   - compact-messages REQUIRES soft/hard token budget params (e.g.
+     `soft_budget`, `hard_budget` — add to plugin.json tool description +
+     config_schema). chars/4 fallback stays INTERNAL: when tokenizer
+     missing/invalid, measure chars and compare against the params (chars as
+     4× token budget).
    - Extend compact-messages (interface change OK, document in plugin.json +
      tool description): accept the info needed to prune tool results — e.g.
      messages already carry tool_call_id/name, so identification is possible;
      if auto-notes need the thread dir, add an optional arg (thread_dir /
      notes_path) — decide with the dashboard/API consumers in mind.
-   - As part of compact-messages: after condensation, prune tool results per
-     the token budget — preserve read results + auto-note them (keep the
-     death-spiral fix): keep last N read-type results full, excerpt older,
-     write auto-notes to the thread notes file if the arg is provided.
+   - As part of compact-messages: gate on the hard/soft PARAMS; after
+     condensation, prune tool results per the budgets — preserve read results
+     + auto-note them (keep the death-spiral fix): keep last N read-type
+     results full, excerpt older, write auto-notes to the thread notes file if
+     the arg is provided.
    - Keep behavior when plugin absent: document that NO prompt plugin = NO
      compaction/pruning (context grows to provider limit) — acceptable;
      core must not silently re-add pruning.
@@ -219,9 +242,12 @@ Requirements (cache):
 
 ## Verification gates
 
-- `grep -rn "char_budget\|token_budget\|prune_old_tool_results\|PruneConfig"`
-  in `src/` → 0 hits (core is clean; plugin owns it all).
-- settings.yml + settings.rs + /settings API: no prompt_*_budget_* keys.
+- `grep -rn "prune_old_tool_results\|PruneConfig"` in `src/` → 0 hits (core
+  pruning gone). `token_budget_hard/soft` remain ONLY as AgentConfig global
+  settings + settings keys; the main loop passes them as compact-messages
+  params — no budget USE for pruning in core.
+- settings.yml + settings.rs + /settings API: `prompt_token_budget_hard/soft`
+  present (global settings, from task 12); no char-budget keys.
 - cargo check / clippy -D warnings / cargo test / fmt --check clean.
 - deploy.py dev passes (omni-deployer dev-flavor).
 - Live smoke (omnidev): long thread compacts AND prunes via compact-messages

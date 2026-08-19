@@ -43,12 +43,14 @@ plugin/core config**.
   from the provider's resolved plugin config.
 - **Settings keys**: `max_tokens` / `max_tokens_on_truncation` (execution
   category — settings.rs:177-178, 318-328, 659-660, 758-759; AgentConfig
-  fields config.rs:74-77; used executor.rs:129). Token budgets: prompt plugin
-  has `token_budget_soft/hard` (plugins/tools/prompt); core uses
-  `prompt_char_budget_*` today — task 12 (budget unification) makes token
-  budgets the single unit, task 15 (compact+prune→plugin) moves them
-  plugin-owned. Per-model `token_budget_soft/hard` in models.yml must feed the
-  effective per-thread budget accordingly (coordinate with tasks 12/15).
+  fields config.rs:74-77; used executor.rs:129). Token budgets: **GLOBAL
+  SETTINGS in omniagent** — task 12 renames `prompt_char_budget_*` →
+  `prompt_token_budget_hard/soft` (AgentConfig `token_budget_hard/soft`);
+  task 15 makes compact-messages receive the soft/hard token budgets as
+  PARAMS. Per-model `token_budget_soft/hard` in models.yml feed the effective
+  per-thread budget RESOLVED BY OMNIIAGENT (model > provider > settings) and
+  passed as compact-messages params — the prompt plugin stays AGNOSTIC of
+  models.yml.
 - **refresh-models API**: `POST /api/plugins/{type}/{source}/{name}/refresh-models`
   → refresh_models_handler (src/server/plugins.rs:90-91, 204).
 - **Dashboard**: Providers menu (src/lib/plugin-list.ts:54, createPluginPage →
@@ -123,8 +125,12 @@ Semantics:
    api_mode, supports_reasoning, budgets (token_budget_soft/hard) and
    max_tokens/max_tokens_on_truncation — model > provider > plugin/core.
    Feed resolved values to the executor LLM call (max_tokens,
-   executor.rs:129 path) and to the effective per-thread token budget
-   (prompt plugin after tasks 12/15 — coordinate so per-model budgets win).
+   executor.rs:129 path) and to the effective per-thread token budgets —
+   omniagent RESOLVES them (model_config > provider > global settings) and
+   PASSES them as compact-messages `soft_budget`/`hard_budget` params
+   (tasks 12/15 make budgets global settings + params). **The prompt plugin
+   stays AGNOSTIC of models.yml — it only ever sees the resolved budgets as
+   params.**
 4. **Dashboard models selector**: when models.yml defines a provider, the
    channel model selector (channel-config.ts) and provider page show the
    `models` array INSTEAD of `default_model.allowed_values`; keep

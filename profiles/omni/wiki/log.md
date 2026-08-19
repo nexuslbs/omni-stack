@@ -1,5 +1,23 @@
 # Log
 
+## 2026-08-19 (Wiki source + skill spec, dead-code removal spec)
+
+Two new Todo specs appended to the chain (after budget unification
+task_18cd3920aeeea608; board omnidev):
+
+- `Todo/WikiSourceSkillImplementation.md` — user finding from the 7-day usage
+  report: no wiki tool called. Verified: NO dedicated wiki plugin exists —
+  wiki is a data source (profile wiki dir + `search_wiki` tool from the search
+  plugin, in allowed_tools, but 0 real calls in 7 days) + optional Qdrant
+  vectorizer (vectorize_wiki=false). Direction: wiki skill (Karpathy method +
+  Obsidian format + filesystem-tool examples) instead of a new plugin.
+- `Todo/DeadCodeRemovalImplementation.md` — remove `get_recent_summaries()`
+  (src/db/summaries.rs:36, `#[allow(dead_code)]`, uncalled),
+  `condense_messages()` (src/agent/helpers.rs:594, test-only legacy condenser
+  — live loop uses compact tool + prune_old_tool_results), stale
+  `old_message_char_budget` refs (after task 12), plus a general dead-code
+  sweep. Deletion-only, no behavior change.
+
 ## 2026-08-18 (Kanban API board validation)
 
 Created `Todo/KanbanBoardValidationImplementation.md` — require `board` on

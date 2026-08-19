@@ -88,27 +88,48 @@ Cache mechanics (verified):
   misses per iteration + compaction delayed.
 
 Requirements (cache):
-1. **Stable prefix invariant.** compact+prune must NEVER modify, reword,
-   renumber, or reorder any message that precedes the newest appended block.
-   Only the tail (newest messages) may change between LLM calls. Tool-result
-   truncation/excerpting must be deterministic (same input → same bytes) and
-   must not shift earlier bytes (replace content in place, never delete rows
-   from the middle of the array).
+1. **Stable prefix invariant (user-corrected 2026-08-19).** compact+prune must
+   NEVER modify, reword, renumber, or reorder any message that precedes the
+   newest appended block — and crucially NEVER modify a message that stays in
+   the tail: rewriting an old message shifts every byte after it → the whole
+   tail becomes a cache miss on the next call. That INCREASES misses; it does
+   not reduce them. Truncation is allowed ONLY in two cache-safe places:
+   (a) at SOURCE — when a tool result is created, before it enters context;
+   (b) at DRAIN time — old content being removed is excerpted INTO the frozen
+   summary block, never written back into its old position. Surviving
+   messages keep byte-identical content and relative order.
 2. **Frozen summary block** (CacheFriendlyCompaction design): on compaction,
    build ONE summary block at a FIXED index right after the main system
    prompt; reuse it byte-identical on subsequent calls; fold newly drained
    content into it only at the NEXT compaction (strict superset, append-only).
    Replace-don't-scatter: no per-message inline markers at scattered
    positions. Keep the null-contract (no drain → "messages": null).
-3. **Minimize per-iteration miss tokens.** The prune-in-compact aggressively
-   compacts read-type results (keep last N full, excerpt older, auto-note) AND
-   measure the top token producers (query messages by msg_subtype / tool name,
-   sum content length) — if filesystem_read etc. dominate, add output capping
-   at the source. Do NOT make the agent dumb: read results stay preserved via
-   auto-notes (death-spiral fix).
-4. **Compaction cadence.** With tokens-only budgets (task 12), pick defaults
-   so compaction fires only when needed (bigger hard budget = longer
-   stable-prefix window). Must not regress below current cadence.
+3. **Minimize per-iteration miss tokens — cache-safe ONLY.** Two mechanisms,
+   both prefix-safe:
+   (a) SOURCE capping (preferred): measure the top tool-result producers
+       (messages by msg_subtype / tool name, sum content length); cap/truncate
+       the biggest ones (filesystem_read etc.) WHEN THE RESULT IS CREATED,
+       before it enters context. Fewer NEW tokens appended per call = fewer
+       miss tokens + compaction delayed. Never touches existing messages.
+   (b) DRAIN-time compaction (only when over the hard budget): remove ONE
+       contiguous old region (oldest → keep-point); read-type results in the
+       drained region are excerpted INTO the frozen summary block (auto-notes
+       preserved — death-spiral fix). The surviving tail stays full + verbatim
+       ("keep last N full" = the surviving tail; "excerpt older" = drained
+       content folded into the summary). NEVER excerpt/modify a message that
+       remains in the tail (user-corrected anti-pattern: in-place rewrites
+       increase cache misses). Do NOT make the agent dumb: read results stay
+       preserved via auto-notes.
+4. **Compaction cadence (threshold-gated — user-corrected 2026-08-19).** The
+   compact-messages tool is CALLED every iteration but COMPACTS only when the
+   hard budget is exceeded; under budget it returns "messages": null (the
+   null-contract) and the core applies nothing — the prefix stays untouched.
+   Verify the no-op path is byte-identical (never rewrite/reorder when under
+   budget). With tokens-only budgets (task 12), pick defaults so compaction
+   fires rarely (bigger hard budget = longer stable-prefix window). Must not
+   regress below current cadence. (The 08-14 "compaction every iteration"
+   observation was a misconfiguration symptom — thread 5x over the 100K char
+   hard budget — NOT the intended design.)
 5. **No mid-context upserts with changing content.** Verify the "=== Budget ==="
    iteration hint (WS-4c) sits at the END of the context (it changes every
    iteration; at the end its changed bytes are in the miss region — acceptable,

@@ -29,8 +29,8 @@ execution:
   tool_bg_secs: 5
 
 prompt:
-  prompt_token_budget_hard: 100000
-  prompt_token_budget_soft: 50000
+  prompt_token_budget_hard: 500000
+  prompt_token_budget_soft: 100000
   prompt_compact_messages_tool: prompt_compact-messages
   prompt_generate_tool: prompt_generate
   prompt_log_level: all

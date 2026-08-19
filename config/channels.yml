@@ -16,7 +16,7 @@ channels:
     resource_identifier: wkbugy5xcff1teeqgnty5ck4io
     profile: omni
     model: deepseek-v4-flash
-    provider: opencode-go
+    provider: deepseek
     closed: false
   mattermost-d6bmh64b:
     platform: mattermost

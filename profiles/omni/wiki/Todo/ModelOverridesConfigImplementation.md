@@ -134,10 +134,12 @@ Semantics:
    (atomic write of config/models.yml; validate before write). Provider list
    API includes models.yml-only providers + merged metadata.
 6. **Dashboard /models page**: new menu entry "Models" right after "Providers"
-   (plugin-list.ts + router.ts + new pages/models.ts): render models.yml
-   content, add/edit/delete provider definitions + fields + models +
-   per-model config; Save → PUT /api/models; reload behavior consistent with
-   other config pages.
+   (plugin-list.ts + router.ts + new pages/models.ts). **Model it on the
+   /channels page — same appearance and functionality** (list rows, inline
+   add/edit/delete, save behavior), but using the models API (GET/PUT
+   /api/models) instead of the channels API, updating models.yml instead of
+   channels.yml. Renders models.yml content: provider definitions + fields +
+   models + per-model config.
 7. **omni-stack sample**: add config/models.yml with the deepseek example
    (models: ["deepseek-v4-flash", "deepseek-v4-pro"]) as the documented
    pattern (commented or minimal), plus a Reference page in the wiki
@@ -148,6 +150,27 @@ Semantics:
    plugin-less provider (noop-style chat_completions via builtin) and a
    models.yml-overridden provider (deepseek models list surfaces in API);
    dashboard /models CRUD smoke; no regression when models.yml absent.
+9. **Refresh button → models.yml upsert (user refinement 2026-08-19).** Every
+   model field with a refresh button in the dashboard (providers page, channel
+   model selector, /models page) refreshes via the omniagent API and writes
+   models.yml — NEVER the plugin:
+   - If `refresh_url` is defined, the button fetches the remote models (reuse
+     `fetch_enum_values` + api_key resolution from src/plugins_yaml.rs:1782).
+   - POST to the refresh endpoint (existing
+     `/plugins/{type}/{source}/{name}/refresh-models` or a models-specific
+     variant): UPSERT the provider entry in models.yml —
+     entry absent → add `plugin: true` + `models: [fetched]` (everything else
+     comes from the plugin because plugin:true; the only override is models);
+     entry present → update ONLY `models`, leave every other field untouched.
+   - This is the universal contract for refresh: a provider can support new
+     models WITHOUT a new plugin or an existing-plugin change. Plugin code /
+     config mutation is fragile and lost on plugin version updates, especially
+     for remote plugins.
+   - The current `refresh_plugin_models` (src/plugins_yaml.rs:1746) mutates
+     the in-memory config_schema + DYNAMIC_ENUM_CACHE — rework the endpoint to
+     write models.yml instead; keep `fetch_enum_values`; do NOT mutate the
+     plugin config_schema. Works for plugin-backed AND plugin-less providers
+     (a plugin-less provider with refresh_url also gets a models.yml entry).
 
 ## Non-goals / DO NOT CHANGE
 
@@ -177,6 +200,14 @@ Semantics:
   secret ever leaks into logs/API responses.
 - Dashboard /models page: add/edit/delete a provider def → saved file matches
   the edited YAML.
+- **Refresh-flow gate (user-mandated):** click refresh on the providers page
+  for a provider with refresh_url → models.yml gains `plugin: true` +
+  `models: [fetched]`; click again with an existing entry → ONLY `models`
+  updated (every other field byte-identical); plugin manifest/config_schema
+  UNCHANGED (no plugin mutation — verified by diffing plugin.json/plugins.yml
+  before/after); works when the provider is NOT in models.yml (creates the
+  entry) and for plugin-less providers with refresh_url. Refresh works via the
+  omniagent API only (dashboard never writes files directly).
 
 ## Deliverable
 

@@ -1,5 +1,28 @@
 # Log
 
+## 2026-08-19 (models.yml task refined — refresh upsert + /channels-style page)
+
+User refinements folded into `Todo/ModelOverridesConfigImplementation.md`
+(task 16, task_18cd408ead8bcbbd):
+1. **Refresh button → models.yml upsert (universal contract)**: every model
+   field with a refresh button (providers page, channel model selector,
+   /models page) refreshes via the omniagent API and writes models.yml —
+   NEVER the plugin (plugin mutation is fragile, lost on plugin version
+   updates, esp. remote). refresh_url defined → fetch remote models (reuse
+   fetch_enum_values src/plugins_yaml.rs:1782) → UPSERT: entry absent → add
+   `plugin: true` + `models: [fetched]` (everything else from the plugin);
+   entry present → update ONLY `models`, other fields untouched. Current
+   refresh_plugin_models (src/plugins_yaml.rs:1746) mutates in-memory
+   config_schema + DYNAMIC_ENUM_CACHE — rework to write models.yml. A provider
+   gains new models without a new/changed plugin.
+2. **/models page modeled on /channels page** (appearance + functionality:
+   list rows, inline add/edit/delete, save), using the models API (GET/PUT
+   /api/models) instead of the channels API, updating models.yml instead of
+   channels.yml.
+3. New refresh-flow gate: models.yml upsert on refresh, ONLY-models update on
+   existing entry (byte-identical others), plugin manifest/config_schema
+   unchanged, works for plugin-less providers, API-only writes.
+
 ## 2026-08-19 (provider/model overrides spec — config/models.yml)
 
 `Todo/ModelOverridesConfigImplementation.md` — task 16 (end of chain, after

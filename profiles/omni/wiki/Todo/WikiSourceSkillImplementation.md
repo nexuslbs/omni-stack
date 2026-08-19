@@ -1,6 +1,10 @@
 # Wiki Data Source + Wiki Skill — Implementation
 
-**Status:** Todo (task 13 in the serial chain, after budget unification)
+**Status:** IMPLEMENTED 2026-08-19 (task 13, task_18cd39ea0c185171) —
+omni-stack `9c86468` (wiki skill + guidance update) + omni-deployer `adb72f3`
+(GROUP 45 integration tests). Verified: executor thread 55, tester thread 56
+(PASS, GROUP 45 + GROUP 25 green against fresh HEAD binary in omnidev-toolbox),
+reviewer thread 57 (APPROVE).
 **Date:** 2026-08-19
 **Scope:** omniagent repo (assess/decide) + omni-stack profile skills (implement)
 
@@ -45,58 +49,35 @@ so agents actually use and maintain the wiki.
 - omniagent agents have **no shell**: all file ops go through `filesystem_*`
   MCP tools — the skill examples MUST use those tools.
 
-## Requirements
+## Delivered (what actually shipped)
 
-1. **Decision (make it explicit in the spec/PR):** wiki stays a data source +
-   skill; do NOT build a new wiki plugin. Rationale: the read path exists
-   (`search_wiki`) and the content is maintained by hooks; the gap is agent
-   education + usage, which a skill fills at zero runtime cost.
-2. **Write/extend the wiki skill** in profiles/omni/skills/ (recommended: new
-   `wiki.md` that references + complements `wiki-maintenance.md`, or extend the
-   existing file — executor's choice, keep both discoverable):
-   - **Karpathy method**: durable knowledge layer — `index.md` = catalog of
-     everything, `log.md` = append-only action log, pages under `Memory/`
-     (facts), `Reference/` (how-to/architecture), `Todo/` (implementation
-     specs). Every entry linked from the index; every action logged.
-   - **Obsidian format**: YAML frontmatter, `[[wikilinks]]`, markdown headings,
-     file-per-topic, link-don't-copy.
-   - **Filesystem-tool examples** (the actual omniagent toolset): how to read
-     `index.md` first (`filesystem_read`), find pages (`filesystem_search`
-     file names + `search_wiki` text), create/update a page
-     (`filesystem_write`), list the wiki tree (`filesystem_list`), append to
-     `log.md`. Include a short worked example (e.g. "record a new decision").
-   - **When to use what**: `search_wiki` (text) vs `filesystem_search`
-     (names) vs reading `index.md` (catalog) vs `search_messages` (conversation
-     history — NOT wiki).
-3. **Surface the wiki in agent guidance**: check `index.md` before asking the
-   user something the wiki may already answer (align with
-   Agent-Guidance-Architecture).
-4. **vectorize_wiki stays off** unless real `search_wiki` usage emerges (no
-   Qdrant/API cost for an unused feature). Document this in the spec.
-5. Update `Reference/Agent-Guidance-Architecture.md` if the skill changes the
-   guidance model wording.
+1. **New skill `profiles/omni/skills/wiki.md`** (5,691 B, 103 lines, YAML
+   frontmatter `name`/`description` so the prompt plugin renders it) —
+   Karpathy method (index.md catalog FIRST, log.md append-only log, pages
+   under Memory/ Reference/ Todo/), Obsidian format (frontmatter, [[wikilinks]],
+   file-per-topic, link-don't-copy), when-to-use table (`search_wiki` text vs
+   `filesystem_search` names vs `filesystem_read` of index.md catalog vs
+   `search_messages` history vs `search_database` SQL), complete worked
+   example "record a new decision" (list tree → read index → dedupe via
+   search → filesystem_write → link from index → append log.md → verify via
+   search_wiki), documents `vectorize_wiki` OFF (keyword path only), and
+   references `wiki-maintenance.md` (loop) / `knowledge-pipeline.md` as
+   complementary.
+2. **`Reference/Agent-Guidance-Architecture.md` updated** — added convention
+   #7: "Check the wiki before asking the user" (search_wiki + read index.md
+   first; wiki is a data source, no wiki tool).
 
-## Non-goals / DO NOT CHANGE
+## Verification gates (all passed)
 
-- Do NOT create a new builtin wiki plugin or new MCP tools (user direction:
-  skill over plugin).
-- Do NOT enable wiki vectorization (Qdrant) in this task.
-- Do NOT move/restructure the wiki content itself (index.md/log.md layout is
-  load-bearing for the maintenance hooks).
-- Do NOT touch `wiki-maintenance.md` hook behavior — only skills/education.
-
-## Verification gates
-
-- `profiles/omni/skills/wiki.md` (or extended wiki-maintenance.md) exists,
-  has frontmatter, and contains ≥1 complete filesystem-tool worked example.
-- Live check: a kanban/agent thread can follow the skill end-to-end to read
-  index.md → find a page → append a log entry (smoke via omnidev).
-- `search_wiki` remains registered in allowed_tools (no regression).
-- Wiki content untouched: `git diff` shows only skills/ + docs changes.
-
-## Deliverable
-
-- omni-stack commit(s): skill file + Agent-Guidance-Architecture update (if
-  needed). Commit SHAs + evidence in the task thread.
-- Honest "not live until image/stack refresh" note if the skill lives in the
-  omni profile (bind-mounted → live immediately for omni profiles; verify).
+- Skill exists with frontmatter + ≥1 complete filesystem-tool worked example.
+- Live smoke: filesystem_search (names), search_wiki (text, found
+  Container-Mount-Map), filesystem_write append=true to log.md + restored via
+  git checkout (wiki content untouched); skills_list-skills shows "wiki"
+  enabled:true (bind-mount live immediately); search_wiki still in
+  allowed_tools.
+- omni-deployer `adb72f3` GROUP 45 (skill artifact + live smoke coverage) +
+  pre-existing GROUP 25 — both PASS (RC=0) against a fresh HEAD binary in the
+  isolated omnidev-toolbox.
+- Push via JWT workaround (git_commit-and-push blocked by broken app-key →
+  manual JWT push from omnidev-omniagent container, 451a461..9c86468);
+  origin/main == 9c86468 == local HEAD.

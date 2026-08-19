@@ -920,3 +920,42 @@ on all); hook-caused threads 36/38 skipped:
   already updated during the threads (f85f9bb/f3ebfdf) and verified
   current. The omni_dir task (threads 34/35) and plugin consolidation were
   already documented (PluginOmniDirConfigImplementation.md etc.).
+
+## 2026-08-19 (wiki-maintenance hook run #3 — threads 46-58)
+
+Third trigger of the profile-scoped wiki/templates/skills maintenance hook
+(event: last_thread=46, current_thread=58; all profile omni). Window threads
+46-58 covered: task 12 budget unification (executor 48 → tester 49 → reviewer
+51 REJECT → executor rework 52 → tester 53 PASS → reviewer 54 APPROVE), channel
+summary hook (50), task 13 wiki data source + wiki skill (executor 55 → tester
+56 PASS → reviewer 57 APPROVE), task 14 dead-code removal (executor 58).
+
+Changes:
+- NEW `Todo/ContextBudgetUnificationImplementation.md`: task 12 IMPLEMENTED —
+  char budgets removed everywhere; budgets are GLOBAL SETTINGS in core
+  (`AgentConfig.token_budget_hard/soft` ← `prompt_token_budget_hard/soft`,
+  defaults soft 100000 / hard 500000), passed to compact-messages as
+  `soft_budget`/`hard_budget` params; chars/4 fallback; commits omniagent
+  `bf2af90`, omni-stack `451a461`, omni-deployer `3386e1d`; documents the
+  round-1 REJECT lesson (reviewer thread 51 caught the missing core rename
+  against SCOPE UPDATE v2 — verify against the CURRENT task body).
+- UPDATED `Todo/WikiSourceSkillImplementation.md` → IMPLEMENTED: omni-stack
+  `9c86468` (new skill `skills/wiki.md`, Karpathy + Obsidian + filesystem
+  worked example; guidance convention #7 "check wiki before asking user") +
+  omni-deployer `adb72f3` (GROUP 45 + GROUP 25 pass in omnidev-toolbox).
+- UPDATED `Todo/DeadCodeRemovalImplementation.md` → IMPLEMENTED: omniagent
+  `614a3dd` (removed `get_recent_summaries`, `condense_messages` + tests,
+  `old_message_char_budget` stragglers, general sweep; 393 del / 3 ins,
+  deletion-only). Tester/reviewer run lands after this window.
+- UPDATED `Reference/Budget-and-Context.md`: compaction section now reflects
+  TOKEN budgets (hard 500000 / soft 100000, chars/4 fallback, global settings
+  + compact-messages params, model > provider > settings chain) — the old
+  page still described char-era defaults (hard 100000 / soft 50000).
+- UPDATED `index.md`: new wiki skill entry under Skills; Todo list gains
+  ContextBudgetUnification (IMPLEMENTED) and IMPLEMENTED markers on
+  WikiSourceSkill + DeadCodeRemoval.
+
+Not changed: no templates touched (nothing in the window justified a template
+edit beyond the dev-reviewer template already improved in run #2's window);
+no skills created/deleted (wiki.md from thread 55 already ships; omniagent-api
+skill was updated by the earlier parity task).

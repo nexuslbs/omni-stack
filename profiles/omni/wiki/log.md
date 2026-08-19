@@ -1,5 +1,32 @@
 # Log
 
+## 2026-08-19 (reviewer template + fail-routing board-fallback bug)
+
+Task 12 (budget unification) went BLOCKED not because the reviewer misbehaved
+but because of an ENGINE BUG: reviewer thread 51 called builtin_fail-thread
+with workflow_step="running" (correct F1 executor-rework request), yet the
+task landed on blocked. Root cause: fail routing in src/agent/fail_thread.rs
+(engine_transition ~830-847, manual-review ~290-297) resolves the workflow
+ONLY from kanban_tasks.workflow_id — board-based tasks (board=omnidev, e.g.
+task_18cd3920aeeea608) have workflow_id NULL (the board carries the workflow),
+so has_wf=false → route_fail_tool F1 → blocked ("no executor role in workflow
+for status review", kanban_history #127). The dispatch path DOES apply the
+board fallback — the fail router diverges.
+
+Actions:
+1. **dev-reviewer template improved** (profiles/omni/templates/dev-reviewer.md):
+   explicit failure-routing hierarchy — fixable issues → ALWAYS
+   workflow_step "running" (executor rework); re-verification → "testing";
+   "blocked" LAST RESORT ONLY (retry limit / mis-scoped / unfixable); plus a
+   VERIFY-the-transition step (known gap: board tasks may land on blocked —
+   report it if so). Rejection with findings = rework request, never a block.
+2. **New Todo spec + task 17** (FailRoutingBoardFallbackImplementation.md):
+   shared workflow resolution helper (task → board → workflow) used by
+   dispatch + fail routing; regression tests for board-task F1/F2/F3/F0;
+   live verification. At the end of the chain after models.yml (16).
+   Until the fix ships, board-task fails block — recover via REDISPATCH NOTE
+   + PATCH status → running (done manually for task 12 → thread 52 running).
+
 ## 2026-08-19 (exact budget fallback chain — user-specified)
 
 User pinned the token budget fallback (folded into tasks 12/15/16):

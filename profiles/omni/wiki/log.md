@@ -1,5 +1,22 @@
 # Log
 
+## 2026-08-19 (cache requirements added to compact+prune task)
+
+`Todo/CompactPrunePluginOwnershipImplementation.md` extended with the user's
+LLM-cache directive: context management shapes the prompt prefix (DeepSeek
+cache key) — the compact+prune refactor must IMPROVE cache, expected ≥95% hit.
+Reference: Hermes 08-02 98.4% (311M hit/5M miss); omniagent 08-18 95.8%
+(252M/11M); live omnistable baseline 94.4% (7d) — below target. Baked in:
+stable-prefix invariant (no modify/reword/reorder of pre-tail messages),
+frozen byte-identical summary block (absorbs the unclaimed
+CacheFriendlyCompactionImplementation.md spec — that task never got a kanban
+task; its "don't touch core prune" non-goal is superseded), deterministic
+in-place truncation, per-iteration miss-token minimization (cap top tool-result
+producers after measuring msg_subtype token sums), no mid-context changing
+upserts, cache-compatible custom-plugin test. Cache gates: ≥95% measured from
+threads table + cached_tokens-grows-with-prompt live check + byte-identical
+prefix unit tests + quality guard (no dumber behavior).
+
 ## 2026-08-19 (compact+prune+budget → plugin-only spec)
 
 `Todo/CompactPrunePluginOwnershipImplementation.md` — user architecture

@@ -59,6 +59,66 @@ must know which messages are tool results).
   needs to know which messages are tool results or needs thread_dir for
   auto-notes), change it — documented in plugin.json.
 
+## LLM cache requirements (user directive 2026-08-19 — do NOT re-litigate)
+
+Context management directly shapes the prompt PREFIX, which is what DeepSeek's
+prefix cache keys on. The compact+prune refactor MUST NOT degrade the cache —
+it should IMPROVE it. Expected cache hit ratio ≥ 95% (target: higher).
+
+Reference numbers (user, 2026-08-19):
+- Hermes 2026-08-02: 311M tokens cache hit / 5M miss (98.4%).
+- omniagent 2026-08-18: 252M hit / 11M miss (95.8%) — user expected <5M misses.
+- Live omnistable baseline (threads table, this day): 7-day = 94.4%
+  (126.4M input / 119.3M cached); 08-18 = 93.8%; 08-19 = 94.6% — BELOW the 95% target.
+
+Cache mechanics (verified):
+- DeepSeek cached_tokens = longest byte-identical prefix of the prompt. ANY
+  byte change in the prefix (reworded/renumbered/deleted messages, reordering,
+  system-role content changed, summary regenerated) invalidates the cache from
+  that point on.
+- Verified failure mode (Todo/CacheFriendlyCompactionImplementation.md,
+  2026-08-14): compaction deleted messages from the middle and scattered
+  inline markers at original positions → every subsequent byte shifted →
+  whole tail cache miss; cached_tokens frozen at ~12K while prompt grew
+  72K→86K tokens. That spec's scope is ABSORBED by this task (it owns
+  compaction now); its "do not touch core prune" non-goal is superseded.
+- Existing fix pattern (already live, omniagent 9c5bb60): user-role for
+  dynamic blocks raised hit rate 6.9% → 90%+.
+- Cache miss ≈ newly appended content per call: smaller tool results = fewer
+  misses per iteration + compaction delayed.
+
+Requirements (cache):
+1. **Stable prefix invariant.** compact+prune must NEVER modify, reword,
+   renumber, or reorder any message that precedes the newest appended block.
+   Only the tail (newest messages) may change between LLM calls. Tool-result
+   truncation/excerpting must be deterministic (same input → same bytes) and
+   must not shift earlier bytes (replace content in place, never delete rows
+   from the middle of the array).
+2. **Frozen summary block** (CacheFriendlyCompaction design): on compaction,
+   build ONE summary block at a FIXED index right after the main system
+   prompt; reuse it byte-identical on subsequent calls; fold newly drained
+   content into it only at the NEXT compaction (strict superset, append-only).
+   Replace-don't-scatter: no per-message inline markers at scattered
+   positions. Keep the null-contract (no drain → "messages": null).
+3. **Minimize per-iteration miss tokens.** The prune-in-compact aggressively
+   compacts read-type results (keep last N full, excerpt older, auto-note) AND
+   measure the top token producers (query messages by msg_subtype / tool name,
+   sum content length) — if filesystem_read etc. dominate, add output capping
+   at the source. Do NOT make the agent dumb: read results stay preserved via
+   auto-notes (death-spiral fix).
+4. **Compaction cadence.** With tokens-only budgets (task 12), pick defaults
+   so compaction fires only when needed (bigger hard budget = longer
+   stable-prefix window). Must not regress below current cadence.
+5. **No mid-context upserts with changing content.** Verify the "=== Budget ==="
+   iteration hint (WS-4c) sits at the END of the context (it changes every
+   iteration; at the end its changed bytes are in the miss region — acceptable,
+   but VERIFY; if any upsert lands mid-context, move it to the end).
+6. **Custom-plugin cache compatibility.** The stub-plugin test must produce
+   cache-compatible output; the stable-prefix property is a PLUGIN
+   responsibility — document it in plugin.json tool description + interface
+   docs ("the returned messages array must keep the prefix byte-stable; only
+   the tail may change").
+
 ## Requirements
 
 1. **Core removals** (src/):
@@ -123,6 +183,21 @@ must know which messages are tool results).
   only; read results still preserved + auto-noted (no re-read death spiral);
   iteration budget hint still present.
 - Custom-plugin test passes (stub plugin, different strategy, same interface).
+- **CACHE GATES (user-mandated):**
+  - Cache regression gate: measure from threads table
+    (`sum(cached_tokens)/sum(input_tokens)`) after deploy — must be **≥ 95%**
+    and IMPROVED vs the 94.4% 7-day baseline (08-19); report the daily %
+    in the task thread.
+  - Live cache check: `cached_tokens` grows with prompt size (never frozen at
+    a small constant — the 08-14 failure mode).
+  - Unit tests: (a) consecutive non-compacting calls produce byte-identical
+    prefixes `[system][frozen summary][tail]` up to the tail; (b) a second
+    compaction's summary is a strict superset of the first (frozen block);
+    (c) deterministic truncation — same input → same bytes.
+  - No mid-context upsert with changing content (verify WS-4c "=== Budget ==="
+    hint sits at the end).
+  - Quality guard: agent task runs complete normally (no "dumber" behavior) —
+    full executor→tester→reviewer loop passes on a real task.
 
 ## Deliverable
 

@@ -1,5 +1,23 @@
 # Log
 
+## 2026-08-19 (mitigation — workflow_id on pending omnistable kanban tasks)
+
+Until the fail-routing fix (task 17) ships in a release, the running omnistable
+binary blocks reviewer/tester fails on board-based tasks (workflow_id NULL →
+"no executor role in workflow" → blocked; see FailRoutingBoardFallback
+spec). Mitigation applied via the API (PATCH /kanban/tasks/{id}
+{"workflow_id": "omniagent-dev"}, the field name the RUNNING binary accepts —
+the `workflow` key from the repo's yml/API parity rename is not live yet):
+- Set on todo tasks 13 (task_18cd39ea0c185171), 14 (task_18cd39ea0dcbf109),
+  15 (task_18cd3a6885fdee06), 16 (task_18cd408ead8bcbbd), 17
+  (task_18cd45eecd7f6dab) — same value the omnidev board resolves, semantic
+  no-op for dispatch, fixes fail routing.
+- task_18cd3920aeeea608 (task 12, RUNNING thread 52) REJECTED by the API:
+  "workflow_id cannot be changed while the task is active" (workflow
+  immutability guard). Stays NULL — if its tester/reviewer fails it will block;
+  manual recovery stands (REDISPATCH NOTE + PATCH status → running).
+- Done tasks untouched (workflow_id NULL, verified).
+
 ## 2026-08-19 (task 17 broadened — universal fallback-resolution pattern)
 
 User correction: the resolve-fallbacks-first principle is NOT limited to kanban

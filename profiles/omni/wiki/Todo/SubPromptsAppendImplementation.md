@@ -1,9 +1,56 @@
 # Sub-Prompts: Append Pending User Prompts to Running Thread (parent_id)
 
-> Status: planned (omnidev board task)
+> Status: **IMPLEMENTED 2026-08-19** (omnidev board task,
+> task_18cd0d0fb878a9d5) — omniagent `5d17bd3` + omni-stack `7268d2e` +
+> omni-deployer `20a3778` (GROUP 43, 4/4 PASS; fix commits `aa7f577`,
+> `9107d40`)
 > Scope: omniagent core (src/agent/main_loop.rs, src/db/messages.rs,
 > src/db/threads.rs, src/agent/helpers.rs, src/server/settings.rs,
 > db-migrations) + omni-stack (config/settings.yml)
+
+## Implementation (2026-08-19, threads 37/39/40 — executor, tester PASS, reviewer APPROVE)
+
+Delivered exactly per this spec; all verified by the reviewer against git +
+live runs:
+
+- **Migration**: `messages.original_thread_id BIGINT` (nullable, `IF NOT
+  EXISTS`) — db-migrations/src/lib.rs.
+- **db/types.rs**: `original_thread_id: Option<i64>` on `MessageDb`
+  (`#[sqlx(default)]`) / `Message` / `MessageNew`; column added to every
+  SELECT/INSERT/RETURNING list in db/messages.rs.
+- **insert_sub_cause_message(running_id, pending_id, prompt, iteration)**:
+  inserts `role='sub_cause'`, `msg_type='sub_cause'`,
+  `msg_subtype=<pending_id>`, `original_thread_id=<pending_id>`, metadata
+  `sub_prompt` marker.
+- **db/threads.rs:2300 `list_appendable_pending_threads`**: same
+  channel+profile, `cause='user'`, `status='pending'`, `NOT terminal`,
+  `id <> running`, condition `parent_id IS NOT DISTINCT FROM
+  running.parent_id OR parent_id = running.id`, `ORDER BY id ASC`.
+  `mark_thread_skipped_for_sub_prompt` (:2348) goes through the
+  `mark_thread_terminal("skipped")` choke point, fires `thread_finished`,
+  clears kanban `thread_status` + writes a history comment.
+- **main_loop.rs — injection BEFORE the condense call** (:645); gates:
+  feature enabled (`percent>0 && max_chars>0`), `!sub_prompts_exhausted`,
+  `thread.cause=='user'`, `sub_prompt_gate_ok(iter, limit, percent)`
+  (`iter*100 <= limit*percent`, percent=0 disables); cumulative char budget
+  loop-scoped (`used_sub_prompt_chars` + `sub_prompts_exhausted` flag
+  persists across iterations); appends `ChatMessage::user` with header
+  `=== Sub-Prompt (from thread #N, appended) ===`; skip only after a
+  successful `insert_sub_cause_message`.
+- **Settings**: `sub_prompt_max_chars` (default 4000) +
+  `sub_prompt_iteration_percent` (default 50), type number, writable
+  whitelist, category `general`, settings.yml defaults; `AgentConfig`
+  field-count test updated 36→38.
+- **Tests**: Rust unit 4/4 (`gate_100_checks_every_call`,
+  `gate_zero_disables`, `gate_allows_early_iterations_only`, settings
+  wiring); GROUP 43 4/4 PASS live (source audit, /settings API, DB schema,
+  appendable-pending SQL semantics). Two DB-constraint fixes during testing:
+  `9107d40` (valid-FK parent) + `20a3778` (rollback-based cleanup).
+- Known limitation (documented, non-blocking): full end-to-end "running
+  thread's next LLM prompt literally contains the appended text" is the
+  omnistable gate, scoped out of the dev-only test env; covered
+  structurally by 43-A (pre-condense ordering) + 43-D (SQL + sub_cause
+  recording + skip flip) + the Rust gate tests.
 
 ## Goal
 

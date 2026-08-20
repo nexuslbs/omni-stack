@@ -1,5 +1,74 @@
 # Log
 
+## 2026-08-20 (task 17 fallback-resolution executor COMPLETE — omniagent `8e238d2`)
+
+Task 17 "Resolve fallback fields ONCE at load — universal resolution pattern"
+(task_18cd45eecd7f6dab) executor thread 71 COMPLETE, pushed to origin/main.
+omniagent HEAD `1bdcde0`: `8e238d2` feat(resolution) — new `src/resolution.rs`
+(569 lines, 10 unit tests): `TaskFallbackFields`/`ResolvedTaskDefaults` via
+`resolve_task_defaults(data_dir, fields)` (chain task → board → channel → global
+settings; fail-loud invalid board mirroring `task_board` semantics),
+`effective_channel_name()` data-dir-parameterized shared channel resolver,
+`ResolvedChannel` + `ResolvedThreadProviderModel` + settings-snapshot helper;
+wired into ALL Phase-1 consumers — fail_thread.rs `manual_review_decision` +
+`engine_transition` (THE live bug: board tasks had NULL workflow_id → reviewer
+reject landed on `blocked` instead of an executor rework thread), db/threads.rs
+`create_kanban_step_thread` (status-change dispatch /redispatch / startup
+recovery all funnel there), kanban_dispatch.rs (local resolve_task_channel →
+shared effective_channel_name), src/lib.rs; plus `1ee21e4` fmt, `296061c`
+untrack smoke-test artifacts, `1bdcde0` sqlx offline-cache regen
+(SQLX_OFFLINE=true builds). omni-stack `0720d81` = Reference/Field-Resolution.md
+(documentation deliverable). Verified: 10/10 unit tests pass incl. the
+board-task regression, fmt clean, SQLX_OFFLINE cargo check passes, clippy no new
+warnings; only the pre-existing ssh-plugin env-dependent test fails. **Phase 1 +
+shared pattern done; Phases 2-4 (channel fields / provider-model / settings
+snapshot) remain; GROUP 47 live smoke (board-task reviewer-reject → rework
+thread + kanban_history "Creating thread #N") pending the tester step.** The
+2026-08-19 workflow_id mitigation (below) can be retired once this ships in a
+release.
+
+## 2026-08-20 (models.yml task COMPLETE — `cb6c092`/`cf311c3`/`21a65bd`/`38175b3`)
+
+Task 16 provider/model overrides via config/models.yml (task_18cd408ead8bcbbd)
+fully through the loop, all on origin/main: executor thread 68 — omniagent
+`cb6c092` (feat: src/models_yaml.rs 700+ lines, PROVIDER_METADATA overlay,
+plugins_yaml models overlay + synthetic plugin-less providers,
+refresh_plugin_models reworked to write models.yml — no plugin mutation,
+GET/PUT /api/models validate-before-atomic-write, fail-loud on malformed yml)
++ `cf311c3` (fix: plugin flag always serialized + get_plugin models.yml
+overlay), omni-stack `0f16ae1` (config/models.yml sample + wiki
+Reference/Models-Yml.md) + `aa3ea8f` (memory promotion: isolated-OMNI_DIR
+live-smoke pattern), omni-dashboard `21a65bd` (feat: /models page + shared
+plugin-import refactor); tester thread 69 PASS — added omni-deployer
+`38175b3` GROUP 46 (4 tests; coverage was genuinely missing — `git grep -i
+models scripts/tests.py` had zero matches at HEAD); reviewer thread 70
+APPROVE.
+
+## 2026-08-19 (compact+prune+budget → prompt-plugin-ONLY COMPLETE — omniagent `e8239a0`)
+
+Task 15 (task_18cd3a6885fdee06) through the full loop, all on origin/main:
+executor thread 64 verified already-done state (omniagent `e8239a0`: core
+`prune_old_tool_results`/`PruneConfig`/`context_dump` deleted, main_loop.rs
+772-773 passes soft/hard token budgets as REQUIRED compact-messages params,
+prune + auto-notes moved inside compact-messages, plugin PluginConfig loses
+budget fields + handle_condense removed; omni-deployer `0553cbc` GROUP 11
+budget params + p8 prune-in-compact + p9 custom-plugin stub; omni-stack
+`fde68b7` Reference/Budget-and-Context.md — context management is
+plugin-owned); tester thread 65 PASS — found + fixed **2 real bugs** in
+0553cbc's tests (omni-deployer `f76d74f`, pushed); reviewer thread 67
+APPROVE. Grep gates 0 hits (prune_old_tool_results|PruneConfig in src/);
+budget keys remain only as global settings (config.rs:250-253/359-362 reads
+prompt_token_budget_hard/soft, defaults soft 100000 / hard 500000; settings.rs
+whitelist); LLM-cache ≥95% gate still to be measured live post-deploy.
+
+## 2026-08-19 (dead-code removal COMPLETE — omniagent `614a3dd`)
+
+Task 14 (task_18cd39ea0dcbf109) through the full loop: executor thread 58
+`614a3dd` (chore(dead-code): remove get_recent_summaries, condense_messages +
+sweep — 6 files, +3/−393 pure deletion, no behavior change); tester thread 60
+PASS (existing GROUP 24 + 20.1 + 20.6 coverage passes on a fresh-HEAD binary;
+independent greps 0 hits); reviewer thread 61 APPROVE (read every diff).
+
 ## 2026-08-19 (mitigation — workflow_id on pending omnistable kanban tasks)
 
 Until the fail-routing fix (task 17) ships in a release, the running omnistable

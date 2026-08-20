@@ -5,7 +5,7 @@ writing a plugin or any custom code. Pure definition file, loaded at startup
 from `{OMNI_DIR}/config/models.yml`. Absent/empty file → zero behavior change;
 malformed file → startup fails with a clear error.
 
-Spec: `Todo/ModelOverridesConfigImplementation.md` (omni-stack commit 6bc9b99).
+Spec: `Todo/ModelOverridesConfigImplementation.md` (omni-stack commit e0210f6).
 
 ## When to use
 

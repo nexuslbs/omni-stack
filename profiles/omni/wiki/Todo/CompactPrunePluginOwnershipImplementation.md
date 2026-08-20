@@ -1,6 +1,6 @@
 # Compact + Prune + Budget → Prompt Plugin Only — Implementation
 
-**Status:** Todo (task 15 — LAST in the serial chain, after dead-code removal)
+**Status:** IMPLEMENTED 2026-08-19 (task 15; executor #64, tester #65 PASS, reviewer #67 APPROVE) — omniagent `e8239a0` + omni-deployer `0553cbc`/`f76d74f` + omni-stack `fde68b7`
 **Date:** 2026-08-19
 **Scope:** omniagent repo (core Rust + prompt plugin) — architecture fix
 
@@ -284,3 +284,19 @@ Requirements (cache):
 omniagent commit(s) + SHAs + grep/clippy/test evidence + live-smoke notes in
 the thread. Standing release loop: tasks → deploy.py dev → main → stable
 (never push stable while omnistable tasks run).
+
+
+---
+
+## Implementation (2026-08-19/20)
+
+**Status: IMPLEMENTED** — executor #64, tester #65 PASS, reviewer #67 APPROVE (all in-window).
+
+| Repo | Commit | What |
+|---|---|---|
+| omniagent | `e8239a0` | Core pruning deleted (`prune_old_tool_results` + `PruneConfig` + `context_dump` module + `read_keep_last`/`read_excerpt_chars`/`auto_note_*` config fields); main_loop.rs:772-773 passes `soft_budget`/`hard_budget` (= `cfg_snapshot.token_budget_soft/hard`, global settings) as REQUIRED compact-messages params; plugin `PluginConfig` loses `token_budget_soft/hard` + `old_msg_budget`; prune + auto-notes moved INSIDE compact-messages (thread_dir arg); `handle_condense` removed; plugin.json/tool docs/config_schema updated; unit tests (gate, chars/4 fallback, null-contract, keep_recent verbatim, prune+auto-notes, missing-param error) |
+| omni-deployer | `0553cbc` | GROUP 11 updated (budget params); new p8 prune-in-compact tests (auto-notes drain, tail byte-verbatim, under-budget null + byte-identical input, missing-param error); p9 custom-plugin stub |
+| omni-deployer | `f76d74f` | TESTER FIX: 2 bugs in 0553cbc's tests (tester #65 found + fixed; the fixed suite is what passes) |
+| omni-stack | `fde68b7` | Reference/Budget-and-Context.md: context management is PLUGIN-OWNED (budgets as params, prune inside compact-messages, cache-friendly frozen summary block, smaller-windows guidance) |
+
+Verification (tester #65 + reviewer #67, fresh-HEAD binary in omnidev-toolbox): grep gates `prune_old_tool_results|PruneConfig` in src/ → 0 hits; budgets only as global settings (config.rs:250-253/359-362 reads `prompt_token_budget_hard/soft`, defaults soft 100000 / hard 500000; settings.rs:186-187,575-585,656-657,776-777 categories + writable whitelist; no char-budget keys); main_loop.rs:772-773 passes params; WS-4c "=== Budget ===" iteration hint retained (840-845); GROUP 11 + p8 + p9 pass. Cache ≥95% gate: still to be measured live post-deploy (threads table cached/input ratio) — the code-level stable-prefix invariants are implemented per spec.

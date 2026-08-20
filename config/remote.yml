@@ -1,4 +1,10 @@
 tools:
+  actions:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/actions
+  hindsight:
+    url: https://github.com/nexuslbs/omni-plugins.git
+    path: tools/hindsight
   mcp-everything:
     url: https://github.com/modelcontextprotocol/servers.git
     path: ''
@@ -24,14 +30,8 @@ tools:
     url: https://github.com/nexuslbs/omni-plugins.git
     path: tools/paperclip
   test-rust-tool:
-    url: https://github.com/nexuslbs/omni-plugins.git
+    url: file:///opt/workspace/omni-plugins
     path: tools/test-rust-tool
-  actions:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/actions
-  hindsight:
-    url: https://github.com/nexuslbs/omni-plugins.git
-    path: tools/hindsight
 platforms:
   telegram:
     url: https://github.com/nexuslbs/omni-plugins.git

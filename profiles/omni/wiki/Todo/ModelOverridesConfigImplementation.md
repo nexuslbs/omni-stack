@@ -1,6 +1,6 @@
 # Provider/Model Overrides via config/models.yml — Implementation
 
-**Status:** Todo (task 16 — LAST in the serial chain, after compact+prune task 15)
+**Status:** IMPLEMENTED 2026-08-19 (task 16; executor #68, tester #69 PASS + GROUP 46, reviewer #70 APPROVE) — omniagent `cb6c092`+`cf311c3`, omni-dashboard `21a65bd`, omni-deployer `38175b3`
 **Date:** 2026-08-19
 **Scope:** omniagent (core config + provider registry + API), omni-stack
 (config/models.yml sample), omni-dashboard (/models page)
@@ -262,3 +262,21 @@ omniagent commit(s) (core + API) + omni-stack commit (models.yml sample +
 wiki reference) + omni-dashboard commit (/models page) + SHAs + evidence.
 Standing release loop: tasks → deploy.py dev → main → stable (never push
 stable while omnistable tasks run).
+
+
+---
+
+## Implementation (2026-08-19/20)
+
+**Status: IMPLEMENTED** — executor #68, tester #69 PASS (+ GROUP 46), reviewer #70 APPROVE (all in-window).
+
+| Repo | Commit | What |
+|---|---|---|
+| omniagent | `cb6c092` | feat(models-yml): `src/models_yaml.rs` (new, 700+ lines: `ModelsFile`/`ProviderOverride`/`PluginFlag`/`ModelConfig` structs, load/save/validate, `apply_provider_overrides` registry merge into `PROVIDER_METADATA`, `models_for_provider`, `upsert_provider_models`, precedence resolvers `resolve_*` for api_mode/supports_reasoning/budgets/max_tokens, 8 unit tests); `src/llm/mod.rs` overlay at startup; `src/plugins_yaml.rs` models.yml `models` overlay on `default_model.allowed_values` + synthetic plugin-less providers in `list_plugins` + `refresh_plugin_models` reworked to write models.yml (no plugin mutation); `src/server/models.rs` GET/PUT /api/models (validate-before-atomic-write); `src/main.rs` fail-loud on malformed models.yml; executor.rs/main_loop.rs per-thread resolution |
+| omniagent | `cf311c3` | fix: plugin flag always serialized + get_plugin models.yml overlay |
+| omni-stack | `0f16ae1` | config/models.yml sample + Reference/Models-Yml.md |
+| omni-stack | `aa3ea8f` | memory promotion: models-yml smoke-test isolated-OMNI_DIR pattern |
+| omni-dashboard | `21a65bd` | feat(models): /models page + models.yml API + shared plugin-import refactor |
+| omni-deployer | `38175b3` | test(models-yml): GROUP 46 (4 tests) — coverage was genuinely missing (`git grep -i models scripts/tests.py` = no matches at HEAD) |
+
+Verification (tester #69 + reviewer #70): GROUP 46 passes against fresh-HEAD binary in the dev-toolbox builder (tests_fail=0); reviewer independently read the actual code (models_yaml.rs full module, resolvers, upsert semantics, /api/models write path, dashboard commit) and verified git history.

@@ -1,6 +1,6 @@
 # Resolve Fallback Fields ONCE at Load — Universal Resolution Pattern (kanban tasks, channels, provider/model, settings)
 
-**Status:** Todo (task 17 — LAST in the serial chain, after models.yml task 16)
+**Status:** Phase 1 + shared pattern IMPLEMENTED 2026-08-20 (task 17; executor #71 COMPLETE — tester/reviewer pending); Phases 2-4 remain — omniagent `8e238d2`+`1bdcde0`, omni-stack `0720d81`
 **Date:** 2026-08-19 (generalized twice: fail-routing bug → kanban task fields → ALL fallback fields)
 **Scope:** omniagent (resolution pattern + all domains with fallbacks)
 
@@ -152,3 +152,24 @@ omniagent commit(s) + SHAs + test/live evidence + Reference/Field-Resolution.md.
 Standing release loop: tasks → deploy.py dev → main → stable (never push
 stable while omnistable tasks run). Until the fix ships, board-task fails
 block — recover manually (REDISPATCH NOTE + PATCH status → running).
+
+
+---
+
+## Implementation (2026-08-20 — executor #71 COMPLETE; tester/reviewer pending outside this window)
+
+**Status: Phase 1 (kanban task defaults) + shared pattern IMPLEMENTED; Phases 2-4 remain** — omniagent HEAD `1bdcde0`, omni-stack `0720d81`.
+
+| Repo | Commit | What |
+|---|---|---|
+| omniagent | `8e238d2` | feat(resolution): new `src/resolution.rs` (569 lines, 10 unit tests) — `TaskFallbackFields`/`ResolvedTaskDefaults { workflow_id, channel_id, profile, plan, template }` via `resolve_task_defaults(data_dir, fields)` (chain task → board → channel → global settings, fail-loud invalid board mirroring `task_board`); `effective_channel_name()` data-dir-parameterized shared channel resolver; `ResolvedChannel` (channel profile/provider/model fallbacks) + `ResolvedThreadProviderModel` + settings-snapshot helper |
+| omniagent | `1ee21e4` | style: cargo fmt |
+| omniagent | `296061c` | chore: untrack smoke-test artifacts |
+| omniagent | `1bdcde0` | chore(sqlx): regenerate offline query cache for board-resolved SELECTs (SQLX_OFFLINE=true builds) |
+| omni-stack | `0720d81` | Reference/Field-Resolution.md (documentation deliverable) |
+
+Phase-1 consumers wired (no raw fallback-field reads on behavior paths): `src/agent/fail_thread.rs` `manual_review_decision` + `engine_transition` (SELECT adds `kt.board` — THE live bug: board tasks had NULL workflow_id → reviewer reject landed on `blocked` instead of executor rework); `src/db/threads.rs` `create_kanban_step_thread` (status-change dispatch, /redispatch, startup recovery all funnel here); `src/kanban_dispatch.rs` local `resolve_task_channel` replaced with shared `effective_channel_name`; `src/lib.rs` registers `pub mod resolution`.
+
+Verification (executor #71): `cargo test -p omniagent --lib resolution::tests` 10/10 pass (incl. `resolve_task_defaults_board_task_gets_board_defaults` regression, task-wins-over-board, invalid-board-fails-loud, channel-default-setting, profile-chain, effective-channel-chain, channel field fallbacks, provider/model shapes, settings snapshot); fmt clean; `SQLX_OFFLINE=true cargo check --lib` passes; clippy no new warnings; full workspace tests pass except 1 pre-existing ssh-plugin env-dependent test.
+
+Remaining: GROUP 47 live smoke (omnidev board-task reviewer-reject → rework thread + kanban_history "Creating thread #N" for step `running`, status-change dispatch lands on board channel) — the tester step's standing role verification. Phases 2-4 (channel fields, provider/model per-thread, settings resolved-at-load snapshot) are follow-up work per the universal pattern.

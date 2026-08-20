@@ -4,22 +4,17 @@
 general:
   condense_keep_turns: 4
   delete_after_days: 30
-  default_provider: opencode-go
-  llm_provider: opencode-go
+  default_provider: deepseek
+  llm_provider: deepseek
   max_inline_file_kb: 100
-  max_tokens: 16384
+  max_tokens: 4096
   max_tokens_on_truncation: 65536
   max_unfinished_subtask_retries: 3
-  old_message_token_budget: 100000
   soul_max_chars: 1000
   state_block_update_interval: 5
   kanban_dispatcher_interval: 15
   temperature: 0.7
   tokenizer_encoding: gpt-4
-  read_keep_last: 3
-  read_excerpt_chars: 2000
-  auto_note_max_chars: 24000
-  auto_note_entry_chars: 3000
   sub_prompt_max_chars: 4000
   sub_prompt_iteration_percent: 50
 
@@ -36,7 +31,6 @@ prompt:
   prompt_log_level: all
   prompt_tool_excerpt_chars: 800
   prompt_total_excerpt_cap: 4000
-  prompt_read_excerpt_chars: 2000
 
 memory:
   memory_max_chars: 5000
@@ -62,6 +56,13 @@ channels:
   default_kanban_channel: kanban
 
 unsorted:
+  auto_note_entry_chars: 3000
+  auto_note_max_chars: 24000
   max_pool_connections: 5
+  old_message_token_budget: 100000
+  prompt_read_excerpt_chars: 2000
   prompt_token_safety_factor: 15.0
+  read_excerpt_chars: 2000
+  read_keep_last: 3
   watchdog_default: ''
+

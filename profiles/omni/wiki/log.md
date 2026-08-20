@@ -1028,3 +1028,51 @@ Not changed: no templates touched (nothing in the window justified a template
 edit beyond the dev-reviewer template already improved in run #2's window);
 no skills created/deleted (wiki.md from thread 55 already ships; omniagent-api
 skill was updated by the earlier parity task).
+
+## 2026-08-20 (wiki-maintenance hook run #4 — threads 1732-1744)
+
+Fourth trigger of the profile-scoped wiki/templates/skills maintenance hook
+(event: last_thread=1732, current_thread=1744; all profile omni). Window
+threads 1732-1744: threads 1732/1733/1735/1736/1738/1739/1740/1741 are
+failed/skipped system-caused threads with NO agent activity (no durable facts);
+1734 (hooks) and 1737 (hooks, channel-summary run) are hook-caused, skipped.
+Substantive work: one omnidev workflow task `task_18cd65247cfc4d9e`
+(omni-dashboard 8-item UI/UX fixes, threads 1742 executor / 1743 tester /
+1744 reviewer):
+
+- **omni-dashboard 8-item UI/UX pass VERIFIED + regression-tested** — the
+  implementation had already landed on omni-dashboard origin/main from prior
+  threads: `fb9c680` (DB page 502 → server/routes/db.ts calls `search_database
+  {sql}`, was `query_database {operation, sql}`), `d56d046` (workflow option
+  text/order/defaults — review_on_fail first, defaults on create),
+  `b0e2bc6` (board modal fields → custom selects channel/profile/workflow/
+  plan/template/priority with empty options), `73fdf62` (hook trigger count
+  `type="tel"` + template custom select resolves from profile),
+  `8e85376` (template selects alphabetical all-profiles, red OPAQUE cancel
+  `var(--bg-card,#1e1e2e)`, plugin Remove always, explorer git box to bottom),
+  `295a669` (umbrella 8-item pass — accidentally included scratch push
+  scripts), `731f909` + `877a9e7` (hygiene: gitignore + remove leftover
+  .task-push.sh / .tmp_patch_*.py). Custom-select helper:
+  `enhanceSelect`/`enhanceSelectElement` in `src/lib/dropdown.ts`, consumed by
+  `src/pages/kanban.ts` (`wireBoardControls`), `src/lib/kanban-boards.ts`,
+  `src/lib/hooks-detail.ts`.
+- Executor 1742 verified the work was already pushed (clean tree), re-ran
+  `npm ci && npm run build && npm run lint` + tests in a node:22-alpine
+  toolbox (`/opt/workspace/.dash-build-compose.yml`, project `dash-build`);
+  only pre-existing `OmniDashboard API` subtest fails without a live server
+  (not a regression). Tester 1743 added omni-deployer GROUP 49 — a STATIC
+  source-check regression (`7e49bb8` `test(dashboard): GROUP 49 — omni-dashboard
+  UI/UX fixes regression tests`, reads TSX from disk, asserts select wiring /
+  option ordering / modal opacity) — and ran it PASS.
+- Reviewer 1744 verified origin/main @ `877a9e7`, clean trees in BOTH repos,
+  recorded GOOD findings for the DB 502 + workflows items, then ended the
+  thread FAILED with `workflow_step: running` — task flipped review → running
+  for executor rework (outcome threads ≥ 1745 are OUTSIDE this window, not
+  tracked here). Hygiene lesson: dashboards tasks keep committing scratch push
+  scripts — reviewers should grep `ghp_|x-access-token|PRIVATE KEY|sk-...`
+  before approving.
+- Maintenance actions this run: NEW Todo/DashboardUiUxFixesImplementation.md
+  (8 items, commit table, GROUP 49, workflow history, hygiene lesson);
+  index.md updated (new Todo entry); log.md (this entry). No template changes
+  (nothing REALLY valuable enough for the prompt-space cost); no skills
+  created/deleted.

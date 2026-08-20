@@ -48,6 +48,29 @@ workflows:
         model: null
         plan_mode: on
         retries: 3
+  # dev-executor: same as omniagent-dev but EXECUTOR-ONLY with auto_approve.
+  # Tasks on this workflow run the executor step and then go DIRECTLY to done
+  # (no tester/reviewer; auto_approve forces review_on_fail off). Used for
+  # self-contained tasks (docs, config, maintenance) where a single agent
+  # pass is sufficient and the executor's own verification is the gate.
+  dev-executor:
+    profile: null
+    provider: null
+    model: null
+    plan_mode: null
+    retries: 3
+    clear_executions_on_review: true
+    auto_approve: true
+    review_on_fail: false
+    roles:
+      executor:
+        template: dev-executor
+        mode: agent
+        profile: null
+        provider: null
+        model: null
+        plan_mode: null
+        retries: 3
   wf_probe_final:
     profile: null
     provider: null

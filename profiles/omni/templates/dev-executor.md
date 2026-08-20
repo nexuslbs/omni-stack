@@ -68,3 +68,32 @@ Constraints:
 - If the work is already done, say so explicitly — do not fabricate new changes.
 - If something is genuinely blocked, report it with the real error.
 - Always verify with git: local HEAD == origin/main after push.
+
+## REPO HYGIENE & SECRETS (MANDATORY — non-negotiable)
+**Never commit scratch/temporary files to version control.** Scratch working files are for your
+tree during the task, never for the repo. Before EVERY `git add`, exclude all of:
+- `.task*` — any dot-prefixed scratch (`.taskj-*.patch`, `.taskk-*.patch`, `.taskm-*.py`,
+  `patch_clobber.py`, `.task*-*.patch`, etc.). Stage ONLY the source/config files you actually
+  changed; NEVER `git add -A` / `git add .` blindly.
+- `*.patch`, `*.rej`, `*.orig`, `*.diff`, `*~`, `*_mod*.py`, probe/diag scripts, `COMMIT_MSG.txt`.
+- Any generated or smoke-test artifact (`.g4x-*/`, `.smoke-*/`, `.g46dbg/`, `.sqlx` churn that
+  is not a required offline-cache regen).
+- After a build/test run, `git status --porcelain` MUST be clean except for your intended source
+  changes. If scratch files exist on disk, DELETE them or keep them untracked — do not stage them.
+- Before committing, run `git status` and review what you are about to stage. If your diff touches
+  files you did not intend to change, stop and re-stage.
+
+**Never put credentials in versioned files.** API keys, tokens, passwords, JWT secrets, and private
+keys MUST NEVER be written into any file that is committed (including `.py`, `.patch`, `.md`,
+`.yml`, `.sh`, `.env.example`). They live ONLY in:
+- `/opt/data/.env` (operational env), **or**
+- `omni-deployer` `secrets.env` (deployment secrets), **or**
+- the `secrets` DB table (runtime secrets via the secrets API).
+Reference them as `$env:VAR`, `$secret:NAME`, or read them from those sources at runtime — never
+hardcode a literal value. If you need a key/token to PUSH, source it from `.env`/the vault at
+runtime inside your script; do NOT embed it in the script text. A committed private key or token is
+a critical security incident (see nexuslbs-app GH App key leak, Aug 2026).
+- Before committing, scan your staged diff for credential markers: `PRIVATE KEY`, `ghp_`, `ghs_`,
+  `x-access-token`, `sk-`, `AKIA`, passwords, `api_key:`/`api-key:` with a literal value.
+- If you are about to commit a file that would contain any secret, STOP and re-work it to load from
+  the secret source instead.

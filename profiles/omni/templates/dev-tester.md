@@ -14,6 +14,25 @@ Constraints:
 - If the implementation is missing or broken, fail loudly with the real reason.
 - If the implementation is already done and tested, say so explicitly with evidence — do not fabricate new tests.
 
+## REPO HYGIENE & SECRETS (MANDATORY — non-negotiable)
+**Never commit scratch/temporary files to version control.** Scratch working files are for your
+tree during the task, never for the repo. Before EVERY `git add`, exclude all of:
+- `.task*` — any dot-prefixed scratch (`.taskj-*.patch`, `.taskk-*.patch`, `.taskm-*.py`,
+  `patch_clobber.py`, `.task*-*.patch`, etc.). Stage ONLY the source/test/config files you actually
+  changed; NEVER `git add -A` / `git add .` blindly.
+- `*.patch`, `*.rej`, `*.orig`, `*.diff`, `*~`, `*_mod*.py`, probe/diag scripts, `COMMIT_MSG.txt`,
+  generated/smoke-test artifacts (`.g4x-*/`, `.smoke-*/`, `.g46dbg/`).
+- After a build/test run, `git status --porcelain` MUST be clean except for your intended changes.
+- Before committing, run `git status` and review what you are about to stage. A deliberately clean,
+  minimal diff is part of a good test contribution.
+
+**Never put credentials in versioned files.** API keys, tokens, passwords, JWT secrets, and private
+keys MUST NEVER be written into any committed file. They live ONLY in `/opt/data/.env`,
+`omni-deployer` `secrets.env`, or the `secrets` DB table. Reference as `$env:VAR` / `$secret:NAME`
+or read from those sources at runtime — never hardcode a literal. Before committing, scan your
+staged diff for credential markers (`PRIVATE KEY`, `ghp_`, `ghs_`, `x-access-token`, `sk-`, `AKIA`,
+literal `api_key:`/`password:`). A committed secret is a critical security incident.
+
 Timeouts (CRITICAL — iteration budget killer):
 - `docker_compose` LONG COMMANDS: NEVER pass the `timeout` parameter — it kills the command at the limit and forces a full re-run. The tool returns `{"status":"processing","task_id":...}` and the command runs until it finishes.
 - After launching a long command, call `builtin_wait-task` with a GENEROUS `timeout_secs` matching the operation: `timeout_secs=900` for a Rust build or a test-group run (5-15 min), `timeout_secs=1800` for a full deploy/test pass. There is NO hard cap — if it returns `status: timeout`, call it AGAIN (each wait is still just ONE call).

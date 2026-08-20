@@ -31,7 +31,7 @@ services:
     # Dev-only host access: publish dashboard + mattermost to the host here,
     # never in the base compose (host ports are a shared, finite resource).
     ports:
-      - "12346:3001"
+      - "12345:3001"
     volumes:
       # Keep the production dependencies installed in the image. Mounting the
       # host node_modules can hide them (and the host may not have them).
@@ -39,7 +39,7 @@ services:
 
   mattermost:
     ports:
-      - "12349:8065"
+      - "12346:8065"
 
   paperclip:
     ports:

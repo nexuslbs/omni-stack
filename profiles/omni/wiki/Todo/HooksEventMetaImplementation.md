@@ -1,6 +1,6 @@
 # Hooks Event Meta + Event Object Implementation
 
-**Status:** Planned (mirrors kanban task — see board)
+**Status:** IMPLEMENTED (2026-08-17→18; omniagent `4dd2921`/`c2bf7d4` — event meta (last_thread/last_message) in counter JSON + event object delivery + no-channel/no-profile guard).
 **Date:** 2026-08-16
 **Scope:** omniagent hooks engine (`src/hooks.rs`) + hook_counters state shape
 

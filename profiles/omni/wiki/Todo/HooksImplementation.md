@@ -1,6 +1,6 @@
 # Hooks Implementation Plan
 
-**Status:** Plan of action — NOT yet implemented
+**Status:** IMPLEMENTED (2026-08-17→18; omniagent `9797aa6` event-driven hooks → `83050c1` per-scope-key counter meta + save-summary tool → `c2bf7d4`/`4dd2921` event meta + event-object delivery; hooks are defined in `config/tasks.yml` — see HooksWikiSummariesImplementation.md + kanban task_18cd061e85394a52). This page is the implemented design blueprint.
 **Source design:** Task `task_18cb1c10324f7240` (kanban, omniagent-dev workflow) — this page is
 the versioned summary of everything decided
 **Date:** 2026-08-12

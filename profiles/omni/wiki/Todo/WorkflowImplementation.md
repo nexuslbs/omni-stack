@@ -1,6 +1,6 @@
 # Workflow Implementation Plan
 
-**Status:** Plan of action — NOT yet implemented
+**Status:** IMPLEMENTED (2026-08-14→17; omniagent `bbe907e`/`fe68972` per-role mode agent|action + auto_approve/review_on_fail + action_id, `15c92e9` runtime, `8a21a17`/`3d577e9` dispatcher routing, `3fc2027` status-change dispatch + /redispatch; workflows live in `config/workflows.yml` — see WorkflowRoleModeAutoApproveImplementation.md). This page is the implemented design blueprint.
 **Source design:** `data/research/workflow-role-based-kanban.md` (v6 — NOT versioned; this page is
 the versioned summary of everything decided)
 **Date:** 2026-08-04

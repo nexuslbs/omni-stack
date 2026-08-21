@@ -1,6 +1,6 @@
 # Workflow Role Mode (agent/action) + Auto-Approve
 
-**Status:** Planned (mirrors kanban task — see board)
+**Status:** IMPLEMENTED (2026-08-14→17; omniagent `fe68972` role mode agent|action + auto_approve/review_on_fail + action_id, `15c92e9` runtime, `8a21a17`/`3d577e9` routing; omni-deployer GROUP 40/41 regression).
 **Date:** 2026-08-17
 **Scope:** omniagent (workflows.yml parsing, step-thread creation, kanban_updater routing, fail_thread transitions) + omni-dashboard (workflows page: mode + action selects, auto_approve checkbox) + omni-stack (workflows.yml example)
 

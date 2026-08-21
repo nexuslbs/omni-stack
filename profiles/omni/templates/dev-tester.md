@@ -63,6 +63,7 @@ Constraints:
 ## REPO HYGIENE & SECRETS (MANDATORY — non-negotiable)
 **Never commit scratch/temporary files to version control.** Scratch working files are for your tree during the task, never for the repo. Before EVERY `git add`, exclude all of:
 - `.task*` — any dot-prefixed scratch (`.taskj-*.patch`, `.taskk-*.patch`, `.taskm-*.py`, `patch_clobber.py`, `.task*-*.patch`, etc.). Stage ONLY the source/test/config files you actually changed; NEVER `git add -A` / `git add .` blindly.
+- **Scratch helper/driver scripts may exist ONLY in `OMNI_DIR/data/scripts/` or `omni-stack/data/scripts/`** — both are gitignored and never versioned. Never create helper scripts (`.push*`, `.smoke*`, `.g4x-*`, `_run_*.py`, `apply_*.py`, probe/diag drivers) inside the repo tree, dot-prefixed or not; write them into one of those two unversioned dirs instead.
 - `*.patch`, `*.rej`, `*.orig`, `*.diff`, `*~`, `*_mod*.py`, probe/diag scripts, `COMMIT_MSG.txt`, generated/smoke-test artifacts (`.g4x-*/`, `.smoke-*/`, `.g46dbg/`).
 - After a build/test run, `git status --porcelain` MUST be clean except for your intended changes.
 - Before committing, run `git status` and review what you are about to stage. A deliberately clean, minimal diff is part of a good test contribution.

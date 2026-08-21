@@ -1,6 +1,6 @@
 # Skills Gap: Display Bug + Hermes-Compatible Layout + Prompt Nudge
 
-**Status:** Planned (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-17 (omniagent `b29dd2e`+`285bb10`+`571a2a2` — get_skills frontmatter display fix, Hermes create_skill layout + richer frontmatter, `view_skill` tool, search_wiki active-profile + recursive Reference/ search, prompt nudge)
 **Date:** 2026-08-17
 **Scope:** omniagent (skills plugin + prompt plugin) — NO omni-plugins changes (no python skills port exists; skills stays Rust built-in)
 

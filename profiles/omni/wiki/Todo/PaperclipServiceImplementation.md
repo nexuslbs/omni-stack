@@ -1,6 +1,6 @@
 # Paperclip Service + Integration (Implementation Spec)
 
-**Status:** Planned
+**Status:** IMPLEMENTED 2026-08-16 (omni-stack — `paperclip` compose service (profile "paperclip") + MCP wrapper from omni-plugins `tools/paperclip` wired in `config/remote.yml`/`config/plugins.yml`)
 **Date:** 2026-08-16
 **Scope:** omni-stack (compose service), omni-plugins (thin MCP wrapper plugin), omniagent/omni-stack (config wiring), omni-deployer (tests)
 

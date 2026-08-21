@@ -75,6 +75,11 @@ tree during the task, never for the repo. Before EVERY `git add`, exclude all of
 - `.task*` — any dot-prefixed scratch (`.taskj-*.patch`, `.taskk-*.patch`, `.taskm-*.py`,
   `patch_clobber.py`, `.task*-*.patch`, etc.). Stage ONLY the source/config files you actually
   changed; NEVER `git add -A` / `git add .` blindly.
+- **Scratch helper/driver scripts may exist ONLY in `OMNI_DIR/data/scripts/` or
+  `omni-stack/data/scripts/`** — both are gitignored and never versioned. Never create helper
+  scripts (`.push*`, `.smoke*`, `.g4x-*`, `_run_*.py`, `apply_*.py`, probe/diag drivers) inside
+  the repo tree, dot-prefixed or not; if a task needs a helper script, write it into one of those
+  two unversioned dirs, never into the repo.
 - `*.patch`, `*.rej`, `*.orig`, `*.diff`, `*~`, `*_mod*.py`, probe/diag scripts, `COMMIT_MSG.txt`.
 - Any generated or smoke-test artifact (`.g4x-*/`, `.smoke-*/`, `.g46dbg/`, `.sqlx` churn that
   is not a required offline-cache regen).

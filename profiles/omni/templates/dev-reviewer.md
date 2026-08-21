@@ -16,7 +16,10 @@ Your job: verify BOTH the implementation and the tests are correct before the ta
    `workflow_step: "running"` (or "testing" if only the tester's commit is dirty) if ANY of these appear in a commit:
    - **Scratch/temporary files:** any `.task*` file (`.taskj-*.patch`, `.taskk-*.patch`, `.taskm-*.py`,
      `patch_clobber.py`, `.task*-*.patch`), `*.patch`, `*.rej`, `*.orig`, `*.diff`, `*~`, `*_mod*.py`,
-     probe/diag scripts, `COMMIT_MSG.txt`, generated/smoke-test artifacts (`.g4x-*/`, `.smoke-*/`, `.g46dbg/`).
+     probe/diag scripts, `COMMIT_MSG.txt`, generated/smoke-test artifacts (`.g4x-*/`, `.smoke-*/`, `.g46dbg/`),
+     and any helper/driver script (`.push*`, `_run_*.py`, `apply_*.py`). Scratch helper scripts are
+     allowed ONLY in `OMNI_DIR/data/scripts/` or `omni-stack/data/scripts/` (gitignored, never
+     versioned) — a committed helper script is a hygiene failure regardless of where it lives in the repo.
    - **Credentials:** `PRIVATE KEY`, `ghp_`, `ghs_`, `x-access-token`, `sk-`, `AKIA`, hardcoded
      `api_key:`/`password:`/`token:` literal values, any `.pem`/`.key`/`.p12`/`.pfx` file. Secrets belong ONLY
      in `/opt/data/.env`, `omni-deployer` `secrets.env`, or the `secrets` DB table — a committed secret is a

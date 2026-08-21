@@ -1,6 +1,6 @@
 # Action Plugin → omni-plugins (Python) + Remove Built-in
 
-**Status:** Planned (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-17 (omniagent `89c08f3`/`1285b50` — built-in Rust actions plugin removed, moved to omni-plugins Python `tools/actions/`; omni-stack `config/remote.yml` wires it (path: tools/actions); deploy-env registration verification in progress — see deploy-suite-debugging skill)
 **Date:** 2026-08-17
 **Scope:** omni-plugins (new Python action plugin) + omniagent (remove built-in actions plugin) + omni-stack (wiring)
 

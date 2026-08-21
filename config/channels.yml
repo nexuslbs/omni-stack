@@ -1,61 +1,49 @@
 channels:
-  cron:
-    resource_identifier: cron
-    cause: system
-    profile: omni
-  mm-kanban:
-    platform: mattermost
-    resource_identifier: wkbugy5xcff1teeqgnty5ck4io
-    cause: system
-    profile: omni
-    model: deepseek-v4-flash
-    provider: deepseek
-    closed: false
-  mattermost-setup:
-    platform: mattermost
-    resource_identifier: zswtrbugn7b8mcbtarcwe6isfh
-    cause: system
-    profile: omni
-    closed: false
   mattermost-i7bourg8:
     platform: mattermost
     resource_identifier: i7bourg8rjdoieuqrsmdzr9pnr
-    cause: user
     profile: omni
     closed: false
-  mattermost-d6bmh64b:
+  test-channel:
     platform: mattermost
-    resource_identifier: d6bmh64bk7foukhw31ga4rhm3a
-    cause: system
-    profile: omni
-  hooks:
-    resource_identifier: hooks
-    cause: system
-    profile: omni
-  mattermost-mg5cjsh5:
-    platform: mattermost
-    resource_identifier: mg5cjsh5ujyxtd5nk7b5d5yx1e
-    cause: system
+    resource_identifier: wb84ur4j6irbfbi95tskteizpw
     profile: omni
     model: test-tool-caller
     provider: noop
     closed: false
-  kanban:
-    resource_identifier: kanban
-    cause: system
+  cron:
+    resource_identifier: cron
     profile: omni
   g30-b:
     resource_identifier: g30-b
-    cause: system
     profile: omni
+  hooks:
+    resource_identifier: hooks
+    profile: omni
+  mattermost-mg5cjsh5:
+    platform: mattermost
+    resource_identifier: mg5cjsh5ujyxtd5nk7b5d5yx1e
+    profile: omni
+    model: test-tool-caller
+    provider: noop
+    closed: false
   g30-a:
     resource_identifier: g30-a
-    cause: system
     profile: omni
   mattermost-stable-channel:
     platform: mattermost
     resource_identifier: 7p9ozmn7pjbb8erza75udctwcw
-    cause: system
+    profile: omni
+    model: deepseek-v4-flash
+    provider: deepseek
+    closed: false
+  mattermost-d6bmh64b:
+    platform: mattermost
+    resource_identifier: d6bmh64bk7foukhw31ga4rhm3a
+    profile: omni
+  mm-kanban:
+    platform: mattermost
+    resource_identifier: wkbugy5xcff1teeqgnty5ck4io
     profile: omni
     model: deepseek-v4-flash
     provider: deepseek
@@ -63,5 +51,12 @@ channels:
   mattermost-af66ardb:
     platform: mattermost
     resource_identifier: af66ardbd3dffe7gwxnokzi19c
-    cause: system
     profile: omni
+  kanban:
+    resource_identifier: kanban
+    profile: omni
+  mattermost-setup:
+    platform: mattermost
+    resource_identifier: qqwcaiarg3bedcfso411eq9fge
+    profile: omni
+    closed: false

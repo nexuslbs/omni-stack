@@ -1,58 +1,4 @@
 workflows:
-  omniagent-dev:
-    profile: null
-    # Provider/model are defined by the CHANNEL, never by the workflow
-    # (user rule 2026-08-14). The rerun resolution in fail_thread.rs falls
-    # through to thread.provider (channel-derived) when this is null.
-    provider: null
-    model: null
-    plan_mode: null
-    retries: 3
-    clear_executions_on_review: true
-    # auto_approve: optional, default false. When true the workflow has NO
-    # effective reviewer: tasks that would go to review go DIRECTLY to done,
-    # and review_on_fail is forced false (ignored).
-    auto_approve: false
-    # review_on_fail: optional, default false. When true, failed steps go to
-    # review instead of blocked (ignored while auto_approve is enabled).
-    review_on_fail: false
-    roles:
-      executor:
-        # Template is a FILE NAME resolved against
-        # profiles/<profile>/templates/<name>.md (e.g. omni ->
-        # profiles/omni/templates/dev-executor.md).
-        # Role mode: optional, 'agent' (default) | 'action'. Action mode runs
-        # the actions.yml tool named by action_id INSTEAD of the agent loop
-        # (executor fail -> blocked; tester fail -> review; reviewer fail ->
-        # blocked). No template needed in action mode.
-        template: dev-executor
-        mode: agent
-        profile: null
-        provider: null
-        model: null
-        plan_mode: null
-        retries: 3
-      reviewer:
-        template: dev-reviewer
-        mode: agent
-        profile: null
-        provider: null
-        model: null
-        plan_mode: on
-        retries: 9
-      tester:
-        template: dev-tester
-        mode: agent
-        profile: null
-        provider: null
-        model: null
-        plan_mode: on
-        retries: 3
-  # dev-executor: same as omniagent-dev but EXECUTOR-ONLY with auto_approve.
-  # Tasks on this workflow run the executor step and then go DIRECTLY to done
-  # (no tester/reviewer; auto_approve forces review_on_fail off). Used for
-  # self-contained tasks (docs, config, maintenance) where a single agent
-  # pass is sufficient and the executor's own verification is the gate.
   dev-executor:
     profile: null
     provider: null
@@ -66,10 +12,48 @@ workflows:
       executor:
         template: dev-executor
         mode: agent
+        action_id: null
         profile: null
         provider: null
         model: null
         plan_mode: null
+        retries: 3
+  omniagent-dev:
+    profile: null
+    provider: null
+    model: null
+    plan_mode: null
+    retries: 3
+    clear_executions_on_review: true
+    auto_approve: false
+    review_on_fail: false
+    roles:
+      executor:
+        template: dev-executor
+        mode: agent
+        action_id: null
+        profile: null
+        provider: null
+        model: null
+        plan_mode: null
+        retries: 3
+      reviewer:
+        template: dev-reviewer
+        mode: agent
+        action_id: null
+        profile: null
+        provider: null
+        model: null
+        plan_mode: on
+        retries: 9
+      tester:
+        template: dev-tester
+        mode: agent
+        action_id: null
+        profile: null
+        provider: null
+        model: null
+        plan_mode: on
         retries: 3
   wf_probe_final:
     profile: null
@@ -83,6 +67,8 @@ workflows:
     roles:
       executor:
         template: null
+        mode: null
+        action_id: null
         profile: null
         provider: noop
         model: test-tool-caller

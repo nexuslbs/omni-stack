@@ -1,6 +1,6 @@
 # Plugin Restart Endpoint — Fix `/restart` to Handle All Plugin Types (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-13 (omniagent `0245407` — /restart dispatches by type (tool/platform/provider); enable is a no-op when already enabled)
 **Date:** 2026-08-13
 **Scope:** omniagent (single repo change)
 

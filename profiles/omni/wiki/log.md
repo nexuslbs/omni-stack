@@ -1164,3 +1164,13 @@ commits (0c772e9, 8e13237, 44799c4, 4086d06, 26e2ae1, d096e30); index.md synced.
 
 `RemoveChannelCauseImplementation.md` marked **IMPLEMENTED 2026-08-19** (omniagent `4640777`,
 kanban task_18cd0a9e3b7a7e1a DONE): `cause` removed from the channel model (channels.yml + API).
+
+## 2026-08-21 (docs task: wiki Todo statuses round 4)
+
+Marked IMPLEMENTED with verified omniagent commits: Plugin Restart Endpoint
+(`0245407`, 2026-08-13), Fail-Thread Routing review_on_fail (`4f8b1f9`,
+2026-08-17), Cache-Friendly Compaction (`e8239a0`+`f29e9a4`, folded into
+compact+prune), Actions Plugin → omni-plugins Python (`89c08f3`/`1285b50`,
+2026-08-17; deploy-env registration under verification), SSH Plugin
+(`bccfd2a`), Subtasks Improvement (`14e832f`+`d601dd5`). index.md catalog
+synced.

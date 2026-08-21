@@ -1,6 +1,6 @@
 # SSH Plugin (Implementation)
 
-**Status:** Planned
+**Status:** IMPLEMENTED (omniagent `bccfd2a` — builtin mcp-server-ssh: ssh_run/ssh_copy/ssh_status tools; keys/config from `{OMNI_DIR}/data/ssh/`; see remote-development skill)
 **Date:** 2026-08-16
 **Scope:** omniagent (new builtin `ssh` tool plugin), omni-stack (plugins.yml/config/template/skill wiring), omni-deployer (integration tests)
 

@@ -2,10 +2,11 @@
 
 Deployment, configuration, and plugin infrastructure for **OmniAgent**: a next-generation agent system built with Rust, PostgreSQL + pgvector, and MCP tool support.
 
-This repository contains the Docker Compose stack, service definitions, plugin infrastructure, and profile/template management for **OmniAgent**.
+This repository contains the Docker Compose stack, service definitions, plugin infrastructure, and profile/template management for **OmniAgent**. It also ships the OMNI_DIR YAML config (`config/*.yml`) that defines channels, kanban boards, workflows, hooks, models, plugins, actions and settings.
 
 > **OmniAgent itself** lives at [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent).  
-> **Omni-Dashboard** lives at [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard).
+> **Omni-Dashboard** lives at [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard).  
+> **omni-plugins** (plugin-less provider definitions, `models.yml`) lives at [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins).
 
 ---
 
@@ -14,20 +15,30 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 ```
 omni-stack/
 ├ docker-compose.yml         # Production stack
-├ docker-compose.dev.yml     # Development overrides
+├ docker-compose.dev.yml     # Development overrides (build from source, host ports 12345/12346)
 ├ .env.example               # Environment template
 │
 ├ profiles/
 │   └ omni/                  # Default profile (config, memories, skills, wiki)
 │       ├ config.json        #   Profile configuration
 │       ├ memories/          #   MEMORY.md, SOUL.md
-│       ├ skills/            #   Practical wiki
-│       ├ templates/         #   Prompt templates
-│       └ wiki/              #   Wiki content (basically, a long term memory in human readable format)
+│       ├ skills/            #   Practical wiki / agent skills
+│       ├ templates/         #   Prompt templates (dev-executor, dev-tester, dev-reviewer, ...)
+│       └ wiki/              #   Wiki content (long-term memory in human readable format)
 │
 ├ services/toolbox/          # Toolbox container (maintenance scripts)
 │
-├ config/                     # OMNI_DIR yml config (actions/plugins/remote/settings/workflows.yml)
+├ config/                    # OMNI_DIR yml config — see "Config directory" below
+│   ├ actions.yml            #   Action plugin definitions
+│   ├ boards.yml             #   Kanban boards (default channel/profile/workflow/plan per board)
+│   ├ channels.yml           #   Channels (map key = channel name = stable identifier)
+│   ├ models.yml             #   Provider/model overrides (pure definition file, no plugin code)
+│   ├ plugins.yml            #   Plugin registry (sources, enable/disable, $env:/$secret: refs)
+│   ├ remote.yml             #   Remote plugin sources (git-cloned)
+│   ├ settings.yml           #   Global settings incl. default_*_channel selects
+│   ├ tasks.yml              #   Hook/cron task templates
+│   └ workflows.yml          #   Kanban workflows (roles: executor/tester/reviewer, auto_approve, review_on_fail)
+│
 └ AGENTS.md                  # Operational guide for the LLM agent
 ```
 
@@ -53,7 +64,7 @@ S3_BUCKET=<bucket_name>
 
 `POSTGRES_PASSWORD` is the **only** truly required secret. `DATABASE_URL` is auto-derived from it in `docker-compose.yml`.
 
-> **Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are built into the omniagent Docker image. No manual setup needed in this repo — just add your API key via the dashboard Settings page after starting.
+> **Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are built into the omniagent Docker image. No manual setup needed in this repo — just add your API key via the dashboard Settings page after starting. Provider **model lists / overrides** can be customized without touching plugins via `config/models.yml` (see [Models](#models-modelsyml)).
 
 > If you're **restoring from an existing S3 backup**, include the `S3_*` variables. The `omni-restore.sh` script pulls your previous `.env` (including all secrets, Mattermost config, provider keys) and restores the full PostgreSQL database. After restore, `docker compose restart` to pick up the restored configuration.
 
@@ -91,7 +102,7 @@ Combine profiles with commas: `COMPOSE_PROFILES=tunnel,mattermost,memory` or jus
 |---------|-----|-------|
 | Dashboard | Tunnel URL (from Cloudflare) | Authenticated via tunnel |
 | OmniAgent API | `http://localhost:8080` | Direct on host |
-| Dashboard | `http://localhost:12346` | Direct on host |
+| Dashboard (dev overlay) | `http://localhost:12345` | Dev-only host port, see Development |
 
 ### Fresh Start vs Restore
 
@@ -108,7 +119,85 @@ docker compose restart
 
 ---
 
+## Config directory (`config/`)
+
+OMNI_DIR root-level YAML. `settings.yml`, `channels.yml`, `boards.yml`, `workflows.yml`, `models.yml`, `plugins.yml`, `remote.yml`, `actions.yml` and `tasks.yml` are all read at omniagent startup. See `config/README.md` for the detailed reference. Highlights:
+
+- **settings.yml** — global settings. `default_cli_channel` / `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` control which channel each producer (CLI, cron, hooks, kanban) uses when no explicit channel is given. Token budgets live here too: `prompt_token_budget_soft` / `prompt_token_budget_hard`.
+- **channels.yml** — the map **key is the channel NAME** (the stable identifier used in the API, `threads.channel_id`, `kanban_tasks.channel_id`, ...). Entries without a `platform:` key are `cli` channels (kanban/cron system channels are platform-less).
+- **boards.yml** — kanban boards (feature-gated: active only while the file exists).
+- **workflows.yml** — kanban role workflows.
+- **models.yml** — provider/model overrides (plugin-less providers, model lists, per-model token budgets).
+- **plugins.yml / remote.yml / actions.yml** — plugin registry, remote git sources, action plugins.
+
 ## Usage
+
+### Kanban Boards (`boards.yml`)
+
+A board groups kanban tasks and carries **default execution options** (channel, profile, workflow, plan). The feature is active only while `boards.yml` exists. Resolution order for a thread created from a kanban task:
+
+```
+Workflow Role > Workflow > Kanban Task > Board > Channel > Global Settings
+```
+
+Boards fields act as the task's fallback when the task does not set the option itself. When `boards.yml` is present, the Kanban API **requires a board** on task create/edit (a task without a board is rejected). The dashboard exposes the board select in the create/edit modals.
+
+```yaml
+boards:
+  omnidev:
+    channel: mm-kanban
+    profile: omni
+    workflow: omniagent-dev
+    plan: true
+```
+
+### Kanban Workflows (`workflows.yml`)
+
+Workflows drive the **multi-role kanban lifecycle**: a task moves through steps (`running` → `review`/`testing` → ...) with a distinct template/mode/retries per role.
+
+```yaml
+workflows:
+  omniagent-dev:
+    profile: null
+    provider: null
+    model: null
+    plan_mode: null
+    retries: 3
+    clear_executions_on_review: true
+    auto_approve: false          # true = skip reviewer, executor is the gate
+    review_on_fail: false        # true = executor failure moves task to review instead of blocked
+    roles:
+      executor:
+        template: dev-executor
+        mode: agent              # agent = LLM thread, action = fixed action_id
+        action_id: null
+        retries: 3
+      reviewer:
+        template: dev-reviewer
+        mode: agent
+        plan_mode: on
+        retries: 9
+      tester:
+        template: dev-tester
+        mode: agent
+        plan_mode: on
+        retries: 3
+```
+
+Key semantics:
+- **`auto_approve: true`** — no reviewer step; the workflow is executor-only and executor success completes the task (`dev-executor` workflow).
+- **`review_on_fail: true`** — a failed step routes the task to `review` (reviewer gets a second look) instead of straight to `blocked`.
+- **`mode: agent` vs `mode: action`** — per-role Mode select; `action` runs a fixed `action_id` instead of an LLM thread.
+- Per-role `profile`/`provider`/`model`/`plan_mode`/`retries` override the workflow defaults.
+
+### Hooks
+
+Hooks are **event-driven, fire-and-forget** notifications fired by the core engine on lifecycle events:
+- `thread_started` (on new thread creation),
+- `thread_finished` (on terminal thread transition),
+- `new_message` (on each persisted message).
+
+Hooks resolve their target channel via `settings.yml` → `default_hook_channel` (or the hook's own channel). The seed config ships a `hooks` channel (`channels.yml`) and `tasks.yml` hook task templates so you can route lifecycle events back into agent threads (e.g. a kanban-style `hooks` channel that turns events into tasks).
 
 ### Cron Jobs
 
@@ -119,13 +208,23 @@ Examples:
 - `*/15 * * * *`: every 15 minutes
 - `0 9 * * 1-5`: weekdays at 9am
 
-### Profiles
+### Channels & Profiles
 
-Profiles bundle model configuration, provider, and tools. Managed via the Dashboard UI or direct SQL.
+Channels represent communication endpoints (Telegram, Mattermost, API, cron, cli). Each channel has its own profile and model configuration. Messages are processed sequentially within a channel, in parallel across channels. Profiles bundle model configuration, provider, and allowed tools (managed via the dashboard or direct SQL).
 
-### Channels
+### Models (`models.yml`)
 
-Channels represent communication endpoints (Telegram, Mattermost, API, cron). Each channel has its own profile and model configuration. Messages are processed sequentially within a channel, in parallel across channels.
+`config/models.yml` is a **pure definition file** (no plugin code) for provider/model overrides:
+
+- `providers.<name>.plugin` — `true`/plugin name → use the provider plugin (`plugins.yml`); `false` → builtin `chat_completions`/`anthropic` support (plugin-less providers, e.g. from omni-plugins' root `models.yml`).
+- `providers.<name>.models` — replaces the plugin's `default_model.allowed_values` in selectors (channels page, providers page, `/models`).
+- Provider-level fields (`api_mode`, `supports_reasoning`, `default_base_url`, `refresh_url`, `default_model`, `api_key`, `token_budget_*`, `max_tokens*`) override the plugin config.
+- `model_config.<model>` — per-model overrides, highest precedence.
+
+Token budget / max_tokens precedence for each of soft/hard independently:
+`model_config.<model> > providers.<name> > global settings` (defaults `prompt_token_budget_soft` 100000 / `prompt_token_budget_hard` 500000).
+
+`api_key` supports `$env:VAR` and `$secret:NAME` (same expansion as `plugins.yml`).
 
 ### Plugins
 
@@ -188,31 +287,38 @@ This replaces the old `"dynamic"` api_mode: no hardcoded model-to-mode mappings 
 
 ## Development
 
-### Using docker-compose.dev.yml
+### Using docker-compose.dev.yml (omnidev)
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name omnidev up -d
 ```
 
-The dev compose adds:
-- Local image builds instead of pulling from GHCR
-- Mounted source directories for live development
-- Additional debug ports or logging
+The dev overlay adds:
+- **Local image builds** instead of pulling from GHCR (`omniagent-dev:latest` from `Dockerfile.dev`)
+- **Mounted source directories** for live development (`/opt/workspace/omniagent:/app`, `/opt/workspace/omni-dashboard:/opt/repo`)
+- **Dev-only host ports** (never in the base compose): dashboard `12345:3001`, mattermost `12346:8065`, paperclip `3101:3100`
+- `SQLX_OFFLINE=false` — dev builds validate queries against the live DB so code + migrations can change without a stale `.sqlx` cache
+
+The `omnidev` compose project is the development environment for the kanban dev workflows (`dev-executor`, `omniagent-dev`): tasks on the `omnidev` board resolve to the `omniagent-dev` workflow (executor → reviewer → tester) via `boards.yml`.
 
 ---
 
 ## CI/CD
 
-CI/CD workflows now live in [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer).
+CI/CD workflows live in [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer).
 
 The `publish.yml` workflow builds and publishes Docker images to GHCR on:
 - **Push to `stable`**: tags `omniagent:latest`, `omni-dashboard:latest`, `toolbox:latest`
 - **Push to `v*` tags**: tags each image with the semver tag (e.g., `omniagent:1.2.3`)
 
-Three parallel jobs build:
+Parallel jobs build:
 1. **omniagent**: from [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) (multi-stage Rust build)
-2. **omni-dashboard**: from [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) (Svelte + Vite)
+2. **omni-dashboard**: from [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) (Vite + TypeScript)
 3. **toolbox**: from this repo (`services/toolbox/Dockerfile`, alpine-based maintenance container)
+
+The workflow then runs the integration suite via `deploy.py ci`, tags the source repos (`omni-stack`, `omniagent`, `omni-dashboard`) with the release version, **and also pushes/tags `nexuslbs/omni-plugins`** (its root `models.yml` provides the plugin-less provider definitions used by the release).
+
+Release-loop convention: kanban tasks → `deploy.py dev` verification → push `main` → promote to `stable` (which triggers publish). Doc/config-only changes push straight to `main`.
 
 ---
 
@@ -257,7 +363,8 @@ rm -rf .git-cache/
 | Repository | Description |
 |-----------|-------------|
 | [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
-| [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Svelte SPA) |
+| [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Vite + TypeScript SPA) |
+| [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins) | Plugin-less provider definitions (`models.yml`) |
 | [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer) | Deployment orchestration, tests, CI/CD |
 | [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
 | **nexuslbs/omni-stack** (this repo) | Docker Compose, plugins, profiles |

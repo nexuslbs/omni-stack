@@ -379,3 +379,24 @@ docker exec -e PYTHONUNBUFFERED=1 omnidev-omniagent-1 \
 - When `git checkout -- .` fails (even silently), no tracked files are restored : the working tree remains dirty
 - Do NOT run `git checkout -- .` or any git operations on omni-stack from the host for cleanup
 - If the repo needs cleaning, do it from inside the container or use `docker exec` to run git commands as root
+
+---
+
+## Config directory (`config/`) — kanban boards, workflows, models, hooks
+
+Beyond plugins, this repo ships the OMNI_DIR YAML config. Agents working here
+must know these files — they gate real behavior:
+
+| File | Purpose | Notes |
+|------|---------|-------|
+| `config/boards.yml` | Kanban boards | Feature-gated: boards are ACTIVE only while this file exists (omnistable ships none). A board carries default `channel`/`profile`/`workflow`/`plan` for tasks created on it. Resolution: Workflow Role > Workflow > Task > Board > Channel > Global. When present, the Kanban API REQUIRES a board on task create/edit. |
+| `config/workflows.yml` | Kanban role workflows | Multi-role lifecycle: `roles.executor/tester/reviewer` each with `template`, `mode` (agent/action), `action_id`, `plan_mode`, `retries`. Workflow-level `auto_approve` (true = executor-only, no reviewer) and `review_on_fail` (true = failed step routes to review, not blocked). |
+| `config/models.yml` | Provider/model overrides | Pure definition file (no plugin code). `providers.<name>.plugin: false` = plugin-less provider via builtin chat_completions/anthropic; `models` replaces the plugin's allowed values in selectors; `model_config.<model>` per-model overrides. Token-budget precedence: model_config > provider > global settings. |
+| `config/channels.yml` | Channels | Map key = channel NAME = stable identifier everywhere (API, threads/messages/kanban_tasks channel_id). No `platform:` key = `cli` channel. |
+| `config/settings.yml` | Global settings | `default_cli_channel` / `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` + token budgets (`prompt_token_budget_soft`/`hard`). |
+| `config/hooks` | Event hooks | `thread_started` / `thread_finished` / `new_message` fire-and-forget events; `tasks.yml` carries hook task templates; channel resolved via `default_hook_channel`. |
+
+Full reference: `config/README.md`. The seed config in this repo is the
+reference implementation — do not rename fields or restructure these files
+without updating `config/README.md` and the omni-deployer integration suite
+(`scripts/tests.py` groups 26–49) that exercises them.

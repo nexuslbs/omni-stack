@@ -18,13 +18,59 @@
 # max_tokens / max_tokens_on_truncation follow the same chain.
 #
 # api_key supports $env:VAR and $secret:NAME (same expansion as plugins.yml).
+#
+# The code-less providers below (deepseek, openai, opencode-go, noop) are
+# PLUGIN-LESS: they no longer ship as plugin.json files in the omniagent image
+# (removed from the repo — see task "Move code-less provider plugins out of
+# omniagent"). Their canonical definitions live at the ROOT of the omni-plugins
+# repo (models.yml) and are mirrored here so this stack resolves them via
+# omniagent's builtin chat_completions/anthropic support.
 
 providers:
-  # Override the deepseek provider plugin: fix the (wrong) hardcoded model list
-  # without touching the plugin — selectors now show the real models.
+  # DeepSeek — plugin-less, builtin chat_completions support.
+  # Fixes the (previously hardcoded) model list without any plugin file.
   deepseek:
-    plugin: true
+    plugin: false
+    api_mode: "chat_completions"
+    supports_reasoning: true
+    default_base_url: "https://api.deepseek.com/v1"
+    refresh_url: "https://api.deepseek.com/v1/models"
+    default_model: "deepseek-v4-flash"
+    api_key: "$secret:DEEPSEEK_API_KEY"
     models: ["deepseek-v4-flash", "deepseek-v3", "deepseek-r1", "deepseek-v4-pro"]
+
+  # OpenAI — plugin-less, builtin chat_completions support.
+  openai:
+    plugin: false
+    api_mode: "chat_completions"
+    default_base_url: "https://api.openai.com/v1"
+    refresh_url: "https://api.openai.com/v1/models"
+    default_model: "gpt-4o"
+    api_key: "$secret:OPENAI_API_KEY"
+    models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4.1"]
+
+  # OpenCode Go — plugin-less gateway provider. The legacy "dynamic" api_mode
+  # from the old plugin.json is NOT carried over; chat_completions is used
+  # (OpenAI-compatible surface). For models served on the Anthropic surface
+  # (MiniMax/Qwen), add model_config.<model>.api_mode: "anthropic".
+  opencode-go:
+    plugin: false
+    api_mode: "chat_completions"
+    supports_reasoning: true
+    default_base_url: "https://opencode.ai/zen/go/v1"
+    refresh_url: "https://opencode.ai/zen/go/v1/models"
+    default_model: "deepseek-v4-flash"
+    api_key: "$secret:OPENCODE_API_KEY"
+    models: ["deepseek-v4-flash"]
+
+  # noop — plugin-less test provider (no API key; the noop-provider container
+  # server at http://noop-provider:9090/v1 is separate from any plugin file).
+  noop:
+    plugin: false
+    api_mode: "chat_completions"
+    default_base_url: "http://noop-provider:9090/v1"
+    default_model: "test-model-1"
+    models: ["test-model-1", "test-model-2"]
 
   # Plugin-less provider: works via builtin chat_completions/anthropic support.
   # No plugin needed — appears in provider selects and can be used on threads.

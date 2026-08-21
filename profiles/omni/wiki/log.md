@@ -1076,3 +1076,65 @@ Substantive work: one omnidev workflow task `task_18cd65247cfc4d9e`
   index.md updated (new Todo entry); log.md (this entry). No template changes
   (nothing REALLY valuable enough for the prompt-space cost); no skills
   created/deleted.
+
+## 2026-08-21 (wiki-maintenance hook run #5 — threads 1744-1756)
+
+Fifth trigger of the profile-scoped wiki/templates/skills maintenance hook
+(event: last_thread=1744, current_thread=1756; all profile omni). Window
+threads 1744-1756: hook threads 1747 (prev maintenance run 1732-1744) and
+1749 (channel-summary) skipped; 1745 FAILED (bookend of the dashboard reject
+cycle). Two substantive workflow tasks completed end-to-end:
+
+1. **omni-dashboard 8-item UI/UX fixes (task_18cd65247cfc4d9e) — APPROVED** —
+   the rework cycle that run #4 left open completed: reviewer 1744 REJECTED
+   (blocking gap: Item 2 first bullet — the Kanban page board selector
+   `#kanban-board-select` in `src/lib/kanban-boards.ts` was STILL a native
+   `<select>` with no `enhanceSelectElement` call, only the board modal
+   selects were enhanced) → executor 1746 rework commit `1bf1405`
+   (`fix(kanban): board selector custom select`) → executor 1748 verified no
+   re-implementation needed → testers 1750 + 1751 re-ran GROUP 49 live
+   against omnidev: **9 pass / 0 fail** → reviewers 1752 + 1753 **APPROVE**
+   (git grep verified `enhanceSelect` wiring in kanban.ts/kanban-boards.ts/
+   dropdown.ts and hook select markup in hooks-detail.ts at HEAD).
+   `Todo/DashboardUiUxFixesImplementation.md` updated: status
+   IMPLEMENTED + TESTED + APPROVED, commit table gains `1bf1405`, workflow
+   history extended to the full lifecycle.
+2. **Resolve fields with fallback AT DATA-LOAD TIME (task_18cd7ecb9817b677) —
+   Phase 2 of the Field-Resolution rule, APPROVED** — omniagent `57e16da`
+   (3 files, +221/−15) "loaders return resolved data, never shallow values":
+   - `src/resolution.rs` (+152): `ResolvedChannelIdentity` +
+     `resolve_channel_identity(data_dir, def)` — canonical channel-tier
+     resolver: profile (yml → `default_profile_name()`), provider (yml →
+     resolved profile's provider → global `default_provider`), model (yml →
+     profile model ONLY when the channel doesn't pin a provider →
+     `resolve_default_model(provider)`); mirrors `resolve_thread_identity`'s
+     channel tier; 3 new unit tests incl. regression guard `83f461b`
+     (wf-test → noop/test-tool-caller).
+   - `src/db/channels.rs` (+15): `def_to_channel` resolves profile/provider/
+     model on EVERY load (channels.yml re-read fresh per call, NO boot-time
+     cache) — a provider edit takes effect next load/thread, no restart;
+     fixes the root-cause bug (mm-kanban → opencode-go edit ignored, threads
+     kept `deepseek`).
+   - `src/server/kanban.rs` (+69): `task_row_to_entry(data_dir, r)` runs
+     `resolve_task_defaults` after fetch — kanban API list/get return
+     RESOLVED values, never shallow board-based rows; invalid board → warn +
+     raw row (display only).
+   - Tester 1755: fmt fix `45bc5c2` (pre-existing rustfmt violation in
+     `plugins/tools/prompt/src/compact.rs:674`, file NOT touched by 57e16da);
+     ALL_GATES_DONE (check/fmt/clippy/test exit 0; 541-test + 44-test bins);
+     **GROUP 47 live G47_EXIT=0** (7 fns 47-A..G: rework, retest, block,
+     status-change dispatch, redispatch, explicit-fields-win,
+     unknown-board-fail-loud); rebuilt missing dev bins (mcp-server-prompt,
+     mattermost-platform); omni-deployer clean @ `7e49bb8`. Reviewer 1756
+     APPROVE; repo hygiene PASS (no scratch/secrets at HEAD).
+   - NEW `Todo/FieldResolutionDataLoadTimeImplementation.md`; `Reference/
+     Field-Resolution.md` updated (kanban API now returns resolved values —
+     display-API note revised; resolve_channel_identity + def_to_channel
+     load-time section; task_row_to_entry consumer; implementation status
+     block).
+
+Also fixed a catalog gap: `Reference/Field-Resolution.md` was missing from
+index.md's Reference list — added. No templates touched (nothing in the
+window justified a prompt-space cost); no skills created/deleted (no new
+reusable procedure beyond the documented resolvers; git push again used the
+JWT workaround where needed per known issue).

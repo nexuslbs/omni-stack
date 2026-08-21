@@ -12,9 +12,23 @@ the row/config is loaded, and let consumers use the RESOLVED struct.
 
 - Behavior paths (dispatch, fail routing, thread creation, role resolution,
   provider/model selection) consume the RESOLVED values only.
-- Display-only API responses (`GET /kanban/tasks`, `/channels`, `/threads`)
-  keep the RAW stored fields — the API reports what is stored, behavior uses
-  what is resolved.
+- API responses: `GET /kanban/tasks` (list/get) now returns RESOLVED values
+  via `task_row_to_entry` (since omniagent `57e16da`, 2026-08-21 — it no
+  longer hands out shallow board-based rows with NULL channel/workflow/
+  profile); `/channels` and `/threads` still report the RAW stored fields —
+  the API reports what is stored (except the kanban task API, which reports
+  what is resolved), behavior uses what is resolved.
+
+**Implementation status (both phases APPROVED):**
+- **Phase 1 — kanban task defaults** (2026-08-20, omniagent
+  `8e238d2`+`1bdcde0`, omni-stack `0720d81`): `resolve_task_defaults` at load
+  for dispatch/fail-routing/thread-creation. See
+  [FailRoutingBoardFallbackImplementation](../Todo/FailRoutingBoardFallbackImplementation.md).
+- **Phase 2 — channel identity + kanban API at load** (2026-08-21, omniagent
+  `57e16da`+`45bc5c2`, GROUP 47, task_18cd7ecb9817b677 APPROVED):
+  `resolve_channel_identity` in `def_to_channel` on every load (no boot-time
+  cache) + `task_row_to_entry` resolves kanban API rows. See
+  [FieldResolutionDataLoadTimeImplementation](../Todo/FieldResolutionDataLoadTimeImplementation.md).
 
 ---
 
@@ -56,11 +70,17 @@ Consumers (all use the resolved struct, none read the raw fields):
 - `src/kanban_dispatch.rs` — dispatch scan uses the shared
   `effective_channel_name` (no per-consumer resolver).
 - `src/kanban_action.rs` — receives the pre-resolved context.
-- `src/server/kanban.rs` — transitions operate on resolved values.
+- `src/server/kanban.rs` — transitions operate on resolved values; since
+  `57e16da` the list/get handlers resolve through
+  `task_row_to_entry(data_dir, r)` right after fetch (invalid board → warn +
+  raw-row fallback for display; dispatch still fails loudly).
 
-## 2. Channel fields — `resolve_channel` / `effective_channel_name`
+## 2. Channel fields — resolution at LOAD time
 
-Chain: explicit channel name → `default_<key>` channel setting → `""`.
+Two layers, both in `src/resolution.rs` / `src/db/channels.rs`:
+
+**a) `effective_channel_name` / `resolve_channel` (name tier).** Chain:
+explicit channel name → `default_<key>` channel setting → `""`.
 
 - `effective_channel_name(data_dir, explicit, setting_name)` — data-dir
   parameterized mirror of `channels_yaml::resolve_default_channel`: an
@@ -71,8 +91,25 @@ Chain: explicit channel name → `default_<key>` channel setting → `""`.
 - `ResolvedChannel { name, profile, provider, model }` —
   `resolve_channel(data_dir, explicit, setting_name)` carries the channel's
   channels.yml field overrides (profile/provider/model).
-- Channel profile/provider/model fall back to global settings at thread
-  identity resolution (below).
+
+**b) `resolve_channel_identity` (profile/provider/model tier, 2026-08-21).**
+Chain per field:
+
+| Field | Fallback order |
+|---|---|
+| `profile` | channels.yml `profile` → `default_profile_name()` |
+| `provider` | yml `provider` → resolved profile's `provider` → global default provider (`get_global().default_provider`) |
+| `model` | yml `model` → profile model **ONLY when the channel does not pin a provider** → `resolve_default_model(provider)` |
+
+- `ResolvedChannelIdentity` struct + `resolve_channel_identity(data_dir, def)`
+  in `src/resolution.rs` — semantics mirror `resolve_thread_identity`'s
+  channel tier exactly (regression guard `83f461b`: wf-test →
+  noop/test-tool-caller preserved).
+- `src/db/channels.rs::def_to_channel` routes through it **on every load** —
+  channels.yml is re-read fresh per call (NO boot-time cache), so a provider
+  edit takes effect on the very next load/thread, no restart. This fixed the
+  root-cause bug where an mm-kanban → opencode-go provider edit was ignored
+  and threads kept using `deepseek`.
 
 ## 3. Provider/model — `ResolvedThreadProviderModel`
 
@@ -109,6 +146,10 @@ review"; the task blocked instead of an executor rework thread. With the
 resolver, the board supplies the workflow/channel/profile/plan at load and the
 fail matrix routes exactly as for explicit-field tasks.
 
+Phase 2's live bug: a channels.yml provider edit (mm-kanban → opencode-go)
+was ignored because `def_to_channel` was read at boot; resolving on every load
+fixes it without a restart.
+
 ## Regression tests
 
 `src/resolution.rs` unit tests cover: plain task (boards disabled), board task
@@ -116,3 +157,9 @@ gets board defaults (THE bug), task wins over board, invalid board fails
 loud, `default_kanban_channel` setting fallback, profile chain
 (task → board → channel → default), effective channel name chain, channel
 field overrides, resolved provider/model projection, settings snapshot.
+Phase 2 adds: `resolve_channel_identity_falls_back_to_default_profile`,
+`resolve_channel_identity_passes_through_yml_fields`,
+`resolve_channel_identity_preserves_wf_test_pins` (guard 83f461b).
+omni-deployer GROUP 47 exercises the full task→board→channel→global chain
+live (7 fns: rework, retest, block, status-change dispatch, redispatch,
+explicit-fields-win, unknown-board-fail-loud).

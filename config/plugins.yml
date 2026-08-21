@@ -9,7 +9,7 @@ platforms:
       bot_password: $secret:MATTERMOST_BOT_PASSWORD
       bot_user: omnibot
       server_url: http://mattermost:8065
-      setup_channel: stable-channel
+      setup_channel: setup
       setup_team: omni
       test_password: $secret:MATTERMOST_TEST_PASSWORD
       test_user: testuser
@@ -114,25 +114,15 @@ tools:
     source: remote
     config: {}
 providers:
-  deepseek:
-    enabled: true
-    source: built-in
-    config:
-      api_key: $secret:DEEPSEEK_API_KEY
-  noop:
-    enabled: true
-    source: bundled
-    config: {}
+  # Code-less providers (deepseek, openai, opencode-go, noop) are now
+  # PLUGIN-LESS: defined in config/models.yml (plugin: false) using omniagent's
+  # builtin chat_completions/anthropic support — no plugin files exist for them
+  # in the omniagent image anymore (removed from the repo). Their definitions
+  # live at the root of the omni-plugins repo (models.yml) and are mirrored in
+  # config/models.yml.
+  # noop-full has real custom code (client.py, standalone stdio provider
+  # protocol) that models.yml cannot express, so it stays a plugin.
   noop-full:
     enabled: true
     source: built-in
     config: {}
-  openai:
-    enabled: false
-    source: bundled
-    config: {}
-  opencode-go:
-    enabled: true
-    source: built-in
-    config:
-      api_key: $secret:OPENCODE_API_KEY

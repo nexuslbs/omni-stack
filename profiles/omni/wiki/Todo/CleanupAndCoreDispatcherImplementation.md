@@ -1,6 +1,6 @@
 # Old-Data Cleanup (messages/threads/kanban_history) + Kanban Dispatcher into Core
 
-**Status:** Planned (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-17 (omniagent `26e2ae1` — delete old threads/kanban_history via delete_after_days (0=disabled); kanban dispatcher moved into core (kanban_dispatcher_interval default 15s), removed from actions plugin)
 **Date:** 2026-08-17
 **Scope:** omniagent core (`src/main.rs`, `src/db/`, `src/agent/config.rs`, `src/server/settings.rs`) + actions plugin (`plugins/tools/actions/`) + omni-stack config (settings.yml, actions.yml)
 

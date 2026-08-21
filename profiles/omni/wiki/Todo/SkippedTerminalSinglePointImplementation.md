@@ -1,6 +1,6 @@
 # Terminal Status Invariant: skipped/completed/failed/interrupted ⇒ terminal=true (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-14 (omniagent `44799c4` — terminal status invariant: skipped/failed/interrupted/system always terminal=true)
 **Date:** 2026-08-13
 **Scope:** omniagent
 

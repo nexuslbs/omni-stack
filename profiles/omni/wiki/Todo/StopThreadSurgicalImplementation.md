@@ -1,6 +1,6 @@
 # Stop-thread must be surgical: never cancel the channel handler for another thread's sake (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-14 (omniagent `d096e30` — surgical stop-thread: never cancels another thread's handler; stopped kanban thread clears its task's thread_status)
 **Date:** 2026-08-14
 **Scope:** omniagent
 

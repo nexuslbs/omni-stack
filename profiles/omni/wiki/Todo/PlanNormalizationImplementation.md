@@ -1,6 +1,6 @@
 # Normalize Planning to a Single `plan` Field (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-13 (omniagent `0c772e9` — planning_mode removed everywhere; single `plan` bool: DB columns dropped, tasks.yml enum removed, plugin APIs expose only plan)
 **Date:** 2026-08-13
 **Scope:** omniagent + omni-dashboard + omni-stack
 

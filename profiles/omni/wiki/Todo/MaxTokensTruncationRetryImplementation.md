@@ -1,6 +1,6 @@
 # Global `max_tokens_on_truncation`: escalate output budget on finish_reason=length (Implementation)
 
-**Status:** Running (mirrors kanban task `task_18cb78c5045bae48` — see board)
+**Status:** IMPLEMENTED 2026-08-17 (omniagent `a8f4569` — truncation FailFast forces thread failure; global `max_tokens_on_truncation` escalation on finish_reason=length, Option max_tokens defaults, legacy token budgets removed)
 **Date:** 2026-08-14 (rewritten from the per-role design of 2026-08-13)
 **Scope:** omniagent + omni-stack
 

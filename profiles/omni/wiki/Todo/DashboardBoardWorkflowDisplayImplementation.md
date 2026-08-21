@@ -1,6 +1,6 @@
 # Dashboard: Show Board Workflow + Workflow Select in Board Create/Edit
 
-> Status: planned (kanban task TBD)
+> Status: **IMPLEMENTED 2026-08-18** (omni-dashboard `16bb503` board workflow select + display; kanban task_18cd0a6e10e9c45d DONE) — board modal workflow is a select of workflows.yml keys, boards show workflow+channel
 > Scope: omni-dashboard (src/lib/kanban-boards.ts, src/lib/kanban-board.ts, src/lib/api.ts)
 
 ## Goal

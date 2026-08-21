@@ -1,6 +1,6 @@
 # Remove `cause` From Channel Model (yml + API)
 
-> Status: planned (omnidev board task)
+> Status: **IMPLEMENTED 2026-08-19** (omniagent `4640777` — cause removed from channel model: channels.yml + API; kanban task_18cd0a9e3b7a7e1a DONE)
 > Scope: omniagent core (src/channels_yaml.rs, src/db/types.rs, src/db/channels.rs, src/server/channels.rs, src/commands.rs, src/server/plugins_setup.rs) + omni-stack (config/channels.yml)
 
 ## Goal

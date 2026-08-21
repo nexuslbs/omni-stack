@@ -1,5 +1,15 @@
 # Log
 
+## 2026-08-21 (docs task — README/AGENTS/wiki pass across the four omni repos)
+
+Docs-only pass reflecting implemented kanban work: omniagent `e356833` (README+AGENTS),
+omni-dashboard `3790aa9` (README), omni-stack `b72d744` (README+AGENTS) + `f446df8` +
+`acc8ed8` (Todo pages marked IMPLEMENTED: hooks, workflow, boards, plan-normalization,
+default-channels, terminal-invariant, dispatch-gate, core-dispatcher, stop-thread),
+omni-deployer `afdc758` (README+AGENTS). This entry additionally marks
+DashboardBoardWorkflowDisplay (`16bb503`, task_18cd0a6e10e9c45d) and
+MaxTokensTruncation (`a8f4569`, task_18cb78c5045bae48) IMPLEMENTED.
+
 ## 2026-08-21 (docs task_18cd5aff66039e6f — wiki Todo statuses aligned with shipped code)
 
 README/AGENTS docs pass across omniagent/omni-dashboard/omni-stack/omni-deployer. Wiki pass: marked IMPLEMENTED the Todo pages for hooks (HooksImplementation), role-based workflows (WorkflowImplementation), kanban boards (KanbanBoardsImplementation), hooks event meta (HooksEventMetaImplementation), and workflow role mode/auto-approve (WorkflowRoleModeAutoApproveImplementation) — all verified against omniagent commits and kanban board done tasks; index.md entries updated to match.
@@ -1149,3 +1159,8 @@ Docs task (task_18cd5aff66039e6f) continued: marked PlanNormalization,
 DefaultChannels, SkippedTerminal, DispatchChannelGate, CleanupAndCoreDispatcher,
 StopThreadSurgical Todo pages IMPLEMENTED with their implementing omniagent
 commits (0c772e9, 8e13237, 44799c4, 4086d06, 26e2ae1, d096e30); index.md synced.
+
+## 2026-08-21 (docs task — RemoveChannelCause marked IMPLEMENTED)
+
+`RemoveChannelCauseImplementation.md` marked **IMPLEMENTED 2026-08-19** (omniagent `4640777`,
+kanban task_18cd0a9e3b7a7e1a DONE): `cause` removed from the channel model (channels.yml + API).

@@ -1142,3 +1142,10 @@ index.md's Reference list — added. No templates touched (nothing in the
 window justified a prompt-space cost); no skills created/deleted (no new
 reusable procedure beyond the documented resolvers; git push again used the
 JWT workaround where needed per known issue).
+
+## 2026-08-21 (docs task pass 2 — remaining implemented Todo pages marked IMPLEMENTED)
+
+Docs task (task_18cd5aff66039e6f) continued: marked PlanNormalization,
+DefaultChannels, SkippedTerminal, DispatchChannelGate, CleanupAndCoreDispatcher,
+StopThreadSurgical Todo pages IMPLEMENTED with their implementing omniagent
+commits (0c772e9, 8e13237, 44799c4, 4086d06, 26e2ae1, d096e30); index.md synced.

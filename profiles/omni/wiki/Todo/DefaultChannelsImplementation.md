@@ -1,6 +1,6 @@
 # Default Channel Settings + CLI Platform (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-13 (omniagent `8e13237` — default cli/schedule/hook/kanban channel settings as selects over channels.yml; platform-less channel = cli; empty channel fails with 'no channel defined' but record kept)
 **Date:** 2026-08-13
 **Scope:** omniagent + omni-dashboard + omni-stack
 

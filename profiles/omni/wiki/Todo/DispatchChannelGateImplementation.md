@@ -1,6 +1,6 @@
 # Dispatch Gate: No New Task While Channel Has Active Threads (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-14 (omniagent `4086d06` — dispatch gate: do not start a task when its channel has active threads)
 **Date:** 2026-08-13
 **Scope:** omniagent
 

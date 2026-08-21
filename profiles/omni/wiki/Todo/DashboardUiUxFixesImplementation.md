@@ -1,8 +1,8 @@
 # Dashboard UI/UX Fixes (8-item pass) — omni-dashboard
 
-**Status:** IMPLEMENTED + TESTED (GROUP 49 regression) — review rework pending
+**Status:** IMPLEMENTED + TESTED + APPROVED (2026-08-21) — rework cycle complete
 **Task:** `task_18cd65247cfc4d9e` (board: omnidev, mm-kanban)
-**Date:** 2026-08-20 (implementation landed in prior threads; window 1742-1744 verified it)
+**Date:** 2026-08-20 (implementation landed in prior threads); rework approved 2026-08-21
 **Repo:** `omni-dashboard` (+ `omni-deployer` for the regression group)
 **Related:** [Models-Yml](../Reference/Models-Yml.md) · [YamlApiFieldParityImplementation](./YamlApiFieldParityImplementation.md) (the 305199d refactor this pass built on)
 
@@ -29,6 +29,7 @@
 | `295a669` | `fix(ui): complete 8-item UI/UX pass` (the umbrella commit; accidentally included scratch push scripts) |
 | `731f909` | `chore(hygiene): gitignore + remove scratch push scripts accidentally committed in 295a669` |
 | `877a9e7` | `chore(hygiene): remove leftover .task-push.sh scratch script` |
+| `1bf1405` | `fix(kanban): board selector custom select` — REWORK (reject item 2 first bullet): `src/lib/kanban-boards.ts` `wireBoardControls` now calls `enhanceSelectElement` on `#kanban-board-select` (was still a native `<select>`) |
 
 Custom-select helpers: `enhanceSelect` / `enhanceSelectElement` live in
 `src/lib/dropdown.ts`; consumers include `src/pages/kanban.ts`
@@ -40,8 +41,10 @@ Custom-select helpers: `enhanceSelect` / `enhanceSelectElement` live in
 - GROUP 49 is a **static source-check** group (reads the TSX files from disk and
   asserts on select wiring, option ordering, modal opacity
   `background:var(--bg-card,#1e1e2e)`, etc.) — no live browser needed.
+- Re-run live against omnidev in tester threads 1750 AND 1751: **9 pass / 0 fail**
+  (run=49, both clean).
 
-## Workflow history (window 1732-1744, mm-kanban)
+## Workflow history (window 1742-1753, mm-kanban — full lifecycle)
 
 - **Executor thread 1742**: found the 8-item pass was ALREADY fully implemented
   and pushed to origin/main by prior threads; re-ran `npm ci && npm run build &&
@@ -51,10 +54,22 @@ Custom-select helpers: `enhanceSelect` / `enhanceSelectElement` live in
   server (not a regression).
 - **Tester thread 1743**: added GROUP 49 (commit `7e49bb8`) and ran it PASS.
 - **Reviewer thread 1744**: verified origin/main @ `877a9e7`, clean trees in both
-  repos; findings recorded GOOD for the DB 502 + workflows items; ended the
-  thread FAILED with `workflow_step: running` — task flipped review → running
-  for executor rework (the rework outcome lives in threads ≥ 1745, OUTSIDE this
-  maintenance window; not tracked here).
+  repos; findings GOOD for DB 502 + workflows items, BUT found a BLOCKING GAP —
+  Item 2 first bullet (the Kanban page board selector `#kanban-board-select`
+  rendered by `wireBoardControls()` in `src/lib/kanban-boards.ts`) was STILL a
+  native `<select>` with no `enhanceSelectElement`/`enhanceSelect` call (only the
+  board MODAL selects were enhanced, `openBoardModal` line 235). Ended the thread
+  FAILED with `workflow_step: running` → task flipped review → running.
+- **Executor thread 1746 (rework)**: fixed the gap — commit `1bf1405` pushed to
+  origin/main (`src/lib/kanban-boards.ts`).
+- **Executor thread 1748**: re-verified origin/main — fix present, build gate ran,
+  NO re-implementation needed.
+- **Tester threads 1750 + 1751**: both re-ran GROUP 49 live against omnidev —
+  **PASS, 9/9**; both repos clean.
+- **Reviewer threads 1752 + 1753**: **APPROVE** — every item verified against
+  actual git history and code at HEAD (git grep confirmed `enhanceSelect` wiring
+  in `kanban.ts`/`kanban-boards.ts`/`dropdown.ts` and hook select markup in
+  `hooks-detail.ts`), not self-reports.
 
 ## Hygiene lesson (recurring)
 

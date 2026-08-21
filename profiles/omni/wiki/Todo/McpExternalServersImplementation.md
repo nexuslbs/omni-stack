@@ -1,6 +1,6 @@
 # External / Agnostic MCP Servers (Implementation)
 
-**Status:** Planned
+**Status:** IMPLEMENTED 2026-08-16 (omniagent `92c8b40` — Python/NodeJS dependency install for non-Rust remote plugins; the 7 modelcontextprotocol reference servers wired in omni-stack `config/remote.yml`)
 **Date:** 2026-08-16
 **Scope:** omniagent (plugin install API + remote MCP support), omni-stack (config), omni-deployer (integration tests)
 

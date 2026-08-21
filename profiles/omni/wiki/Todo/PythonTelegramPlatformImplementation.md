@@ -1,6 +1,6 @@
 # Python Telegram Platform Plugin (Implementation)
 
-**Status:** Planned
+**Status:** WIRED 2026-08-17 (omni-stack `config/remote.yml` `platforms/telegram` -> omni-plugins; core telegram crate dropped `4aed9ef`). End-to-end mock-API test suite NOT yet verified — see kanban board
 **Date:** 2026-08-16
 **Scope:** omni-plugins (new python telegram platform plugin), omni-deployer (integration tests), omni-stack (config/channels wiring)
 

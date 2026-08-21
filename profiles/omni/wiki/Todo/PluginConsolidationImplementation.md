@@ -1,6 +1,6 @@
 # Plugin Consolidation: prompt dual, telegram/hindsight out, search merge, generic omniagent-API tool
 
-**Status:** Planned (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-17 (omniagent `4aed9ef`+`9422f50` — generic builtin `omniagent-api` tool + `DELETE /schedule/{id}`, search/query/metrics merged, telegram+hindsight crates dropped; Dockerfile COPY cleanup)
 **Date:** 2026-08-17
 **Scope:** omniagent (core builtins + plugin crates) + omni-plugins (prompt/hindsight) + omni-stack (plugins.yml/remote.yml wiring)
 

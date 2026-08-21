@@ -1,4 +1,12 @@
 # Log
+## 2026-08-21 (docs task — remaining Todo pages verified against commits)
+
+- External/Agnostic MCP Servers **IMPLEMENTED** (`92c8b40` — Python/NodeJS dep install; 7 reference servers in remote.yml)
+- Paperclip Service **IMPLEMENTED** (compose service + omni-plugins tools/paperclip wired)
+- Plugin Consolidation **IMPLEMENTED** (`4aed9ef`/`9422f50` — omniagent-api tool, search merge, telegram+hindsight dropped)
+- Skills Gap **IMPLEMENTED** (`b29dd2e`/`285bb10`/`571a2a2` — frontmatter fix, view_skill, create_skill layout)
+- Python Telegram Platform **WIRED** (remote.yml platforms/telegram; mock-API test suite not yet verified)
+
 
 ## 2026-08-21 (docs task — README/AGENTS/wiki pass across the four omni repos)
 

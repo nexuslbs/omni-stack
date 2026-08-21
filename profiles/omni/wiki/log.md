@@ -1,5 +1,9 @@
 # Log
 
+## 2026-08-21 (docs task_18cd5aff66039e6f — wiki Todo statuses aligned with shipped code)
+
+README/AGENTS docs pass across omniagent/omni-dashboard/omni-stack/omni-deployer. Wiki pass: marked IMPLEMENTED the Todo pages for hooks (HooksImplementation), role-based workflows (WorkflowImplementation), kanban boards (KanbanBoardsImplementation), hooks event meta (HooksEventMetaImplementation), and workflow role mode/auto-approve (WorkflowRoleModeAutoApproveImplementation) — all verified against omniagent commits and kanban board done tasks; index.md entries updated to match.
+
 ## 2026-08-20 (task 17 fallback-resolution executor COMPLETE — omniagent `8e238d2`)
 
 Task 17 "Resolve fallback fields ONCE at load — universal resolution pattern"

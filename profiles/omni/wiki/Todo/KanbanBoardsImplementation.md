@@ -1,6 +1,6 @@
 # Kanban Boards (Implementation)
 
-**Status:** Planned
+**Status:** IMPLEMENTED (2026-08-16→20; omniagent `05a8ce3` config/boards.yml + boards CRUD + board-aware dispatch, `5f4d458` board required on task create/edit when boards.yml present, `eae3b44` plan resolves from board, `8af0a28` board→channel→global fallback resolution; omni-stack `config/boards.yml`; dashboard board selector + board-workflow select). This page is the implemented design blueprint.
 **Date:** 2026-08-16
 **Scope:** omniagent (core + kanban server), omni-stack (config/boards.yml), omni-dashboard (kanban UI)
 

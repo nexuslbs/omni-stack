@@ -1,6 +1,6 @@
 # Cache-Friendly Compaction: Stable Summary Block (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-19 (folded into the compact+prune task — omniagent `e8239a0` + `f29e9a4` frozen bounded compaction summary block, stable-prefix invariant; see CompactPrunePluginOwnershipImplementation.md)
 **Date:** 2026-08-14
 **Scope:** omniagent (prompt plugin, `plugins/tools/prompt`)
 

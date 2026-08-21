@@ -1,6 +1,6 @@
 # Subtasks Improvement (Research + Implementation Spec)
 
-**Status:** In implementation (task queued on omnistable omniagent-dev)
+**Status:** IMPLEMENTED (omniagent `14e832f` — real manage_subtasks tool + markdown-plan auto-create + token-safe enforcement; `d601dd5` numeric-string ids)
 **Date:** 2026-08-16
 **Scope:** omniagent (subtasks plugin + core wiring), omni-stack (config/prompt/templates), omni-deployer (tests: noop test-tool-caller + manual)
 

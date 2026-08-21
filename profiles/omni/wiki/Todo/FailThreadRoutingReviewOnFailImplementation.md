@@ -1,6 +1,6 @@
 # Fail-Thread Routing (review_on_fail) + Double-Normalization Fix
 
-**Status:** Planned (mirrors kanban task — see board)
+**Status:** IMPLEMENTED 2026-08-17 (omniagent `4f8b1f9` — F0 empty workflow_step default fixed (double-normalization bug); review_on_fail wired into the fail matrix: tester F0 -> review, only reviewer can send blocked, non-reviewer blocked/invalid/retry-limit -> review; omni-deployer GROUP 40/41 regression)
 **Date:** 2026-08-17
 **Scope:** omniagent (`src/agent/fail_thread.rs` + unit/integration tests)
 

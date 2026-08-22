@@ -105,3 +105,11 @@ If a thread is mid-run, live-check `messages.token_usage` sums for the thread
 
 - No changes to omnistable stack config (channel provider failover stays as-is).
 - No real-LLM key changes.
+
+## Execution history
+
+- **2026-08-22 first attempt (thread 81) FAILED pre-work**: `The LLM provider
+  returned an error 3 consecutive times (max 3). Last error: rate limited
+  (HTTP 429); retry after 141801s. The thread was marked as failed.` No code
+  or config changes were made. Re-run the task when the provider quota allows
+  (see Reference/Omni-Deployer.md — provider 429 failure mode).

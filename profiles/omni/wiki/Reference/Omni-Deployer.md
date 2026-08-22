@@ -148,3 +148,47 @@ shared.init(s); shared.run_tests()
   argv (process-list exposure).
 - omni.env (generated Mattermost passwords) is gitignored; so are
   `secrets.env.bak*` backups.
+
+## Provider rate-limit (HTTP 429) failure mode — observed 2026-08-22
+
+Kanban dev-task threads on `mm-kanban` can die BEFORE doing any work:
+`The LLM provider returned an error 3 consecutive times (max 3). Last
+error: rate limited (HTTP 429); retry after 144801s. The thread was marked
+as failed.` Observed on threads 78 (`probe-wf-field probe`), 79 (omnidev
+chain task) and 81 (deploy.py hybrid token-budget task) — retry-after
+~141-145k s ≈ 39-40h (daily quota exhausted). Facts:
+
+- No code/config state changes happen in such a thread — it failed at the
+  first LLM call. Don't hunt for a regression; re-run the task.
+- A re-run of the same task succeeds once the quota allows: thread 80
+  (re-run of thread 79's omnidev chain) went fully green.
+- The thread is marked `failed` (terminal) — the kanban task stays in
+  `running`/`todo`; redispatch/re-run as usual.
+
+## Running the omnidev chain from the omnistable container (verified thread 80)
+
+The executor runs inside `omnistable-omniagent-1` (docker socket + compose
+CLI + `/opt/workspace/omni-deployer` mounted). Execute each `omnidev.py`
+step through the docker_compose MCP tool using the env_file to select the
+project (the tool does NOT accept `-p <project>`):
+
+```
+docker_compose(project_dir="/opt/workspace/omni-stack",
+  env_file="/opt/workspace/omni-deployer/omnistable.env",
+  service="omniagent",
+  args="python3 /opt/workspace/omni-deployer/omnidev.py setup")
+```
+
+- **Gotcha:** `docker_compose(command="-p omnistable ps -a")` →
+  `Unrecognized compose command '-p'. Allowed: up, down, ps, logs, build,
+  restart, stop, exec, run, pull` — project selection is via the
+  `env_file` param (omnistable.env / omnidev.env), never `-p`.
+- Long steps return `{status: processing, task_id: task_N_M}` → block on
+  `builtin_wait-task(task_id, timeout_secs=900, tail=2000)`. NEVER pass a
+  `timeout` on docker_compose calls (kills the command).
+- Measured (2026-08-22): setup 554s, test 302s (Passed 149, Failed 0),
+  agent ~5s (thread 76 in the omnidev DB: provider deepseek / model
+  deepseek-v4-flash / profile omni / 2652ms / answer 597), prepare 14s.
+- Isolation gate: omnistable container count must be unchanged (baseline
+  7: dashboard-1, mattermost-1, mattermost-db-1, noop-provider-1,
+  omniagent-1, postgres-1, toolbox-1).

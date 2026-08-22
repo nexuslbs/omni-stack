@@ -74,6 +74,12 @@ The `docker_compose` tool accepts these parameters:
 - `command`: compose verb + flags (e.g. `up -d`, `build`, `logs --tail=50`)
 - `service`: container name (required for exec/run)
 - `args`: command to run inside the container (for exec/run only)
+- `env_file`: a `.env`-style file passed via `--env-file` — this is how you
+  select WHICH compose project/stack to act on when several share the same
+  compose file (e.g. omni-stack's omnistable.env vs omnidev.env). The tool
+  does NOT accept `-p <project>`: `command="-p omnistable ps"` fails with
+  `Unrecognized compose command '-p'. Allowed: up, down, ps, logs, build,
+  restart, stop, exec, run, pull` (verified 2026-08-22, omnidev chain run).
 
 ### Examples
 
@@ -91,6 +97,12 @@ docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app",
 docker_compose(project_dir="/opt/workspace/blog", command="exec", service="db", args="mysql --help")
 docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="sh -c 'cargo build && cargo test'")
 docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app", args="ls -la /app/data")
+
+# Target a specific compose project via env_file (no -p flag)
+docker_compose(project_dir="/opt/workspace/omni-stack",
+               env_file="/opt/workspace/omni-deployer/omnistable.env",
+               service="omniagent",
+               args="python3 /opt/workspace/omni-deployer/omnidev.py setup")
 
 # View logs
 docker_compose(project_dir="/opt/workspace/blog", command="logs", args="-n 50")
@@ -112,6 +124,15 @@ docker_compose(project_dir="/opt/workspace/blog", command="exec", service="app",
 ```
 
 This runs a shell *inside* the container, and the `&&` chaining executes safely there: never on the host.
+
+### Long-running exec commands
+
+When `docker_compose exec` returns `{"status": "processing", "task_id": "task_N_M"}`
+(a long command tracked in the background), block on
+`builtin_wait-task(task_id=..., timeout_secs=900, tail=2000)` immediately —
+NEVER pass a `timeout` on the docker_compose call itself (it kills the
+command) and NEVER poll with other tools. Verified on the omnidev chain
+(setup 554s, test 302s).
 
 ## Verifying a plugin/tool deliverable (MANDATORY for plugin tasks)
 
@@ -141,3 +162,5 @@ produce the expected output through the real runtime. Minimum bar:
 - Containers/networks/volumes should be named with the project prefix
 - Docker compose project name should match directory name
 - When `service` is provided without `command="exec"`, it's ignored
+- `-p <project>` is NOT a valid `command` for the docker_compose MCP tool —
+  select the project via `env_file`

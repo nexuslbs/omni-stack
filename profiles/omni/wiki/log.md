@@ -1406,3 +1406,46 @@ Re-trigger of the 58-70 window (hook counter reset after the test-DB rebuild; th
 - Hermes enforcement loop: monitor per-thread sums via SQL; if caps breached
   mid-run → stop-thread, fix (agent prompts/skills/wiki/prompt-generate/
   compact-messages/tools/templates), re-run deploy.py dev, re-measure, repeat.
+
+## 2026-08-22 (wiki-maintenance pass, threads 70-82)
+
+Window = smoke bursts + hook threads + a provider-429 failure cluster +
+one fully-green omnidev chain re-run. No template changes (nothing REALLY
+valuable enough for the prompt-space cost).
+
+- **Smoke / non-durable threads (skipped for facts)**: 70 (skills_list-skills
+  noop, closes the documented 61-70 burst), 71 (channel-summary hook →
+  saved summary id=5, mattermost-stable-channel threads 58-70), 72
+  (previous wiki-maintenance hook, pass 58-70 — commit 039ed3f), 73-75
+  (memory_list-memories registration alternation: unknown in 73, works
+  74/75), 76/77 (math-tester threads: real agent answers
+  `What is 15 * 37 + 42?` → 597 — same probe shared.agent() posts in the
+  omnidev `agent` step).
+- **Provider rate-limit (HTTP 429) failure mode** (threads 78/79/81):
+  3 consecutive LLM provider errors → thread marked failed, retry-after
+  ~141-145k s (~39-40h), NO work done. Re-run succeeds (thread 80 = re-run
+  of thread 79's omnidev chain task, fully green). Documented in
+  Reference/Omni-Deployer.md + Smoke-Test-Threads.md identification note.
+- **Omnidev chain re-run GREEN (thread 80)**: setup 554s → test 302s
+  (149 passed / 0 failed) → agent (deepseek / deepseek-v4-flash / omni,
+  omnidev-DB thread 76, 2652ms, 597) → prepare 14s (mm-kanban MM channel
+  kus3t3196tdy3gzirjktmg8efw, members bot/testuser/admin, `$new mm-kanban`
+  registered → omniagent channel id=mm-kanban, patched
+  opencode-go/deepseek-v4-flash/profile omni, verified via GET /channels).
+  omnistable untouched (count 7 before/after); omni-deployer tree clean; no
+  code changes. The Todo status + timings were already recorded (400461e);
+  this pass added the execution pattern + gotchas to
+  Reference/Omni-Deployer.md.
+- **docker_compose gotchas (from thread 80)**: `-p <project> ps` is NOT a
+  valid command ("Unrecognized compose command '-p'. Allowed: up, down, ps,
+  logs, build, restart, stop, exec, run, pull") — select the compose project
+  via the `env_file` param (omnistable.env / omnidev.env). Long exec steps
+  return processing + task_id → block on `builtin_wait-task(timeout_secs=900,
+  tail=2000)`; never pass a timeout on docker_compose. Added to
+  skills/workspace-development.md + Reference/Omni-Deployer.md.
+- **DeployHybridTokenBudget**: first execution attempt (thread 81) failed
+  pre-work on 429 — execution-history note appended to
+  Todo/DeployHybridTokenBudgetImplementation.md.
+- **Files changed**: Reference/Smoke-Test-Threads.md, Reference/Omni-Deployer.md,
+  skills/workspace-development.md, Todo/DeployHybridTokenBudgetImplementation.md,
+  index.md, log.md.

@@ -27,7 +27,9 @@ Observed live 2026-08-22 in the rebuilt test DB (threads 1-10, 13-22 and
   `search_thread-messages` unknown in 57 but works in 58. Confirmed again in
   threads 61-70: `search_channel-prompts` unknown in 62 but works in 63/64;
   `search_channels` unknown in 65 but works in 66/67;
-  `skills_list-skills` unknown in 68 but works in 69/70.
+  `skills_list-skills` unknown in 68 but works in 69/70 (thread 70 closes the
+  burst). Confirmed again in threads 73-75: `memory_list-memories` unknown in
+  73 but works in 74/75 (21 promoted memories listed).
 - The EARLIEST burst (threads 1-10, 2026-08-22T02:47Z) already showed it:
   thread 1's cause is a cron step (`{"name": "step1", "tool":
   "cron_list-cron-jobs"}` — a cron-triggered smoke thread), and later smoke
@@ -44,6 +46,16 @@ Observed live 2026-08-22 in the rebuilt test DB (threads 1-10, 13-22 and
   (log --oneline -3) unknown in 18 but works in 19/20 (real output shows
   HEAD a923360, the MCP-server-artifact-removal chore); `kanban_list-kanban-
   tasks` unknown in 21 but works in 22 (`_No kanban tasks found._`).
+
+## Variant: math-tester threads (real agent, not noop)
+
+Threads 76/77 (2026-08-22, mattermost-stable-channel): cause =
+`What is 15 * 37 + 42? Please show your work.` — answered by a REAL agent
+(reasoning + summary, **597**, no tools, no noop wrapper). These are
+functional tester probes, not noop smoke: the SAME question is the omnidev
+`agent`-step probe (`shared.agent()` posts it and requires `597` — see
+Todo/OmnidevChainRunImplementation.md). No durable facts live in them; skip
+in maintenance.
 
 ## Consequences (durable facts)
 
@@ -71,3 +83,8 @@ Observed live 2026-08-22 in the rebuilt test DB (threads 1-10, 13-22 and
   `mattermost-stable-channel` (or the test channel) = smoke burst.
 - Spot-check one thread: if the reply names the `noop` provider /
   `test-tool-caller` model, the whole burst is smoke tests.
+- NOT every failure is smoke: mm-kanban dev-task threads that die with
+  "The LLM provider returned an error 3 consecutive times (max 3). Last
+  error: rate limited (HTTP 429); retry after ~140-145k s" failed on a
+  provider quota BEFORE doing any work — a re-run of the task succeeds
+  (thread 80 = re-run of 79). See Reference/Omni-Deployer.md.

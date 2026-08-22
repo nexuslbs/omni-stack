@@ -1350,3 +1350,17 @@ durable implementation facts.
   observed in the 19/20 smoke-test git log output.
 - No wiki page/skill additions, deletions, or merges; no template changes
   (nothing in the window justified prompt-space cost).
+## 2026-08-22 (wiki-maintenance hook — re-trigger, threads 34-46)
+
+Re-trigger of the 34-46 window (hook counter reset after the test-DB
+rebuild; previous trigger covered up to thread 34 with no changes).
+Window = ONLY the already-documented automated smoke burst: thread 34
+(compact-messages null-contract), threads 35/36 (channel-summary +
+previous wiki-maintenance hook threads, channel `hooks`), threads 37-46
+(noop/test-tool-caller single-tool runs with the expected "Unknown tool"
+alternation for search_messages / search_wiki / subtasks_list /
+actions_relevance-indexer). No user conversations, no new durable facts —
+content matches the burst documented by run #6 (`5be82bf`,
+Reference/Smoke-Test-Threads.md) byte for byte.
+- No wiki page / skill / template additions, deletions, or merges (nothing
+  in the window justified them; the window was already fully processed).

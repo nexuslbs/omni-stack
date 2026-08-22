@@ -1296,11 +1296,17 @@ and the previous wiki-maintenance pass (60, threads 46-58 — commits 5be82bf +
   on opencode-go (Zen gateway monthly quota exhausted). Failover per
   provider-rate-limit-failover.md: edited live config/channels.yml (root-owned,
   via docker exec sed) mm-kanban provider → deepseek, PATCHed /channels
-  (response showed deepseek), restarted omnistable-omniagent-1 (pre-rename
-  binary caches channel state at boot), PATCHed task todo, auto-dispatched
-  thread 80 with provider=deepseek → ran to green. Repo HEAD already had
-  deepseek (942512a); live file had been flipped back to opencode-go
-  (runtime/prepare PATCH) — now aligned again.
+  (response showed deepseek), PATCHed task todo, auto-dispatched thread 80
+  with provider=deepseek → ran to green. Repo HEAD already had deepseek
+  (942512a); live file had been flipped back to opencode-go (runtime/prepare
+  PATCH) — now aligned again.
+- CORRECTION (2026-08-22, user): the restart of omnistable-omniagent-1 during
+  the failover was NOT necessary — the running image is the CI-built GHCR
+  latest (created 2026-08-21T23:31Z, from stable 58dbfcf), which contains
+  omniagent `100c9d2` (2026-08-20: channel identity resolved AT LOAD TIME,
+  no boot-time cache). File edit + PATCH alone takes effect on the next
+  dispatch. The "restart required" note applied only to pre-100c9d2 binaries
+  (verified 2026-08-20, thread 1741). Docs updated accordingly.
 
 ## 2026-08-22 (follow-up: OmnidevChainRun DONE)
 

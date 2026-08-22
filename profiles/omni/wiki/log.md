@@ -1182,3 +1182,39 @@ compact+prune), Actions Plugin → omni-plugins Python (`89c08f3`/`1285b50`,
 2026-08-17; deploy-env registration under verification), SSH Plugin
 (`bccfd2a`), Subtasks Improvement (`14e832f`+`d601dd5`). index.md catalog
 synced.
+
+
+## 2026-08-22 (wiki-maintenance hook run #6 — threads 34-46)
+
+Sixth trigger of the profile-scoped wiki/templates/skills maintenance hook
+(event: last_thread=34, current_thread=46; all profile omni). Window threads
+34-46 were an **automated smoke-test burst** of the `noop` test provider
+(model `test-tool-caller`) — 13 threads created within ~31 seconds, each a
+single trivial tool call:
+
+- Thread 34: `prompt_compact-messages` (1 msg, soft 50k / hard 100k) →
+  `messages: null, was_compacted: false` — re-verified the null-contract
+  (compaction only fires over the hard budget; matches
+  Reference/Budget-and-Context.md).
+- Threads 37/40/43/46: `search_messages` / `search_wiki` /
+  `subtasks_list-subtasks` / `actions_relevance-indexer` → **"Unknown tool:
+  X"** (tool NOT registered in that thread's toolset).
+- Threads 38/39, 41/42, 44/45: the SAME tools (`search_messages`,
+  `search_wiki`, `subtasks_list-subtasks`) → real results (tool registered).
+- Threads 35/36: hook-caused (channel-summary run for 22-34; previous
+  wiki-maintenance run 22-34) — skipped per skill.
+
+Key insight: the same tool alternating between "Unknown tool" and success
+across consecutive threads is a **tool-registration smoke test**, not a bug
+and not a regression. No durable implementation facts in this window.
+
+Maintenance actions this run:
+- NEW `Reference/Smoke-Test-Threads.md`: how to recognize noop-provider
+  smoke-test bursts (rapid single-tool threads, "Unknown tool: X" = toolset
+  not registered, skip in maintenance) + the compact null-contract
+  re-verification.
+- index.md updated (Reference list entry).
+- No template changes (nothing REALLY valuable enough for prompt-space cost);
+  no skills created/deleted/merged (no new repeatable procedure beyond the
+  existing live-smoke-toolbox skill, which already covers the toolbox
+  pattern).

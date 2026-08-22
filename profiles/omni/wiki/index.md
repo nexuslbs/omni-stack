@@ -61,6 +61,7 @@
   - [Omniagent Mattermost Platform](./Reference/Omniagent-Mattermost-Platform.md): Mattermost platform architecture, setup, invariants, and recovery
   - [Verification & Review Requirements](./Reference/Verification-and-Review.md): Mandatory functional verification + review-before-commit for code deliverables (plugins, tools, services)
   - [Field Resolution](./Reference/Field-Resolution.md): resolve fallback fields ONCE at load (universal rule, user 2026-08-19) — kanban task defaults (resolve_task_defaults, Phase 1), channel identity at load (resolve_channel_identity / def_to_channel, Phase 2), provider/model thread identity, settings snapshot; kanban API returns resolved values; GROUP 47 regression
+  - [Smoke-Test Threads](./Reference/Smoke-Test-Threads.md) **(NEW 2026-08-22)**: recognize automated smoke-test threads (noop provider / test-tool-caller model, rapid single-tool bursts, "Unknown tool: X" = toolset not registered, NOT a bug) — skip them in maintenance; null-contract compact verification
 - **Log**
   - [log.md](./log.md): Change log
 

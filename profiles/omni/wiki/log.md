@@ -1392,3 +1392,17 @@ conversations, no new durable facts — the window was already fully processed.
 Re-trigger of the 58-70 window (hook counter reset after the test-DB rebuild; the window was already processed by the previous pass — commit 039ed3f, log entry "wiki-maintenance pass, threads 58-70" + Reference/Smoke-Test-Threads.md extension covering the 61-70 tool-registration alternation). Window = ONLY the already-documented hook-caused + noop/test-tool-caller smoke threads: the channel-summary hook (59), the previous wiki-maintenance trigger (60), smoke burst 58 (`search_thread-messages` probe) and bursts 61-70 (`search_channel-prompts` unknown in 62 but working in 63/64; `search_channels` unknown in 65 but working in 66/67; `skills_list-skills` unknown in 68 but working in 69/70). No user conversations, no new durable facts — the window was already fully processed.
 
 - No wiki page / skill / template additions, deletions, or merges (nothing in the window justified them; content matches the previous 58-70 pass entry).
+
+## 2026-08-22 (deploy hybrid token-budget task, hermes session)
+
+- Created dev-executor kanban task on the omnidev board to run `deploy.py
+  hybrid` to green with HARD token caps: cache hit (cached_tokens) ≤ 2M AND
+  cache miss (input−cached) ≤ 200K on the task's executor thread(s).
+- New spec: `Todo/DeployHybridTokenBudgetImplementation.md` — mirrors task
+  body; verified facts: hybrid stops neither omnistable nor omnidev
+  (a62dc71 MODE_STOP_EXCLUDE), token recording live on threads
+  (input/cached/output) + messages.token_usage, baseline thread 80 =
+  721K cached / 128K miss (within caps).
+- Hermes enforcement loop: monitor per-thread sums via SQL; if caps breached
+  mid-run → stop-thread, fix (agent prompts/skills/wiki/prompt-generate/
+  compact-messages/tools/templates), re-run deploy.py dev, re-measure, repeat.

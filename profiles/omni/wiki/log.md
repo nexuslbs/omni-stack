@@ -1218,3 +1218,20 @@ Maintenance actions this run:
   no skills created/deleted/merged (no new repeatable procedure beyond the
   existing live-smoke-toolbox skill, which already covers the toolbox
   pattern).
+
+
+## 2026-08-22 (wiki-maintenance pass, threads 46-58)
+
+Window 46-58 (profile omni) contained ONLY hook-caused + automated smoke-test
+threads: relevance-indexer hooks (46, 49, 50 — "78 files indexed"), the
+channel-summary hook (47), the previous wiki-maintenance trigger (48, which
+created Reference/Smoke-Test-Threads.md), and noop/test-tool-caller smoke
+bursts (51-58). No user conversations, no new durable facts.
+
+- Extended `Reference/Smoke-Test-Threads.md` with the 51-58 confirmation of
+  the tool-registration alternation: `plugin-manager_plugin-manager` unknown
+  in 51 but works in 52/53; `search_database` unknown in 54 but works in
+  55/56; `search_thread-messages` unknown in 57 but works in 58. Pattern =
+  toolset not registered in that env, NOT a bug.
+- No wiki page / skill / template additions, deletions, or merges (nothing in
+  the window justified them).

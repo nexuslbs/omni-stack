@@ -1462,3 +1462,12 @@ valuable enough for the prompt-space cost).
 - Generalized token-efficiency lessons from the deploy.py hybrid dev-executor task into profiles/omni/memories/MEMORY.md (NEW TOKEN EFFICIENCY section): avoid UNNECESSARY token usage (not minimize total — complex tasks legitimately burn tokens); never self-monitor supervisor-tracked budgets; one background run + single generous wait-task; read output once; bounded exploration; notes/subtasks/plans are anti-hallucination machinery worth spending on.
 - Committed omni-stack 05056f6, pushed to origin/main.
 - Cloned nexuslbs/omni-root (private mirror) into /opt/workspace/omni-root, force-synced main to omni-stack HEAD (48d379b...05056f6), tags up-to-date, file lists identical, working tree clean. Removed local omni-stack remote + stripped token from origin URL after push.
+
+
+### ops | deploy.py dev task GREEN + HOST_OMNI_DIR mapping verified (2026-08-22)
+
+- Kanban task task_18ce1f61ab5890ec (dev-executor) ran `python3 deploy.py dev` to green: exit 0, ALL TESTS PASSED (incl. shared tool tests), ~52 min, log test-output/deploy_dev_20260822_1216.log. Thread 78 completed; tokens cached 907,136 <= 2M, miss 78,795 <= 200K.
+- Thread 77 hit opencode-go HTTP 429 quota first -> failover: PATCH mm-kanban channel to deepseek/deepseek-v4-flash, committed live channels.yml pin (omni-root 55fa1b2 + omni-stack a60d394), re-dispatched -> thread 78 ran on deepseek.
+- **Mapping verified live**: omnideploy container binds /opt/workspace/omni-stack -> /opt/omni (HOST_OMNI_DIR=omni-stack in omni.env); omnistable binds /opt/workspace/omni-root -> /opt/omni, count 7 unchanged. omni-deployer ships NO compose files (removed; compose lives in omni-stack+omni-root equal mirrors via HOST_OMNI_DIR default /opt/omni).
+- Earlier: both omnidev + omnistable chains ran GREEN from fresh omni-root (149/0, agent 597, prepare complete) — remote plugins seeded automatically in shared.setup via install-git API (no manual intervention).
+- Commits: omni-deployer 09404e3, omni-stack 74814ab + a60d394, omni-root 5dba993 + 55fa1b2.

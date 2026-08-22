@@ -26,6 +26,7 @@ Use this skill when working with git repositories through the MCP git tools. The
 - `git_commit-and-push` stages ALL changes by default (including deletions and untracked files). To commit ONLY specific files, pass them via the `files` parameter — never rely on the blanket stage when the tree contains scratch files.
 - `git_run-command` args must be an ARRAY (e.g. `["log", "--oneline"]`), never a shell string — no shell injection is possible. Use `use_auth: true` only when the command needs GitHub credentials (fetch/push/pull); read-only commands (log, diff, status, branch) don't need it.
 - Never commit secrets, `.env` files, or build artifacts. Use `.gitignore` entries for those.
+- omniagent repo: `/mcp-server-*` and `plugins/tools/*/mcp-server-*` are Dockerfile-built binaries — gitignored, never versioned (7 ELF binaries removed from tracking in a923360, 2026-08-22). Don't stage them.
 - Never commit scratch helper files (toolbox/ dirs, patch scripts). Delete them or keep them outside the repo before committing.
 - Commit messages should explain what and why, not just "update".
 - If a push fails because the remote has new commits, use `git_run-command` with `["fetch", "origin"]` (plus `"use_auth": true`) to inspect, then rebase/reset as appropriate.

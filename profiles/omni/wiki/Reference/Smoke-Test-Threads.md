@@ -1,8 +1,8 @@
 # Smoke-Test Threads (noop provider)
 
 How to recognize automated smoke-test threads and skip them in maintenance.
-Observed live 2026-08-22 in the rebuilt test DB (threads 1-10 and 34-70,
-profile omni).
+Observed live 2026-08-22 in the rebuilt test DB (threads 1-10, 13-22 and
+34-70, profile omni).
 
 ## Pattern
 
@@ -34,6 +34,16 @@ profile omni).
   threads probe it with `search_thread-messages {thread_id: 1}` — the reply
   alternates a real 5-message listing vs "Unknown tool:
   search_thread-messages", the same registration test.
+- Confirmed again in threads 13-22 (2026-08-22T02:48Z, right after the 1-10
+  burst) with git/kanban/filesystem tools:
+  `filesystem_read` README.md works (13/14); `git_status` works (16/17) but
+  thread 15 shows a **name-collision variant**: the call returned
+  `External MCP server 'ssh' tool 'status' failed: Missing required
+  parameter: host` — the executor resolved `git_status` to the ssh server's
+  `status` tool instead of erroring "Unknown tool"; `git_run-command`
+  (log --oneline -3) unknown in 18 but works in 19/20 (real output shows
+  HEAD a923360, the MCP-server-artifact-removal chore); `kanban_list-kanban-
+  tasks` unknown in 21 but works in 22 (`_No kanban tasks found._`).
 
 ## Consequences (durable facts)
 
@@ -49,6 +59,9 @@ profile omni).
    under the hard budget → `messages: null, was_compacted: false`
    (matches Reference/Budget-and-Context.md — compaction only fires over the
    hard budget).
+5. A tool call can fail with a WRONG-HANDLER error instead of "Unknown tool"
+   (thread 15: `git_status` → ssh `status` missing `host`) — still a
+   registration-test artifact, not a regression; don't chase it.
 
 ## How to identify before reading
 

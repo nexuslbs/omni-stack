@@ -1,7 +1,7 @@
 # Smoke-Test Threads (noop provider)
 
 How to recognize automated smoke-test threads and skip them in maintenance.
-Observed live 2026-08-22 in the rebuilt test DB (threads 34-46, profile omni).
+Observed live 2026-08-22 in the rebuilt test DB (threads 34-58, profile omni).
 
 ## Pattern
 
@@ -20,7 +20,10 @@ Observed live 2026-08-22 in the rebuilt test DB (threads 34-46, profile omni).
   (e.g. search_messages works in threads 38/39 but is "Unknown tool" in 37;
   search_wiki works in 41/42 but not 40; subtasks_list works in 44/45 but not
   43). This is a **tool-registration smoke test** — each thread runs with a
-  different toolset on purpose.
+  different toolset on purpose. Confirmed again in threads 51-58:
+  `plugin-manager_plugin-manager` unknown in 51 but works in 52/53;
+  `search_database` unknown in 54 but works in 55/56;
+  `search_thread-messages` unknown in 57 but works in 58.
 
 ## Consequences (durable facts)
 

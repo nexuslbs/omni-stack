@@ -1,6 +1,6 @@
 # Run the omnidev chain (setup → test → agent → prepare) successfully (Implementation)
 
-**Status:** Todo (mirrors kanban task — see board)
+**Status:** DONE — task_18cdffbbda75676c completed 2026-08-22 (all 4 steps exit 0)
 **Date:** 2026-08-22
 **Scope:** omni-deployer (omnidev.py) + the OMNIDEV stack
 **Workflow:** dev-executor (executor-only, auto_approve — no tester/reviewer; the

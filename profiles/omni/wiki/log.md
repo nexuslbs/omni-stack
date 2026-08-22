@@ -1235,3 +1235,17 @@ bursts (51-58). No user conversations, no new durable facts.
   toolset not registered in that env, NOT a bug.
 - No wiki page / skill / template additions, deletions, or merges (nothing in
   the window justified them).
+## 2026-08-22 (wiki-maintenance pass, threads 58-70)
+
+Window 58-70 (profile omni) contained ONLY hook-caused + automated smoke-test
+threads: smoke bursts (58, 61-70 — noop/test-tool-caller single-tool runs;
+`search_channel-prompts`/`search_channels`/`skills_list-skills` alternation
+with "Unknown tool" = toolset not registered), the channel-summary hook (59),
+and the previous wiki-maintenance pass (60, threads 46-58 — commits 5be82bf +
+7ff2556, already pushed). No user conversations, no new durable facts.
+
+- Extended `Reference/Smoke-Test-Threads.md` with the 61-70 confirmation of
+  the tool-registration alternation (new tools in the burst:
+  `search_channel-prompts`, `search_channels`, `skills_list-skills`).
+- No wiki page / skill / template additions, deletions, or merges (nothing in
+  the window justified them).

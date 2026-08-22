@@ -1370,3 +1370,19 @@ content matches the burst documented by run #6 (`5be82bf`,
 Reference/Smoke-Test-Threads.md) byte for byte.
 - No wiki page / skill / template additions, deletions, or merges (nothing
   in the window justified them; the window was already fully processed).
+## 2026-08-22 (wiki-maintenance hook — re-trigger, threads 46-58)
+
+Re-trigger of the 46-58 window (hook counter reset after the test-DB rebuild;
+the window was already processed by the previous pass — commits 5be82bf +
+7ff2556, log entry "wiki-maintenance pass, threads 46-58" +
+Reference/Smoke-Test-Threads.md extension covering the 51-58
+tool-registration alternation). Window = ONLY the already-documented
+hook-caused + noop/test-tool-caller smoke threads: relevance-indexer hooks
+(46, 49, 50), the channel-summary hook (47), the previous wiki-maintenance
+trigger (48), and smoke bursts 51-58 (plugin-manager_plugin-manager unknown
+in 51 but working in 52/53; search_database unknown in 54 but working in
+55/56; search_thread-messages unknown in 57 but working in 58). No user
+conversations, no new durable facts — the window was already fully processed.
+
+- No wiki page / skill / template additions, deletions, or merges (nothing in
+  the window justified them; content matches the previous 46-58 pass entry).

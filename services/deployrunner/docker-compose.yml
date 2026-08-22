@@ -1,0 +1,21 @@
+# Standalone deploy-runner container (project "deployrunner") — NOT part of
+# omnidev/omnistable/omnideploy, so deploy.py dev's stop_other_stacks never
+# kills it. Used to run deploy.py dev (and the omnidev/omnistable launchers)
+# without being torn down mid-run.
+#
+# Bring up with:
+#   docker compose -f services/deployrunner/docker-compose.yml up -d
+# Then exec the chain inside it:
+#   docker exec -it deployrunner-deployer-1 bash
+#   cd /opt/workspace/omni-deployer && python3 deploy.py dev
+name: deployrunner
+
+services:
+  deployer:
+    image: omniagent-dev:latest
+    command: tail -f /dev/null
+    volumes:
+      - /opt/workspace:/opt/workspace:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    environment:
+      - COMPOSE_PROJECT_NAME=omnideploy

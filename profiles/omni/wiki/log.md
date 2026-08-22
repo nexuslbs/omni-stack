@@ -1301,3 +1301,10 @@ and the previous wiki-maintenance pass (60, threads 46-58 — commits 5be82bf +
   thread 80 with provider=deepseek → ran to green. Repo HEAD already had
   deepseek (942512a); live file had been flipped back to opencode-go
   (runtime/prepare PATCH) — now aligned again.
+
+## 2026-08-22 (follow-up: OmnidevChainRun DONE)
+
+- The chain-ops executor thread flipped Todo/OmnidevChainRunImplementation.md
+  to **DONE** (task_18cdffbbda75676c, 2026-08-22 — all 4 steps exit 0) after the
+  first maintenance commit; the status flip + index.md entry update were
+  committed in the same maintenance session so the wiki stays consistent.

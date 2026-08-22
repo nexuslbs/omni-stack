@@ -1,7 +1,8 @@
 # Smoke-Test Threads (noop provider)
 
 How to recognize automated smoke-test threads and skip them in maintenance.
-Observed live 2026-08-22 in the rebuilt test DB (threads 34-70, profile omni).
+Observed live 2026-08-22 in the rebuilt test DB (threads 1-10 and 34-70,
+profile omni).
 
 ## Pattern
 
@@ -27,6 +28,12 @@ Observed live 2026-08-22 in the rebuilt test DB (threads 34-70, profile omni).
   threads 61-70: `search_channel-prompts` unknown in 62 but works in 63/64;
   `search_channels` unknown in 65 but works in 66/67;
   `skills_list-skills` unknown in 68 but works in 69/70.
+- The EARLIEST burst (threads 1-10, 2026-08-22T02:47Z) already showed it:
+  thread 1's cause is a cron step (`{"name": "step1", "tool":
+  "cron_list-cron-jobs"}` — a cron-triggered smoke thread), and later smoke
+  threads probe it with `search_thread-messages {thread_id: 1}` — the reply
+  alternates a real 5-message listing vs "Unknown tool:
+  search_thread-messages", the same registration test.
 
 ## Consequences (durable facts)
 

@@ -1249,3 +1249,55 @@ and the previous wiki-maintenance pass (60, threads 46-58 — commits 5be82bf +
   `search_channel-prompts`, `search_channels`, `skills_list-skills`).
 - No wiki page / skill / template additions, deletions, or merges (nothing in
   the window justified them).
+
+## 2026-08-22 (omniagent chain ops, hermes session)
+
+- Created dev-executor kanban task on the omnidev board (omnistable-postgres-1,
+  workflow `dev-executor`, auto_approve) to run the 4-step omnidev chain:
+  `python3 omnidev.py setup` → `test` → `agent` → `prepare` in
+  /opt/workspace/omni-deployer, run-to-green fixing issues mid-run.
+- New spec: `Todo/OmnidevChainRunImplementation.md` (mirrors task body; verified
+  inventory: omnidev.py subcommands 82-107, shared.setup 666-745, shared.agent
+  841-938, shared.prepare 943+, STOP_TARGETS shared.py:398-402 — omnidev stops
+  only omnideploy, never omnistable).
+- Probed the running binary's create-field name: `workflow` populates
+  workflow_id (task_18cdff915c641ab1), `workflow_id` leaves it NULL
+  (task_18cdff916075076a) — use `workflow` on this binary. Status `todo` is
+  honored at create. Probes deleted; board back to 0 tasks (fresh board, no
+  dependency chain to join).
+
+## 2026-08-22 (wiki-maintenance hook — threads 1-10)
+
+- Window 1..10 = ALL automated smoke-test threads (noop provider /
+  test-tool-caller), same pattern as Reference/Smoke-Test-Threads.md
+  (threads 34-70): thread 1's cause is a cron step ({"name": "step1",
+  "tool": "cron_list-cron-jobs"} — cron-triggered smoke thread); later smoke
+  threads probe it via `search_thread-messages {thread_id: 1}` with the
+  expected real-result / "Unknown tool" alternation. No durable facts -> no
+  wiki/skill/template content changes from the window.
+- Extended Reference/Smoke-Test-Threads.md with the earliest-burst
+  observation (threads 1-10).
+- Committed the pending 2026-08-22 chain-ops wiki edits found uncommitted in
+  the working tree: Todo/OmnidevChainRunImplementation.md (new spec) +
+  index.md entry + log.md entry + regenerated relevant-index.md.
+  (config/*.yml + profiles/omni/config.json runtime changes NOT committed —
+  live-stack managed.)
+
+## 2026-08-22 (omnidev chain task — completed, hermes session)
+
+- Task `task_18cdffbbda75676c` (dev-executor workflow, auto_approve) COMPLETED:
+  all 4 omnidev chain steps exit 0 — setup 554s (images built, stack up,
+  channel patched deepseek), test 302s (149 passed / 0 failed), agent
+  (thread 76, answer 597), prepare 14s (mm-kanban registered, opencode-go +
+  12 builtin tool MCPs enabled). omnistable untouched (7 containers before
+  == after). No code fixes needed; omni-deployer clean.
+- Provider failover (mid-task): first executor thread 79 died at iteration 2
+  with `rate limited (HTTP 429); retry after 144622s` — mm-kanban channel was
+  on opencode-go (Zen gateway monthly quota exhausted). Failover per
+  provider-rate-limit-failover.md: edited live config/channels.yml (root-owned,
+  via docker exec sed) mm-kanban provider → deepseek, PATCHed /channels
+  (response showed deepseek), restarted omnistable-omniagent-1 (pre-rename
+  binary caches channel state at boot), PATCHed task todo, auto-dispatched
+  thread 80 with provider=deepseek → ran to green. Repo HEAD already had
+  deepseek (942512a); live file had been flipped back to opencode-go
+  (runtime/prepare PATCH) — now aligned again.

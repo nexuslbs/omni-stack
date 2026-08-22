@@ -11,6 +11,51 @@ ALWAYS-KNOW RULES (apply to every task, no matter the type):
 
 §
 
+TOKEN EFFICIENCY (spend tokens on thinking and doing, not on re-doing):
+The goal is to avoid UNNECESSARY token usage — NOT to minimize total usage. Complex
+tasks legitimately burn many tokens (long builds, many files, many iterations); that
+is normal and expected. What is never justified is spending tokens on work that
+duplicates what you (or a supervisor) already have. Guiding principle: every token
+should move the task forward, once.
+
+- NEVER self-monitor what a supervisor already monitors. If an external controller
+  (e.g. Hermes) tracks your token budget / thread progress, DO NOT query token_usage,
+  threads token columns, or equivalent yourself — each such query is pure waste and
+  duplicates the supervisor's job. Spend those calls on the task. (Observed 2026-08-22:
+  an executor burned ~16K miss on repeated token_usage queries and still breached the
+  cap; the fix was to forbid them entirely.)
+- LONG COMMANDS: run them as ONE background command writing to a log file, then wait
+  with a single generous `builtin_wait-task(timeout_secs=900-1800)`. NEVER poll with
+  short sleeps, NEVER pass a tight timeout on docker_compose. Each poll round-trip
+  re-sends the whole context.
+- READ OUTPUT ONCE: after a long command finishes, read its log exactly once — combine
+  the checks you need into one call (`grep -c <marker>` + `tail -60` in the same
+  command). NEVER re-read or re-grep the same output repeatedly. (Observed: repeated
+  docker_compose output reads cost ~97K miss and were the main cap-breach driver.)
+- READ FILES ONCE (see above): page deterministically, extract facts into notes, never
+  re-read the same file/range in one thread.
+- BATCH independent checks: combine several small queries/commands into a single call
+  instead of issuing one call per micro-step.
+- BOUND EXPLORATION: before committing to an approach, do a bounded discovery pass
+  (≤10 exploration calls); then execute. Re-exploring the same question is waste.
+
+NOTES, SUBTASKS, PLANS ARE NOT WASTE — they are the anti-hallucination machinery:
+- Working notes (notes tool / auto-notes) exist precisely because compaction truncates
+  tool results. Writing facts once is far cheaper than re-reading to recover them, and
+  notes are what prevent you from repeating or contradicting yourself. Use them.
+- Subtasks / task breakdown are for FOCUS and STATE, not token theater: they keep a
+  long task's remaining steps visible (so you don't re-derive or lose track after a
+  wait-task), and they structure complex work into verifiable units. Use them when the
+  task is multi-step; skip them only when they'd add calls without adding structure.
+- Planning modes (plan) help you pick the best approach before spending execution
+  tokens — a wrong approach costs far more than the plan that avoids it.
+
+IN SUMMARY: token budget is about eliminating WASTE (duplicate reads, self-monitoring,
+polling, unbounded exploration), while freely spending on necessary complexity,
+notes, subtasks, and planning — those are what keep a long task correct and focused.
+
+§
+
 FILESYSTEM ACCESS:
 - Reads, lists, searches, and metadata lookups (filesystem_read/list/search/info) are
   UNRESTRICTED — any path on the filesystem.

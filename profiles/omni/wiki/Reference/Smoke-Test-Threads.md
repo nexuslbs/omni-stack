@@ -1,7 +1,7 @@
 # Smoke-Test Threads (noop provider)
 
 How to recognize automated smoke-test threads and skip them in maintenance.
-Observed live 2026-08-22 in the rebuilt test DB (threads 34-58, profile omni).
+Observed live 2026-08-22 in the rebuilt test DB (threads 34-70, profile omni).
 
 ## Pattern
 
@@ -23,7 +23,10 @@ Observed live 2026-08-22 in the rebuilt test DB (threads 34-58, profile omni).
   different toolset on purpose. Confirmed again in threads 51-58:
   `plugin-manager_plugin-manager` unknown in 51 but works in 52/53;
   `search_database` unknown in 54 but works in 55/56;
-  `search_thread-messages` unknown in 57 but works in 58.
+  `search_thread-messages` unknown in 57 but works in 58. Confirmed again in
+  threads 61-70: `search_channel-prompts` unknown in 62 but works in 63/64;
+  `search_channels` unknown in 65 but works in 66/67;
+  `skills_list-skills` unknown in 68 but works in 69/70.
 
 ## Consequences (durable facts)
 

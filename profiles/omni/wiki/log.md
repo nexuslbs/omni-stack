@@ -1386,3 +1386,9 @@ conversations, no new durable facts — the window was already fully processed.
 
 - No wiki page / skill / template additions, deletions, or merges (nothing in
   the window justified them; content matches the previous 46-58 pass entry).
+
+## 2026-08-22 (wiki-maintenance hook — re-trigger, threads 58-70)
+
+Re-trigger of the 58-70 window (hook counter reset after the test-DB rebuild; the window was already processed by the previous pass — commit 039ed3f, log entry "wiki-maintenance pass, threads 58-70" + Reference/Smoke-Test-Threads.md extension covering the 61-70 tool-registration alternation). Window = ONLY the already-documented hook-caused + noop/test-tool-caller smoke threads: the channel-summary hook (59), the previous wiki-maintenance trigger (60), smoke burst 58 (`search_thread-messages` probe) and bursts 61-70 (`search_channel-prompts` unknown in 62 but working in 63/64; `search_channels` unknown in 65 but working in 66/67; `skills_list-skills` unknown in 68 but working in 69/70). No user conversations, no new durable facts — the window was already fully processed.
+
+- No wiki page / skill / template additions, deletions, or merges (nothing in the window justified them; content matches the previous 58-70 pass entry).

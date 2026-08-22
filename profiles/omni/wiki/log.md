@@ -1308,3 +1308,18 @@ and the previous wiki-maintenance pass (60, threads 46-58 — commits 5be82bf +
   to **DONE** (task_18cdffbbda75676c, 2026-08-22 — all 4 steps exit 0) after the
   first maintenance commit; the status flip + index.md entry update were
   committed in the same maintenance session so the wiki stays consistent.
+
+## 2026-08-22 (deploy.py hybrid stop-safety fix, hermes session)
+
+- Fixed `deploy.py hybrid` stopping BOTH omnidev AND omnistable (omni-deployer
+  `a62dc71`, main): `DEV_STOP_EXCLUDE` (dev-only) → mode-aware
+  `MODE_STOP_EXCLUDE` = {dev: {omnistable}, hybrid: {omnidev, omnistable}}.
+  dev unchanged (stops only omnidev); hybrid now stops NEITHER launcher
+  (manages only its own omnideploy containers); ci unchanged (clean slate on
+  fresh runner — publish.yml uses `deploy.py ci`).
+- Verified: unit check of target selection per mode (hybrid → []) + live check
+  in the omnistable container (repo bind-mounted: `hybrid stops: []`) +
+  py_compile. Base compose binds no host ports, so hybrid running
+  side-by-side with the launcher stacks is conflict-free.
+- stable NOT touched (CI builds via `deploy.py ci`, unaffected; no release
+  loop fired). Fix is live in the container via the bind mount.

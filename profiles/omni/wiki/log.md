@@ -1323,3 +1323,30 @@ and the previous wiki-maintenance pass (60, threads 46-58 — commits 5be82bf +
   side-by-side with the launcher stacks is conflict-free.
 - stable NOT touched (CI builds via `deploy.py ci`, unaffected; no release
   loop fired). Fix is live in the container via the bind mount.
+
+
+## 2026-08-22 (wiki-maintenance pass, threads 10-22)
+
+Window 11-22 (profile omni) contained ONLY hook-caused + automated
+smoke-test threads: the channel-summary hook (11 — summarized threads 1-10
+into the `summaries` table, next_thread_id=10), the previous
+wiki-maintenance trigger (12, threads 1-10 — commits c547e24 + 400461e,
+already pushed), and a noop/test-tool-caller smoke burst (13-22, 10 threads
+created within ~30s, each a single trivial tool call: `filesystem_read`
+README (13/14), `git_status` (15-17), `git_run-command log --oneline -3`
+(18-20), `kanban_list-kanban-tasks` (21/22)). No user conversations, no new
+durable implementation facts.
+
+- Extended `Reference/Smoke-Test-Threads.md` with the 13-22 burst: new
+  tools in the registration alternation (`filesystem_read`, `git_status`,
+  `git_run-command`, `kanban_list-kanban-tasks`) and a NEW error variant —
+  thread 15's `git_status` returned `External MCP server 'ssh' tool
+  'status' failed: Missing required parameter: host` (name-collision:
+  git_status not registered → resolved to the ssh `status` handler) instead
+  of "Unknown tool". Still a test artifact, not a regression.
+- `skills/git-workflow.md`: one-line pitfall — omniagent's `/mcp-server-*`
+  + `plugins/tools/*/mcp-server-*` are Dockerfile-built binaries, gitignored
+  and never versioned (7 ELF binaries removed from tracking, a923360);
+  observed in the 19/20 smoke-test git log output.
+- No wiki page/skill additions, deletions, or merges; no template changes
+  (nothing in the window justified prompt-space cost).

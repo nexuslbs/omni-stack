@@ -52,3 +52,17 @@ Call `memory_save-summary` with exactly:
 The tool INSERTs a row into the `summaries` table (channel_id,
 next_thread_id, content). It returns the new summary id — confirm the save
 succeeded before finishing.
+
+## Fallback (observed 2026-08-22, hook run for threads 1-10)
+
+In some hook environments the MCP tools `search_database` /
+`search_thread-messages` / `memory_save-summary` are NOT exposed. Fall back
+to direct postgres access:
+
+- Read threads/messages via
+  `docker_compose exec <postgres-service> psql -U <user> -d <db> -c "SELECT
+  ..."` (the omni-stack postgres, e.g. in /opt/workspace/omni-deployer).
+- Save the summary with a direct
+  `INSERT INTO summaries (channel_id, next_thread_id, content) VALUES
+  ('<channel>', <current_thread>, '<escaped markdown>')` and verify with a
+  SELECT.

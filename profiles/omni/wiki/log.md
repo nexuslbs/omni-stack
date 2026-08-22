@@ -1449,3 +1449,10 @@ valuable enough for the prompt-space cost).
 - **Files changed**: Reference/Smoke-Test-Threads.md, Reference/Omni-Deployer.md,
   skills/workspace-development.md, Todo/DeployHybridTokenBudgetImplementation.md,
   index.md, log.md.
+
+
+### ops | omni profile MEMORY.md: generalized TOKEN EFFICIENCY section (2026-08-22)
+
+- Generalized the token-budget lessons from the deploy.py hybrid dev-executor task (thread 88 229K miss breach -> thread 89 88K miss PASS) into profiles/omni/memories/MEMORY.md.
+- Principle: avoid UNNECESSARY token usage, not minimize total. Complex tasks legitimately burn tokens. Never self-monitor what a supervisor monitors (no token_usage queries), long commands = one background run + single generous wait-task, read output once (grep+tail combined), bound exploration (<=10 calls).
+- Notes/subtasks/plans are NOT waste — they are the anti-hallucination machinery (compaction truncates tool results; notes prevent re-derivation; subtasks keep multi-step state; plans avoid wrong-approach costs).

@@ -11,7 +11,8 @@
  * Installed at /usr/bin/code_exec_runner_js (requires nodejs, see
  * services/toolbox/Dockerfile). The timeout is a HARD in-container kill:
  * setTimeout(process.exit) fires mid-loop even if the docker exec client is
- * gone. */
+ * gone (synchronous infinite loops starve the event loop and are bounded by
+ * the outer busybox `timeout` wrapper the tool adds). */
 const fs = require("fs");
 
 const OK_MARKER = "__CODE_EXEC_OK__";
@@ -60,6 +61,9 @@ function main() {
         OK_MARKER +
           JSON.stringify(result, (_k, v) => (v === undefined ? null : v))
       );
+      // Exit explicitly: the timeout timer above would otherwise keep the
+      // event loop alive until the full timeout after a fast success.
+      process.exit(0);
     })
     .catch((e) => {
       const stack = e && e.stack ? e.stack : String(e);

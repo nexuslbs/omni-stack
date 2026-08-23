@@ -1,4 +1,9 @@
 # Log
+## 2026-08-23 (gitignore — config/ and plugins/ never ignored)
+
+- Policy correction: `config/` and `plugins/` are NO LONGER gitignored in omni-stack or omni-root. The seed (omni-stack) simply doesn't ship them (transient during deploys, removed without commit); forked repos commit their own config/ + plugins/ (tracked files beat gitignore). `plugins/<type>/.remote/` remains ALWAYS ignored — remote.yml tracks those sources and they re-import on a new setup.
+- Both repos' .gitignore updated + pushed to main (omni-stack + omni-root).
+
 ## 2026-08-23 (docs — generic README/AGENTS + omni-root config/ re-track)
 
 - Rewrote README.md + AGENTS.md to be **generic** (identical for the seed omni-stack and custom forks like omni-root): README documents services, COMPOSE_PROFILES, tunnel env vars, S3 backup/restore, config/*.yml files, and the plugin story (bundled plugins in omniagent, install/enable on the fly, remote plugins via config/remote.yml for separation of concerns) with NO seed-vs-fork mention; AGENTS.md has a very brief seed-vs-fork distinction only (omni-stack = no config/ nor plugins/ tracked; custom forks may track them).

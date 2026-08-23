@@ -44,16 +44,15 @@ profiles/default/wiki/
 /settings.yml
 /workflows.yml
 
-# ── Runtime-only state (seed checkouts) ─────────────────────────────────
-# config/ and plugins/ are RUNTIME state, never tracked: they are generated
-# at setup/deploy time from omni-deployer/seed/config + the plugin API
-# (install-git) and removed when a deploy ends (deploy.py
-# cleanup_runtime_state). hindsight_watermark.json is live agent memory
-# state. A production fork supplies its own config/ at runtime; tracked
-# files always beat gitignore, so a fork that wants to track its own
-# config/plugins can simply commit them.
-/config/
-/plugins/
+# ── config/ and plugins/ are NOT gitignored ─────────────────────────────
+# config/ (OMNI_DIR YAML) and plugins/ (bundled plugins) are first-class
+# content, never ignored. The seed (omni-stack) simply does not ship them:
+# they may exist transiently during a deploy (created from
+# omni-deployer/seed/config + the plugin API install-git) and are removed
+# afterwards WITHOUT being committed. Forked repos commit their own config/
+# and plugins/ (tracked files beat gitignore, so a fork that wants to track
+# them just adds them). hindsight_watermark.json is live agent memory state
+# and stays runtime-only.
 /hindsight_watermark.json
 
 # ── taskj patch artifacts (kanban task tool) ──

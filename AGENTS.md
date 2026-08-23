@@ -168,7 +168,7 @@ docker cp scripts/tests.py omni-omniagent-1:/tmp/tests.py
 docker exec omni-omniagent-1 python3 /tmp/tests.py
 ```
 
-Running from the host (Hermes container) will produce false failures because `/opt/omni/` filesystem checks target the local Hermes data, not the omniagent container's data.
+Running from the host (outside the omniagent container) will produce false failures because `/opt/omni/` filesystem checks target the host's local data, not the omniagent container's data.
 
 ### G13/G14 Debugging: Noop Provider & Test Substring Pitfalls
 

@@ -4,9 +4,9 @@ Deployment, configuration, and plugin infrastructure for **OmniAgent**: a next-g
 
 This repository contains the Docker Compose stack, service definitions, plugin infrastructure, and profile/template management for **OmniAgent**. It also carries the OMNI_DIR YAML config (`config/*.yml`) that defines channels, kanban boards, workflows, hooks, models, plugins, actions and settings.
 
-> **OmniAgent itself** lives at [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent).  
-> **Omni-Dashboard** lives at [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard).  
-> **omni-plugins** (plugin-less provider definitions, `models.yml`) lives at [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins).
+**OmniAgent itself** lives at [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent).  
+**Omni-Dashboard** lives at [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard).  
+**omni-plugins** (plugin-less provider definitions, `models.yml`) lives at [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins).
 
 ---
 
@@ -26,7 +26,14 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 │       ├ templates/         #   Prompt templates (dev-executor, dev-tester, dev-reviewer, ...)
 │       └ wiki/              #   Wiki content (long-term memory in human readable format)
 │
-├ services/toolbox/          # Toolbox container (maintenance scripts)
+├ services/
+│   ├ cloudflared/           #   Cloudflare tunnel (Dockerfile + config.yaml)
+│   ├ grafana/               #   Metrics dashboards (Dockerfile)
+│   ├ loki/                  #   Log aggregation (Dockerfile + loki-config.yaml)
+│   ├ noop/                  #   Test provider (Dockerfile + server.py)
+│   ├ prometheus/            #   Metrics collection (Dockerfile + prometheus.yml)
+│   ├ toolbox/               #   Maintenance container (Dockerfile + scripts/)
+│   └ vector/                #   Log shipping (Dockerfile + sinks/sources/transforms.toml)
 │
 ├ config/                    # OMNI_DIR yml config — see "Config directory" below
 │   ├ actions.yml            #   Action plugin definitions
@@ -55,11 +62,12 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 
 ```env
 # ── Required ──
-POSTGRES_PASSWORD=***  # PostgreSQL — everything else derivable
-TUNNEL_TOKEN=***                         # Cloudflare tunnel to reach the dashboard
-COMPOSE_PROFILES=tunnel                  # Which optional services to enable
+POSTGRES_PASSWORD=***                  # PostgreSQL — everything else derivable
+TUNNEL_TOKEN=***                       # Cloudflare tunnel to reach the dashboard
+COMPOSE_PROFILES=tunnel                # Which optional services to enable
 
-# ── S3 Backup/Restore (optional, for restoring from backup) ──
+# ── S3 (backup / checkpoint — optional) ──
+# Only needed if you enable the backup/checkpoint cron schedules in docker-compose.yml.
 S3_ACCESS_KEY=<key_id>
 S3_SECRET_KEY=<application_key>
 S3_ENDPOINT=https://s3.<region>.backblazeb2.com
@@ -69,9 +77,7 @@ S3_BUCKET=<bucket_name>
 
 `POSTGRES_PASSWORD` is the **only** truly required secret. `DATABASE_URL` is auto-derived from it in `docker-compose.yml`.
 
-> **Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are built into the omniagent Docker image. No manual setup needed in this repo — just add your API key via the dashboard Settings page after starting. Provider **model lists / overrides** can be customized without touching plugins via `config/models.yml` (see [Models](#models-modelsyml)).
-
-> If you're **restoring from an existing S3 backup**, include the `S3_*` variables. The `omni-restore.sh` script pulls your previous `.env` (including all secrets, Mattermost config, provider keys) and restores the full PostgreSQL database. After restore, `docker compose restart` to pick up the restored configuration.
+**Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are built into the omniagent Docker image. No manual setup needed in this repo — just add your API key via the dashboard Settings page after starting. Provider **model lists / overrides** can be customized without touching plugins via `config/models.yml` (see [Models](#models-modelsyml)).
 
 ### Start
 
@@ -107,20 +113,10 @@ Combine profiles with commas: `COMPOSE_PROFILES=tunnel,mattermost,memory` or jus
 |---------|-----|-------|
 | Dashboard | Tunnel URL (from Cloudflare) | Authenticated via tunnel |
 | OmniAgent API | `http://localhost:8080` | Direct on host |
-| Dashboard (dev overlay) | `http://localhost:12345` | Dev-only host port, see Development |
 
-### Fresh Start vs Restore
+### Fresh Start
 
-**Fresh start:** After the stack starts, open the dashboard. Configure your LLM provider API key (Settings → Secrets). Mattermost setup can be run from the Platforms page if you have the `mattermost` profile enabled.
-
-**Restore from S3:** After starting the stack, run:
-```bash
-bash /opt/hermes-repo/scripts/omni-restore.sh
-```
-This downloads your previous `.env`, PostgreSQL dumps, and state. Then restart to apply:
-```bash
-docker compose restart
-```
+After the stack starts, open the dashboard. Configure your LLM provider API key (Settings → Secrets). Mattermost setup can be run from the Platforms page if you have the `mattermost` profile enabled.
 
 ---
 
@@ -234,7 +230,7 @@ Token budget / max_tokens precedence for each of soft/hard independently:
 
 ### Plugins
 
-Plugins extend OmniAgent with new providers, platforms, and MCP tools. They can be added to this repository under `plugins/{type}/{name}/` (each containing a `plugin.json` manifest) and configured via YAML files in the `config/` directory (`config/plugins.yml`, `config/actions.yml`, `config/remote.yml`, `config/settings.yml`, `config/workflows.yml`). The only gitignored content under `plugins/` is `.remote/` (auto-generated clones from remote installs) — everything else a deployment adds is tracked by default, never silently excluded. During test runs (defined in omni-deployer) plugins may be added to the bind-mounted `plugins/` dir transiently, but they must be removed after the tests.
+Plugins extend OmniAgent with new providers, platforms, and MCP tools. They can be added to this repository under `plugins/{type}/{name}/` (each containing a `plugin.json` manifest) and configured via YAML files in the `config/` directory (`config/plugins.yml`, `config/actions.yml`, `config/remote.yml`, `config/settings.yml`, `config/workflows.yml`). The only gitignored content under `plugins/` is `.remote/` (auto-generated clones from remote installs) — everything else a deployment adds is tracked by default, never silently excluded. During test runs plugins may be added to the bind-mounted `plugins/` dir transiently, but they must be removed after the tests.
 
 Plugins can be **installed and enabled on the fly in the running omniagent** — via the dashboard or the plugin API — without rebuilding or restarting the container.
 
@@ -286,43 +282,6 @@ This replaces the old `"dynamic"` api_mode: no hardcoded model-to-mode mappings 
 
 ---
 
-## Development
-
-### Using docker-compose.dev.yml (omnidev)
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml --project-name omnidev up -d
-```
-
-The dev overlay adds:
-- **Local image builds** instead of pulling from GHCR (`omniagent-dev:latest` from `Dockerfile.dev`)
-- **Mounted source directories** for live development (`/opt/workspace/omniagent:/app`, `/opt/workspace/omni-dashboard:/opt/repo`)
-- **Dev-only host ports** (never in the base compose): dashboard `12345:3001`, mattermost `12346:8065`, paperclip `3101:3100`
-- `SQLX_OFFLINE=false` — dev builds validate queries against the live DB so code + migrations can change without a stale `.sqlx` cache
-
-The `omnidev` compose project is the development environment for the kanban dev workflows (`dev-executor`, `omniagent-dev`): tasks on the `omnidev` board resolve to the `omniagent-dev` workflow (executor → reviewer → tester) via `boards.yml`.
-
----
-
-## CI/CD
-
-CI/CD workflows live in [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer).
-
-The `publish.yml` workflow builds and publishes Docker images to GHCR on:
-- **Push to `stable`**: tags `omniagent:latest`, `omni-dashboard:latest`, `toolbox:latest`
-- **Push to `v*` tags**: tags each image with the semver tag (e.g., `omniagent:1.2.3`)
-
-Parallel jobs build:
-1. **omniagent**: from [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) (multi-stage Rust build)
-2. **omni-dashboard**: from [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) (Vite + TypeScript)
-3. **toolbox**: from this repository (`services/toolbox/Dockerfile`, alpine-based maintenance container)
-
-The workflow then runs the integration suite via `deploy.py ci`, tags the source repos with the release version, **and also pushes/tags `nexuslbs/omni-plugins`** (its root `models.yml` provides the plugin-less provider definitions used by the release).
-
-Release-loop convention: kanban tasks → `deploy.py dev` verification → push `main` → promote to `stable` (which triggers publish). Doc/config-only changes push straight to `main`.
-
----
-
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -366,6 +325,5 @@ rm -rf .git-cache/
 | [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
 | [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Vite + TypeScript SPA) |
 | [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins) | Plugin-less provider definitions (`models.yml`) |
-| [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer) | Deployment orchestration, tests, CI/CD |
 | [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
 | **This repository** | Docker Compose, profiles, plugins, config |

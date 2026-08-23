@@ -1,4 +1,11 @@
 # Log
+## 2026-08-23 (docs — README scoping: Development/CI-CD to omni-deployer, no hermes/deployer refs in stack README)
+
+- Moved Development (docker-compose.dev.yml / omnidev) + CI/CD sections from omni-stack/omni-root README to omni-deployer README (enriched CI/CD with tag details). omni-stack/omni-root now know nothing about omni-deployer.
+- Removed hermes-specific restore instructions (omni-restore.sh) from stack README — stack must work standalone without hermes. Removed omni-deployer row from Related Repositories.
+- Fixed .env comment alignment; converted blockquotes to normal text; services tree now lists all 7 service dirs (cloudflared, grafana, loki, noop, prometheus, toolbox, vector).
+- AGENTS.md: genericized "Hermes container" → "outside the omniagent container". Pushed to main (omni-stack, omni-root, omni-deployer).
+
 ## 2026-08-23 (gitignore — config/ and plugins/ never ignored)
 
 - Policy correction: `config/` and `plugins/` are NO LONGER gitignored in omni-stack or omni-root. The seed (omni-stack) simply doesn't ship them (transient during deploys, removed without commit); forked repos commit their own config/ + plugins/ (tracked files beat gitignore). `plugins/<type>/.remote/` remains ALWAYS ignored — remote.yml tracks those sources and they re-import on a new setup.

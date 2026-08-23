@@ -55,7 +55,18 @@ def main():
     except ValueError:
         timeout = 0
     if timeout > 0:
-        signal.signal(signal.SIGALRM, lambda *_: os._exit(124))
+        def _alarm(*_):
+            # os.write is async-signal-safe-ish in CPython; emit the error as a
+            # FIELD (marker line) so the caller sees "timed out", then exit
+            # hard — mid-loop, without unwinding the program.
+            os.write(
+                1,
+                (ERR_MARKER
+                 + json.dumps({"error": f"program timed out after {timeout}s"})
+                 + "\n").encode(),
+            )
+            os._exit(124)
+        signal.signal(signal.SIGALRM, _alarm)
         signal.setitimer(signal.ITIMER_REAL, timeout)
 
     program = sys.stdin.read()

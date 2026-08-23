@@ -1,4 +1,4 @@
-# Omni-Stack: AGENTS.md
+# OmniAgent Deployment: AGENTS.md
 
 ## Agent Guidance Architecture (read this first)
 
@@ -35,23 +35,14 @@ Task flavors currently defined:
 - `knowledge-pipeline.md` — periodic maintenance (summarize, wiki/skill update, indexing)
 - `code-improvement.md` — legacy lighter dev variant; prefer `dev-development.md`
 
-## Purpose: Seed Repo for Forking
+## Seed vs Custom Fork
 
-omni-stack is a **seed repository** — it provides the Docker Compose stack,
-service definitions, and deployment infrastructure. It is designed to be
-**forked** and customized for different deployments.
-
-**By default, omni-stack tracks zero plugins and has NO `plugins/`
-directory.** It acts as a seed: forked repos add their own bundled plugins
-under `plugins/{type}/{name}/` with a `plugin.json`. The only gitignored
-content under `plugins/` is `.remote/` (auto-generated clones from remote
-installs) — everything else a fork adds is tracked by default, never
-silently excluded. During test runs (defined in omni-deployer), plugins may
-be added transiently to the bind-mounted `plugins/` dir, but they MUST be
-removed after the tests — the deployer enforces this by deleting test
-artifacts (`.remote/` clones, `test-*` tools) when the run finishes. If a
-test needs a plugin permanently, it belongs in omni-deployer (or
-omni-plugins for remote installs), never in omni-stack.
+`omni-stack` is the **seed repository**: by default it tracks NO `config/`
+directory and NO `plugins/` directory (both are runtime-only state — the seed
+config lives in omni-deployer, and plugins are installed at runtime). Custom
+forks (e.g. `omni-root`) MAY track `config/` (customized OMNI_DIR YAML) and
+`plugins/` (bundled plugins). Everything else in this file applies identically
+to both.
 
 The only exception is the `tools/util/` crate — a shared library dependency
 used by bundled MCP plugins. It has no `plugin.json` and is not a plugin
@@ -61,7 +52,9 @@ itself; it's a workspace member that other plugins depend on via path.
 
 ### Source of Truth
 
-In **production** there is no `omniagent` repo: only `omni-stack`. All plugins live under `/opt/workspace/omni-stack/plugins/` and must be self-contained.
+In **production** there is no `omniagent` repo checkout: only this deployment
+repo. All plugins live under `plugins/` in this repo and must be
+self-contained.
 
 ### Plugin Categories: No Priority, No Fallback
 
@@ -70,7 +63,7 @@ A plugin's source is determined **solely by its physical location on disk**. The
 | Category | Physical Location | Identified By |
 |----------|------------------|---------------|
 | **Built-in** | `/app/plugins/{type}/{name}/` | `Cargo.toml` + `plugin.json` or `mcp-config.json` in omniagent workspace |
-| **Bundled** | `plugins/{type}/{name}/` (omni-stack) | `plugin.json` at root |
+| **Bundled** | `plugins/{type}/{name}/` (this repo) | `plugin.json` at root |
 | **Remote** | `plugins/{type}/.remote/{name}/{path}/` | `plugin.json` at subpath + entry in `remote.yml` |
 
 The `source` field in `plugins.yml` is **authoritative**: it determines which source is active. Other sources for the same plugin name exist on disk but are marked `is_duplicated: true` and shown as disabled.
@@ -109,13 +102,13 @@ The `actions` plugin (`plugins/tools/actions/`) is a fully self-contained MCP se
 - Connects directly to Postgres via `sqlx::PgPool`
 - Uses `mcp-server-util` for the stdio JSON-RPC MCP protocol runtime
 - Tools: `kanban_dispatcher`, `hindsight_populator`, `relevance_indexer`, `setup_knowledge_pipeline`
-- **This plugin has NO builtin counterpart**: it only exists in omni-stack
+- **This plugin has NO builtin counterpart**: it only exists in this repo (bundled)
 
-**Do NOT add `omniagent` as a dependency** to actions or any other omni-stack plugin. In production, the omniagent repo does not exist: only omni-stack is deployed. Plugins must compile standalone.
+**Do NOT add `omniagent` as a dependency** to actions or any other bundled plugin. In production, the omniagent repo does not exist: only this deployment repo is deployed. Plugins must compile standalone.
 
-### Forked Repos: Bundled Plugin Examples
+### Bundled Plugin Examples
 
-Forked repos can add bundled plugins that compile as standalone crates (no omniagent dependency). For example:
+Custom repos can add bundled plugins that compile as standalone crates (no omniagent dependency). For example:
 
 | Plugin | Cargo.toml | Requires |
 |--------|-----------|----------|
@@ -264,12 +257,12 @@ If you see infinite noop loops, check whether:
 
 ### Erroneous Plugin Copies (Binary-Only — Cleaned from Seed Repo)
 
-The following directories in a forked repo's `plugins/tools/` are **erroneous copies** of built-in plugins, containing only binaries (no source code: no `Cargo.toml`, no `src/`):
+The following directories in a custom repo's `plugins/tools/` are **erroneous copies** of built-in plugins, containing only binaries (no source code: no `Cargo.toml`, no `src/`):
 - `cron`, `kanban`, `search`, `memory`, `metrics`, `query`, `plugin-manager`, `subtasks`, `hindsight`
 
 These have `plugin.json` and a compiled binary but no source code. They show with `is_duplicated=true, has_source_code=false` in the dashboard. The actual source for these plugins is only in the **omniagent workspace** at `/app/plugins/mcp/<name>/`.
 
-**These were removed from the seed repo in a cleanup.** If they persist in a forked repo, they should be removed.
+**These were removed from the seed repo in a cleanup.** If they persist in a custom repo, they should be removed.
 
 **Install/Reinstall with Builtin Fallback:** The omniagent install/reinstall handlers now automatically fall back to the builtin source when a bundled directory exists but has no source code. So even if these binary-only copies are present, installing or reinstalling will succeed by compiling from `/app/plugins/mcp/<name>/` instead.
 
@@ -277,7 +270,7 @@ These have `plugin.json` and a compiled binary but no source code. They show wit
 
 - Binary-only plugins (only `plugin.json`, no Cargo.toml) have `has_source_code = false`: Install/Reinstall buttons are hidden in the dashboard
 - The "no source" badge appears in yellow (`badge-warning`) with a tooltip
-- These can still be enabled/disabled if they have a working binary, but binary-only entries in omni-stack that point to `mcp-server-<name>` are non-functional: the binary doesn't exist in the omni-stack path
+- These can still be enabled/disabled if they have a working binary, but binary-only entries that point to `mcp-server-<name>` are non-functional: the binary doesn't exist in the repo path
 
 ### Build Tips
 
@@ -303,7 +296,7 @@ def _git_discard_all(repo_dir):
 
 ### Mattermost Platform Plugin Binary
 
-- Source tracked in omni-stack at `plugins/platforms/mattermost/` (forked repos)
+- Source tracked in this repo at `plugins/platforms/mattermost/`
 - Compiled binary at `plugins/platforms/mattermost/target/release/mattermost-platform`
 - `_ensure_mm_platform_binary()` checks if binary exists and compiles if missing : called at start of `test_mm9_e2e`
 - The binary survives `git checkout -- .` cleanup (only tracked files are restored)
@@ -342,8 +335,8 @@ The `prompt` plugin (`mcp-server-prompt`) has the following config_schema fields
 | `planning_complexity_max_chars` | integer | 60 | Max char count for simple prompts (greetings, short commands): these get no plan |
 | `planning_complexity_keywords` | string | (long comma-separated list) | Keywords that trigger planning mode |
 | `prompt_plan_max_tokens` | integer | 2048 | Max tokens for the planning LLM call |
-| `memory_max_chars` | integer | 5000 | Max characters for the memory section in the system prompt |
-| `soul_max_chars` | integer | 1000 | Max characters for the user profile section in the system prompt |
+| `memory_max_chars` | integer | 5000 | Maximum characters for the memory section in the system prompt |
+| `soul_max_chars` | integer | 1000 | Maximum characters for the user profile section in the system prompt |
 | `tokenizer_encoding` | string | "" | Tokenizer encoding for budget calculations (e.g. `cl100k_base`). Empty or invalid = tokens ≈ chars/4 fallback |
 | `token_budget_soft` | integer | 200000 | Soft token budget: triggers condensation when exceeded + enough iterations elapsed (chars/4 fallback when no tokenizer) |
 | `token_budget_hard` | integer | 350000 | Hard token budget: condensation/compaction triggers immediately when exceeded (chars/4 fallback when no tokenizer) |
@@ -377,26 +370,26 @@ docker exec -e PYTHONUNBUFFERED=1 omnidev-omniagent-1 \
 **Host vs container differences that cause false failures:**
 - `git checkout -- .` hits "Permission denied" on root-owned files if run from the host
 - When `git checkout -- .` fails (even silently), no tracked files are restored : the working tree remains dirty
-- Do NOT run `git checkout -- .` or any git operations on omni-stack from the host for cleanup
+- Do NOT run `git checkout -- .` or any git operations on the deployment repo from the host for cleanup
 - If the repo needs cleaning, do it from inside the container or use `docker exec` to run git commands as root
 
 ---
 
 ## Config directory (`config/`) — kanban boards, workflows, models, hooks
 
-Beyond plugins, this repo ships the OMNI_DIR YAML config. Agents working here
+Beyond plugins, the repo carries the OMNI_DIR YAML config. Agents working here
 must know these files — they gate real behavior:
 
 | File | Purpose | Notes |
 |------|---------|-------|
-| `config/boards.yml` | Kanban boards | Feature-gated: boards are ACTIVE only while this file exists (omnistable ships none). A board carries default `channel`/`profile`/`workflow`/`plan` for tasks created on it. Resolution: Workflow Role > Workflow > Task > Board > Channel > Global. When present, the Kanban API REQUIRES a board on task create/edit. |
+| `config/boards.yml` | Kanban boards | Feature-gated: boards are ACTIVE only while this file exists. A board carries default `channel`/`profile`/`workflow`/`plan` for tasks created on it. Resolution: Workflow Role > Workflow > Task > Board > Channel > Global. When present, the Kanban API REQUIRES a board on task create/edit. |
 | `config/workflows.yml` | Kanban role workflows | Multi-role lifecycle: `roles.executor/tester/reviewer` each with `template`, `mode` (agent/action), `action_id`, `plan_mode`, `retries`. Workflow-level `auto_approve` (true = executor-only, no reviewer) and `review_on_fail` (true = failed step routes to review, not blocked). |
 | `config/models.yml` | Provider/model overrides | Pure definition file (no plugin code). `providers.<name>.plugin: false` = plugin-less provider via builtin chat_completions/anthropic; `models` replaces the plugin's allowed values in selectors; `model_config.<model>` per-model overrides. Token-budget precedence: model_config > provider > global settings. |
 | `config/channels.yml` | Channels | Map key = channel NAME = stable identifier everywhere (API, threads/messages/kanban_tasks channel_id). No `platform:` key = `cli` channel. |
-| `config/settings.yml` | Global settings | `default_cli_channel` / `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` + token budgets (`prompt_token_budget_soft`/`hard`). |
+| `config/settings.yml` | Global settings | `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` + token budgets (`prompt_token_budget_soft`/`hard`). |
 | `config/hooks` | Event hooks | `thread_started` / `thread_finished` / `new_message` fire-and-forget events; `tasks.yml` carries hook task templates; channel resolved via `default_hook_channel`. |
 
-Full reference: `config/README.md`. The seed config in this repo is the
-reference implementation — do not rename fields or restructure these files
-without updating `config/README.md` and the omni-deployer integration suite
+Full reference: `config/README.md`. The config files are the reference
+implementation — do not rename fields or restructure these files without
+updating `config/README.md` and the omni-deployer integration suite
 (`scripts/tests.py` groups 26–49) that exercises them.

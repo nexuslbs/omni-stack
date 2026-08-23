@@ -1,6 +1,6 @@
 # Default Channel Settings + CLI Platform (Implementation)
 
-**Status:** IMPLEMENTED 2026-08-13 (omniagent `8e13237` — default cli/schedule/hook/kanban channel settings as selects over channels.yml; platform-less channel = cli; empty channel fails with 'no channel defined' but record kept)
+**Status:** IMPLEMENTED 2026-08-13 (omniagent `8e13237` — default cli/schedule/hook/kanban channel settings as selects over channels.yml; platform-less channel = cli; empty channel fails with 'no channel defined' but record kept). **AMENDED 2026-08-23:** `default_cli_channel` REMOVED — the binary has no CLI session mode and the only `/mcp/execute` caller (dashboard read-only `search_database`) never creates sessions, so the setting had no live consumer. Remaining settings: `default_schedule_channel`, `default_hook_channel`, `default_kanban_channel`.
 **Date:** 2026-08-13
 **Scope:** omniagent + omni-dashboard + omni-stack
 

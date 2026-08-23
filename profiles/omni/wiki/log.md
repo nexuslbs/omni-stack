@@ -1,4 +1,10 @@
 # Log
+## 2026-08-23 (docs — generic README/AGENTS + omni-root config/ re-track)
+
+- Rewrote README.md + AGENTS.md to be **generic** (identical for the seed omni-stack and custom forks like omni-root): README documents services, COMPOSE_PROFILES, tunnel env vars, S3 backup/restore, config/*.yml files, and the plugin story (bundled plugins in omniagent, install/enable on the fly, remote plugins via config/remote.yml for separation of concerns) with NO seed-vs-fork mention; AGENTS.md has a very brief seed-vs-fork distinction only (omni-stack = no config/ nor plugins/ tracked; custom forks may track them).
+- omni-root: re-tracked `config/` (10 files: README, actions, boards, channels, models, plugins, remote, settings, tasks, workflows — customized live config incl. channels.yml pins, settings.yml without default_cli_channel) via `git add -f` (gitignore documents fork commits as the supported path).
+- Same README/AGENTS copied to both repos; pushed to main.
+
 ## 2026-08-21 (docs task — remaining Todo pages verified against commits)
 
 - External/Agnostic MCP Servers **IMPLEMENTED** (`92c8b40` — Python/NodeJS dep install; 7 reference servers in remote.yml)

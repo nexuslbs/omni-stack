@@ -1,8 +1,8 @@
-# Omni-Stack
+# OmniAgent Deployment Stack
 
 Deployment, configuration, and plugin infrastructure for **OmniAgent**: a next-generation agent system built with Rust, PostgreSQL + pgvector, and MCP tool support.
 
-This repository contains the Docker Compose stack, service definitions, plugin infrastructure, and profile/template management for **OmniAgent**. It also ships the OMNI_DIR YAML config (`config/*.yml`) that defines channels, kanban boards, workflows, hooks, models, plugins, actions and settings.
+This repository contains the Docker Compose stack, service definitions, plugin infrastructure, and profile/template management for **OmniAgent**. It also carries the OMNI_DIR YAML config (`config/*.yml`) that defines channels, kanban boards, workflows, hooks, models, plugins, actions and settings.
 
 > **OmniAgent itself** lives at [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent).  
 > **Omni-Dashboard** lives at [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard).  
@@ -13,7 +13,7 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 ## Repository Structure
 
 ```
-omni-stack/
+<repo>/
 ├ docker-compose.yml         # Production stack
 ├ docker-compose.dev.yml     # Development overrides (build from source, host ports 12345/12346)
 ├ .env.example               # Environment template
@@ -38,6 +38,11 @@ omni-stack/
 │   ├ settings.yml           #   Global settings incl. default_*_channel selects
 │   ├ tasks.yml              #   Hook/cron task templates
 │   └ workflows.yml          #   Kanban workflows (roles: executor/tester/reviewer, auto_approve, review_on_fail)
+│
+├ plugins/                   # Bundled plugins — see "Plugins" below
+│   ├ providers/             #   Provider plugins (DeepSeek, OpenAI, ...)
+│   ├ platforms/             #   Platform plugins (Mattermost, Telegram, ...)
+│   └ tools/                 #   MCP tool plugins
 │
 └ AGENTS.md                  # Operational guide for the LLM agent
 ```
@@ -123,12 +128,13 @@ docker compose restart
 
 OMNI_DIR root-level YAML. `settings.yml`, `channels.yml`, `boards.yml`, `workflows.yml`, `models.yml`, `plugins.yml`, `remote.yml`, `actions.yml` and `tasks.yml` are all read at omniagent startup. See `config/README.md` for the detailed reference. Highlights:
 
-- **settings.yml** — global settings. `default_cli_channel` / `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` control which channel each producer (CLI, cron, hooks, kanban) uses when no explicit channel is given. Token budgets live here too: `prompt_token_budget_soft` / `prompt_token_budget_hard`.
+- **settings.yml** — global settings. `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` control which channel each producer (cron, hooks, kanban) uses when no explicit channel is given. Token budgets live here too: `prompt_token_budget_soft` / `prompt_token_budget_hard`.
 - **channels.yml** — the map **key is the channel NAME** (the stable identifier used in the API, `threads.channel_id`, `kanban_tasks.channel_id`, ...). Entries without a `platform:` key are `cli` channels (kanban/cron system channels are platform-less).
 - **boards.yml** — kanban boards (feature-gated: active only while the file exists).
 - **workflows.yml** — kanban role workflows.
 - **models.yml** — provider/model overrides (plugin-less providers, model lists, per-model token budgets).
 - **plugins.yml / remote.yml / actions.yml** — plugin registry, remote git sources, action plugins.
+- **tasks.yml** — hook and cron task templates (the `hooks:` and `schedules:` sections).
 
 ## Usage
 
@@ -197,7 +203,7 @@ Hooks are **event-driven, fire-and-forget** notifications fired by the core engi
 - `thread_finished` (on terminal thread transition),
 - `new_message` (on each persisted message).
 
-Hooks resolve their target channel via `settings.yml` → `default_hook_channel` (or the hook's own channel). The seed config ships a `hooks` channel (`channels.yml`) and `tasks.yml` hook task templates so you can route lifecycle events back into agent threads (e.g. a kanban-style `hooks` channel that turns events into tasks).
+Hooks resolve their target channel via `settings.yml` → `default_hook_channel` (or the hook's own channel). The config ships a `hooks` channel (`channels.yml`) and `tasks.yml` hook task templates so you can route lifecycle events back into agent threads (e.g. a kanban-style `hooks` channel that turns events into tasks).
 
 ### Cron Jobs
 
@@ -228,40 +234,35 @@ Token budget / max_tokens precedence for each of soft/hard independently:
 
 ### Plugins
 
-This repo is a **seed: it ships no `plugins/` directory and tracks zero
-plugins.** Forked repos add plugins under `plugins/{type}/{name}/` (each
-containing a `plugin.json` manifest) and configure them via YAML files in
-the `config/` directory (`config/plugins.yml`, `config/actions.yml`, `config/remote.yml`,
-`config/settings.yml`, `config/workflows.yml`). The
-only gitignored content under `plugins/` is `.remote/` (auto-generated
-clones from remote installs) — fork-added plugins are tracked by default,
-never silently excluded. During test runs (defined in omni-deployer)
-plugins may be added to the bind-mounted `plugins/` dir transiently, but
-they must be removed after the tests.
+Plugins extend OmniAgent with new providers, platforms, and MCP tools. They can be added to this repository under `plugins/{type}/{name}/` (each containing a `plugin.json` manifest) and configured via YAML files in the `config/` directory (`config/plugins.yml`, `config/actions.yml`, `config/remote.yml`, `config/settings.yml`, `config/workflows.yml`). The only gitignored content under `plugins/` is `.remote/` (auto-generated clones from remote installs) — everything else a deployment adds is tracked by default, never silently excluded. During test runs (defined in omni-deployer) plugins may be added to the bind-mounted `plugins/` dir transiently, but they must be removed after the tests.
+
+Plugins can be **installed and enabled on the fly in the running omniagent** — via the dashboard or the plugin API — without rebuilding or restarting the container.
 
 OmniAgent uses a **three-source** plugin system:
 
 | Source | Location | Description |
 |--------|----------|-------------|
-| **Bundled** | `plugins/{type}/{name}/` | Standalone crates added by forked repos (same structure as built-in, with `plugin.json` and source code) |
+| **Bundled** | `plugins/{type}/{name}/` | Standalone crates added to this repository (same structure as built-in, with `plugin.json` and source code) |
 | **Built-in** | `/app/plugins/{type}/{name}/` | Workspace crates inside the omniagent Docker image |
 | **Remote** | `plugins/{type}/.remote/{name}/` | Git-cloned from external repositories |
 
 **Display priority (dashboard):**
 - YAML with `remote` → primary = remote
 - YAML with `builtin: true` → primary = built-in
-- YAML entry without flags → primary = bundled (if present in forked repo)
+- YAML entry without flags → primary = bundled (if present in this repo)
 - No YAML entry → primary = built-in
 
 **Builtin plugins** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight) are workspace members of omniagent at `/app/plugins/{type}/{name}/`. They require `builtin: true` in YAML to activate and are disabled by default.
 
-**Bundled plugins** — forked repos can add standalone plugin crates under `plugins/{type}/{name}/` with a `plugin.json` manifest. These compile independently of omniagent.
+**Bundled plugins** — standalone plugin crates under `plugins/{type}/{name}/` with a `plugin.json` manifest. These compile independently of omniagent and ship with the deployment.
+
+**Remote plugins** — defined in `config/remote.yml` as a git URL + path (e.g. `https://github.com/...` or a local `file://` checkout). Installing a remote plugin clones its source into `plugins/{type}/.remote/{name}/`. Defining remote plugins in `config/remote.yml` can be **preferable for organization and separation of concerns**: the plugin source lives in its own repository, is versioned independently, and can be updated without touching this repo.
 
 For detailed internal documentation, see [AGENTS.md](AGENTS.md).
 
 ### Provider Plugins
 
-Provider plugins declare which API format they use via `plugin.json` (in forked repos' `plugins/providers/<name>/plugin.json`):
+Provider plugins declare which API format they use via `plugin.json` (in `plugins/providers/<name>/plugin.json`):
 
 - **`api_mode`**: the default API format for all models. One of:
   - `"chat_completions"`: OpenAI-compatible `/v1/chat/completions` (default)
@@ -314,9 +315,9 @@ The `publish.yml` workflow builds and publishes Docker images to GHCR on:
 Parallel jobs build:
 1. **omniagent**: from [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) (multi-stage Rust build)
 2. **omni-dashboard**: from [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) (Vite + TypeScript)
-3. **toolbox**: from this repo (`services/toolbox/Dockerfile`, alpine-based maintenance container)
+3. **toolbox**: from this repository (`services/toolbox/Dockerfile`, alpine-based maintenance container)
 
-The workflow then runs the integration suite via `deploy.py ci`, tags the source repos (`omni-stack`, `omniagent`, `omni-dashboard`) with the release version, **and also pushes/tags `nexuslbs/omni-plugins`** (its root `models.yml` provides the plugin-less provider definitions used by the release).
+The workflow then runs the integration suite via `deploy.py ci`, tags the source repos with the release version, **and also pushes/tags `nexuslbs/omni-plugins`** (its root `models.yml` provides the plugin-less provider definitions used by the release).
 
 Release-loop convention: kanban tasks → `deploy.py dev` verification → push `main` → promote to `stable` (which triggers publish). Doc/config-only changes push straight to `main`.
 
@@ -367,4 +368,4 @@ rm -rf .git-cache/
 | [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins) | Plugin-less provider definitions (`models.yml`) |
 | [nexuslbs/omni-deployer](https://github.com/nexuslbs/omni-deployer) | Deployment orchestration, tests, CI/CD |
 | [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
-| **nexuslbs/omni-stack** (this repo) | Docker Compose, plugins, profiles |
+| **This repository** | Docker Compose, profiles, plugins, config |

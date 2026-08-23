@@ -18,13 +18,12 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 ├ docker-compose.dev.yml     # Development overrides (build from source, host ports 12345/12346)
 ├ .env.example               # Environment template
 │
-├ profiles/
-│   └ omni/                  # Default profile (config, memories, skills, wiki)
-│       ├ config.json        #   Profile configuration
-│       ├ memories/          #   MEMORY.md, SOUL.md
-│       ├ skills/            #   Practical wiki / agent skills
-│       ├ templates/         #   Prompt templates (dev-executor, dev-tester, dev-reviewer, ...)
-│       └ wiki/              #   Wiki content (long-term memory in human readable format)
+├ profiles/                  # RUNTIME-ONLY — not shipped by the seed.
+│   └ omni/                  # The core auto-creates profiles/<default>/config.json
+│                            # at startup ({ "allowed_tools": [] }) and the dir is
+│                            # removed when a deploy ends. Forked data repos
+│                            # (e.g. omni-root) commit their own profiles/ content
+│                            # (config.json, memories, skills, templates, wiki).
 │
 ├ services/
 │   ├ cloudflared/           #   Cloudflare tunnel (Dockerfile + config.yaml)
@@ -63,7 +62,8 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 ```env
 # ── Required ──
 POSTGRES_PASSWORD=***                  # PostgreSQL — everything else derivable
-TUNNEL_TOKEN=***                       # Cloudflare tunnel to reach the dashboard
+TUNNEL_TOKEN=***                       # Cloudflare tunnel to reach the
+ dashboard
 COMPOSE_PROFILES=tunnel                # Which optional services to enable
 
 # ── S3 (backup / checkpoint — optional) ──
@@ -325,4 +325,4 @@ rm -rf .git-cache/
 | [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
 | [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Vite + TypeScript SPA) |
 | [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins) | Plugin-less provider definitions (`models.yml`) |
-| **This repository** | Docker Compose, profiles, plugins, config |
+| **This repository** | Docker Compose, plugins, config (profiles/ is runtime-only — forks commit their own) |

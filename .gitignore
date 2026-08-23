@@ -42,15 +42,16 @@ tmp/
 /settings.yml
 /workflows.yml
 
-# ── config/ and plugins/ are NOT gitignored ─────────────────────────────
-# config/ (OMNI_DIR YAML) and plugins/ (bundled plugins) are first-class
-# content, never ignored. The seed (omni-stack) simply does not ship them:
-# they may exist transiently during a deploy (created from
-# omni-deployer/seed/config + the plugin API install-git) and are removed
-# afterwards WITHOUT being committed. Forked repos commit their own config/
-# and plugins/ (tracked files beat gitignore, so a fork that wants to track
-# them just adds them). hindsight_watermark.json is live agent memory state
-# and stays runtime-only.
+# ── config/, profiles/ and plugins/ are NOT gitignored ──────────────────
+# config/ (OMNI_DIR YAML), profiles/ (profile content) and plugins/
+# (bundled plugins) are first-class content, never ignored. The seed
+# (omni-stack) simply does not ship them: they may exist transiently during
+# a deploy (created from omni-deployer/seed/config, the core's startup
+# auto-created profiles/<default>/config.json, and the plugin API
+# install-git) and are removed afterwards WITHOUT being committed. Forked
+# repos commit their own config/, profiles/ and plugins/ (tracked files
+# beat gitignore, so a fork that wants to track them just adds them).
+# hindsight_watermark.json is live agent memory state and stays runtime-only.
 /hindsight_watermark.json
 
 # ── taskj patch artifacts (kanban task tool) ──

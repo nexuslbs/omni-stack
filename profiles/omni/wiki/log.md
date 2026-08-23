@@ -1,4 +1,10 @@
 # Log
+## 2026-08-23 (kanban backlog — Remove SOUL.md Support + Single Root MEMORY.md)
+
+- User requested a backlog task (omnidev board, omnistable): remove SOUL.md support entirely — only MEMORY.md (may include SOUL.md content); single `MEMORY.md` at profile ROOT (`profiles/omni/MEMORY.md`), NOT `memories/`; transitionally keep BOTH files (copy, same content) until next release.
+- Verified inventory: prompt plugin returns `"soul"` (plugins/tools/prompt/src/main.rs:1559, 1323-1347), omniagent consumes it (context_builder.rs:13,79; main_loop.rs:239-240,498-499), memory API has `soul`→USER.md type (server/memory.rs:426-472,545-561), settings `soul_max_chars` (settings.rs:166,418-421,659,760), server/mod.rs:867 `<<soul>>` placeholder, dashboard Memory page SOUL card (memory.ts:65-82,154-171,356-460), deployer soul tests (tests.py:2549-2594).
+- Spec: Todo/SoulRemovalImplementation.md. Not dispatched (backlog). Index + log updated.
+
 ## 2026-08-23 (docs — README scoping: Development/CI-CD to omni-deployer, no hermes/deployer refs in stack README)
 
 - Moved Development (docker-compose.dev.yml / omnidev) + CI/CD sections from omni-stack/omni-root README to omni-deployer README (enriched CI/CD with tag details). omni-stack/omni-root now know nothing about omni-deployer.

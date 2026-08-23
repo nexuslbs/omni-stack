@@ -325,5 +325,4 @@ rm -rf .git-cache/
 | [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
 | [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Vite + TypeScript SPA) |
 | [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins) | Plugin-less provider definitions (`models.yml`) |
-| [nexuslbs/omni-workspace](https://github.com/nexuslbs/omni-workspace) | Workspace projects directory |
 | **This repository** | Docker Compose, profiles, plugins, config |

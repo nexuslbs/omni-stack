@@ -1,4 +1,8 @@
 # Log
+## 2026-08-23 (docs — remove omni-workspace from Related Repositories)
+
+- Removed `nexuslbs/omni-workspace | Workspace projects directory` row from README Related Repositories — it's the user's personal workspace, not a generic omniagent workspace. Both omni-stack + omni-root READMEs updated (identical), pushed to main.
+
 ## 2026-08-23 (kanban backlog — Remove SOUL.md Support + Single Root MEMORY.md)
 
 - User requested a backlog task (omnidev board, omnistable): remove SOUL.md support entirely — only MEMORY.md (may include SOUL.md content); single `MEMORY.md` at profile ROOT (`profiles/omni/MEMORY.md`), NOT `memories/`; transitionally keep BOTH files (copy, same content) until next release.

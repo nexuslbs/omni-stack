@@ -37,7 +37,10 @@ services:
     # (docker-compose.dev.yml) adds a build section (Dockerfile.dev) for
     # omnidev source builds. (Regression note: 3d4bfd2 had pointed the base
     # compose at Dockerfile.dev; reverted to image-only in d552b9f.)
-    image: ${OMNIAGENT_IMAGE:-omniagent-dev:latest}
+    # The default is the PUBLIC CI image from the omni-deployer pipeline -
+    # fresh machines pull with no .env / registry login; override via
+    # OMNIAGENT_IMAGE in .env to pin a version.
+    image: ${OMNIAGENT_IMAGE:-ghcr.io/nexuslbs/omni-deployer/omniagent:latest}
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,7 +80,7 @@ services:
       driver: journald
 
   dashboard:
-    image: ${DASHBOARD_IMAGE:-ghcr.io/nexuslbs/omni-dashboard:latest}
+    image: ${DASHBOARD_IMAGE:-ghcr.io/nexuslbs/omni-deployer/dashboard:latest}
     command: ["node", "/app/server/index.js"]
     # Host port publishing for the dashboard lives in the dev overlay
     # (docker-compose.dev.yml) - host access is a dev-only convenience.
@@ -98,7 +101,7 @@ services:
       driver: journald
 
   toolbox:
-    image: ${TOOLBOX_IMAGE:-ghcr.io/nexuslbs/omni-stack-toolbox:latest}
+    image: ${TOOLBOX_IMAGE:-ghcr.io/nexuslbs/omni-deployer/toolbox:latest}
     build:
       context: ./services/toolbox
       dockerfile: Dockerfile

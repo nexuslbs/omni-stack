@@ -161,14 +161,31 @@ ASKPASS
 clone_or_update "$REPO_URL" "$REPO_TOKEN"
 
 # ---------------------------------------------------------------------------
-# 4. docker compose pull + build (services WITHOUT a profile only)
+# 4. Fresh-machine .env + docker compose pull + build (non-profiled services)
 # ---------------------------------------------------------------------------
 cd /opt/omni
+
+# Create .env from the tracked template when missing (generates a random
+# POSTGRES_PASSWORD; the template pins the PUBLIC omni-deployer GHCR images
+# so `docker compose pull` needs no registry login).
+if [ ! -f .env ]; then
+  log "Creating /opt/omni/.env from .env.example..."
+  cp .env.example .env
+  if ! grep -q '^POSTGRES_PASSWORD=.\+' .env; then
+    GEN_PW="$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+    printf 'POSTGRES_PASSWORD=%s\n' "$GEN_PW" >> .env
+    log "  (generated random POSTGRES_PASSWORD)"
+  fi
+fi
+
 log "Pulling + building core services (non-profiled only; profiled services like mattermost/paperclip/noop are opt-in via COMPOSE_PROFILES)"
 CORE_SERVICES="$(docker compose config --services)"
 log "Core services: ${CORE_SERVICES//$'\n'/ }"
 docker compose pull $CORE_SERVICES
-docker compose build $CORE_SERVICES
+# Best-effort source build for services with a build context (e.g. the
+# toolbox Dockerfile in the repo); the stack runs from the pulled images
+# either way.
+docker compose build $CORE_SERVICES || log "WARN: source build incomplete - the stack will run from the pulled images"
 
 # ---------------------------------------------------------------------------
 # 5. Next steps
@@ -178,9 +195,8 @@ cat <<'MSG'
 ==> Bootstrap complete.
 
 Next steps (operator):
-  1. cd /opt/omni && cp .env.example .env
-  2. Edit .env: set POSTGRES_PASSWORD (mandatory) and, for opt-in services,
-     COMPOSE_PROFILES (e.g. "mattermost,paperclip,memory") plus their secrets.
-  3. Start the core services:  docker compose up -d
-  4. Start opt-in profiles:    docker compose --profile mattermost up -d
+  1. /opt/omni/.env was auto-created (generated POSTGRES_PASSWORD + public
+     GHCR image pins). Edit it if you want COMPOSE_PROFILES or other secrets.
+  2. Start the core services:  docker compose up -d
+  3. Start opt-in profiles:    docker compose --profile mattermost up -d
 MSG

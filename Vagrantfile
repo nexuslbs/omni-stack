@@ -10,6 +10,7 @@ VM_MEMORY = config_file.dig('vm', 'memory') || 4096
 VM_CPUS   = config_file.dig('vm', 'cpus')   || 2
 VM_DISK   = config_file.dig('vm', 'disk')   || "50GB"
 REPO_URL  = config_file.dig('repo')         || "https://github.com/nexuslbs/omni-stack"
+REPO_TOKEN = config_file.dig('repo_token')  || ""
 
 Vagrant.configure("2") do |config|
   #  Base Box 
@@ -45,7 +46,7 @@ Vagrant.configure("2") do |config|
   end
 
   #  SSH 
-  config.ssh.forward_agent = false
+  config.ssh.forward_agent = true
   config.ssh.insert_key = true
 
   #  Install Docker Engine + Compose 
@@ -84,18 +85,56 @@ Vagrant.configure("2") do |config|
 
   #  Clone Repo + Pull/Build Core Images 
   config.vm.provision "shell", name: "setup-omniagent", privileged: true,
-    env: { "REPO_URL" => REPO_URL }, inline: <<-SHELL
+    env: { "REPO_URL" => REPO_URL, "REPO_TOKEN" => REPO_TOKEN }, inline: <<-'SHELL'
     set -euxo pipefail
 
     sleep 2
 
-    # Clone the configured repo (config.yml `repo` key) into /opt/omni
-    if [ ! -d /opt/omni ]; then
-      git clone "${REPO_URL}" /opt/omni
-    else
-      echo "/opt/omni already exists - pulling latest"
-      git -C /opt/omni pull --ff-only || true
-    fi
+    # Cleanup guard: never leave a credential file or helper behind, even on failure.
+    trap 'git config --system --unset credential.helper 2>/dev/null || true; rm -f /root/.git-credentials' EXIT
+
+    # Clone the configured repo (config.yml `repo` key) into /opt/omni.
+    # Private-repo auth:
+    #   - SSH URL (repo: git@github.com:nexuslbs/<repo>.git): uses the
+    #     forwarded SSH agent (config.ssh.forward_agent = true).
+    #   - HTTPS + config.yml `repo_token` (GitHub PAT): used via a temporary
+    #     git credential store so the token never lands in the clone URL,
+    #     /opt/omni/.git/config, or the provision log; removed afterwards.
+    clone_or_update() {
+      local url="${1:-}" token="${2:-}"
+      [ -n "$url" ] || { echo "ERROR: repo URL is empty (set the 'repo' key in config.yml)" >&2; exit 1; }
+      if [ ! -d /opt/omni ]; then
+        case "$url" in
+          git@*|ssh://*)
+            echo "Cloning via SSH (agent forwarding): ${url}"
+            git clone "${url}" /opt/omni
+            ;;
+          https://*)
+            if [ -n "${token}" ]; then
+              echo "Cloning private repo over HTTPS with token auth..."
+              set +x
+              umask 077
+              printf 'https://x-access-token:%s@github.com/\n' "${token}" > /root/.git-credentials
+              git config --system credential.helper 'store --file=/root/.git-credentials'
+              set -x
+              git clone "${url}" /opt/omni
+            else
+              echo "Cloning (public or pre-authenticated): ${url}"
+              git clone "${url}" /opt/omni
+            fi
+            ;;
+          *)
+            echo "Cloning: ${url}"
+            git clone "${url}" /opt/omni
+            ;;
+        esac
+      else
+        echo "/opt/omni already exists - pulling latest"
+        git -C /opt/omni pull --ff-only || true
+      fi
+    }
+
+    clone_or_update "${REPO_URL}" "${REPO_TOKEN}"
 
     cd /opt/omni
 

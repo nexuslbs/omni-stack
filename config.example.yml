@@ -5,7 +5,16 @@
 # which repository to clone into /opt/omni on a fresh machine.
 
 # Repository to clone into /opt/omni on a fresh VM / remote host.
+# Public: https://github.com/nexuslbs/omni-stack
+# Private via SSH: git@github.com:nexuslbs/omni-stack.git (uses the forwarded
+# SSH agent in Vagrant, or a key installed on the remote machine).
 repo: https://github.com/nexuslbs/omni-stack
+
+# Optional: token for cloning a PRIVATE repository over HTTPS (e.g. a GitHub
+# personal access token with `repo` scope). Leave empty ("") for public repos
+# or when using an SSH URL. The token is used only for the initial clone, is
+# never stored in /opt/omni/.git/config, and is never printed to logs.
+repo_token: ""
 
 # VM resource defaults (used by the Vagrantfile).
 vm:

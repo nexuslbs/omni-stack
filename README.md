@@ -335,7 +335,18 @@ The stack can be brought up on a fresh Linux box two ways:
   services).
 
 Both read `config.yml` (a gitignored copy of
-[config.example.yml](config.example.yml)) for the `repo` URL and VM settings.
+[config.example.yml](config.example.yml)) for the `repo` URL, optional
+`repo_token`, and VM settings.
+
+**Private repositories:** the target repo is private by default (`nexuslbs/*`).
+Two auth options:
+- **HTTPS token** — set `repo_token: <PAT>` in `config.yml` (GitHub personal
+  access token with `repo` scope). Used only for the initial clone via a
+  temporary git credential store; never written to `/opt/omni/.git/config` or
+  logs (Vagrant or bootstrap-remote.sh).
+- **SSH** — set `repo: git@github.com:nexuslbs/<repo>.git`. For Vagrant the
+  host SSH agent is forwarded (`config.ssh.forward_agent = true`); for a cloud
+  VM install a key on the machine or use `repo_token`.
 
 ## Related Repositories
 

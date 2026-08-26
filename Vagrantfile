@@ -9,6 +9,7 @@ VM_NAME   = config_file.dig('vm', 'name')   || "omniagent-vm"
 VM_MEMORY = config_file.dig('vm', 'memory') || 4096
 VM_CPUS   = config_file.dig('vm', 'cpus')   || 2
 VM_DISK   = config_file.dig('vm', 'disk')   || "50GB"
+REPO_URL  = config_file.dig('repo')         || "https://github.com/nexuslbs/omni-stack"
 
 Vagrant.configure("2") do |config|
   #  Base Box 
@@ -81,57 +82,33 @@ Vagrant.configure("2") do |config|
     docker compose version
   SHELL
 
-  #  Clone Repo + Run Startup 
-  config.vm.provision "shell", name: "setup-omniagent", privileged: true, inline: <<-SHELL
+  #  Clone Repo + Pull/Build Core Images 
+  config.vm.provision "shell", name: "setup-omniagent", privileged: true,
+    env: { "REPO_URL" => REPO_URL }, inline: <<-SHELL
     set -euxo pipefail
 
     sleep 2
 
-    # Clone this repo
-    if [ ! -d /opt/omniagent ]; then
-      git clone https://github.com/nexuslbs/omniagent.git /opt/omniagent
+    # Clone the configured repo (config.yml `repo` key) into /opt/omni
+    if [ ! -d /opt/omni ]; then
+      git clone "${REPO_URL}" /opt/omni
+    else
+      echo "/opt/omni already exists - pulling latest"
+      git -C /opt/omni pull --ff-only || true
     fi
 
-    # Run the startup script
-    bash /opt/omniagent/scripts/startup.sh
-  SHELL
+    cd /opt/omni
 
-  #  Mattermost Setup (conditional on .env credentials) 
-  config.vm.provision "shell", name: "setup-mattermost", privileged: true, inline: <<-SHELL
-    set -euxo pipefail
+    # Pull + build ONLY the core (non-profiled) services. Profiled services
+    # (mattermost, paperclip, noop, observability, ...) are opt-in: the
+    # operator enables them later via COMPOSE_PROFILES / .env.
+    CORE_SERVICES=$(docker compose config --services)
+    docker compose pull ${CORE_SERVICES}
+    docker compose build ${CORE_SERVICES}
 
-    ENV_FILE="/opt/omni-stack/.env"
-
-    # Only proceed if .env exists and has Mattermost credentials
-    if [ ! -f "$ENV_FILE" ]; then
-      echo "SKIP: No .env found at $ENV_FILE: Mattermost setup skipped"
-      exit 0
-    fi
-
-    # Source the .env (safe subset: only the vars we need)
-    ADMIN_PASS=$(grep -m1 '^MATTERMOST_ADMIN_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
-    TEST_PASS=$(grep -m1 '^MATTERMOST_TEST_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
-    BOT_PASS=$(grep -m1 '^MATTERMOST_BOT_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- || true)
-
-    if [ -z "$ADMIN_PASS" ] && [ -z "$TEST_PASS" ] && [ -z "$BOT_PASS" ]; then
-      echo "SKIP: No Mattermost credentials found in .env"
-      echo "  Define at least one of MATTERMOST_ADMIN_PASSWORD,"
-      echo "  MATTERMOST_TEST_PASSWORD, or MATTERMOST_BOT_PASSWORD"
-      exit 0
-    fi
-
-    echo "Mattermost credentials found: running setup..."
-
-    COMPOSE="docker compose -f /opt/omni-stack/docker-compose.yml --profile manual"
-
-    # Start the toolbox container (idles until stopped)
-    $COMPOSE up -d toolbox --wait 2>/dev/null || $COMPOSE up -d toolbox
-
-    # Run the setup script inside the toolbox
-    $COMPOSE exec -T toolbox python3 /opt/omni-stack/scripts/mm-setup.py \
-      --env-file "$ENV_FILE"
-
-    # Stop the toolbox when done
-    $COMPOSE down
+    echo
+    echo "Core images ready. Next steps (operator):"
+    echo "  1. cp .env.example .env  (fill in POSTGRES_PASSWORD etc.)"
+    echo "  2. docker compose up -d  (core)  or add --profile mattermost etc."
   SHELL
 end

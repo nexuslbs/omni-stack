@@ -72,3 +72,6 @@ plugins/providers/.remote/
 # ── Python bytecode cache ──
 __pycache__/
 *.pyc
+
+# runtime copy of config.example.yml (operator/Vagrantfile created)
+config.yml

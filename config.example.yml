@@ -1,0 +1,15 @@
+# Omni Stack - example configuration
+#
+# Copy this file to `config.yml` (gitignored, like .env) and adjust values.
+# The Vagrantfile and scripts/bootstrap-remote.sh read the `repo` key to know
+# which repository to clone into /opt/omni on a fresh machine.
+
+# Repository to clone into /opt/omni on a fresh VM / remote host.
+repo: https://github.com/nexuslbs/omni-stack
+
+# VM resource defaults (used by the Vagrantfile).
+vm:
+  name: "omniagent-vm"
+  memory: 8192
+  cpus: 2
+  disk: "200GB"

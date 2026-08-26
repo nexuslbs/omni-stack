@@ -128,6 +128,20 @@ ASKPASS
           export REPO_TOKEN="$token"
           export GIT_ASKPASS=/tmp/git-askpass.sh
           export GIT_TERMINAL_PROMPT=0
+          # Validate the token against the GitHub API before cloning.
+          # Prints only the HTTP status code - the token is never echoed.
+          if command -v curl >/dev/null 2>&1 && [[ "$url" == https://github.com/* ]]; then
+            repo_slug="${url#https://github.com/}"
+            repo_slug="${repo_slug%.git}"
+            api_code="$(curl -s -o /dev/null -w '%{http_code}' --oauth2-bearer "$token" -H 'Accept: application/vnd.github+json' -H 'User-Agent: omni-bootstrap' "https://api.github.com/repos/${repo_slug}" || echo 000)"
+            case "$api_code" in
+              200) log "Token check OK: can read ${repo_slug}" ;;
+              401|404)
+                die "GitHub token rejected (API ${api_code}) - invalid, expired, or no access to ${repo_slug}. Check the 'repo_token' value in config.yml."
+                ;;
+              *)   log "WARN: token check returned HTTP ${api_code} - continuing anyway" ;;
+            esac
+          fi
           git clone "$url" /opt/omni
           rm -f /tmp/git-askpass.sh
           trap - EXIT

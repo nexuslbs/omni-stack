@@ -10,7 +10,60 @@ VM_MEMORY = config_file.dig('vm', 'memory') || 4096
 VM_CPUS   = config_file.dig('vm', 'cpus')   || 2
 VM_DISK   = config_file.dig('vm', 'disk')   || "50GB"
 REPO_URL  = config_file.dig('repo')         || "https://github.com/nexuslbs/omni-stack"
-REPO_TOKEN = config_file.dig('repo_token')  || ""
+require 'openssl'
+require 'base64'
+require 'json'
+require 'net/http'
+require 'uri'
+
+# Mint a fresh GitHub App installation token (1h lifespan) from the org app's
+# private key using only Ruby stdlib (works in Vagrant's embedded Ruby - no
+# gems). The private key never leaves the host; only the short-lived token is
+# passed to the VM provisioner via env.
+def generate_installation_token(app_id, installation_id, key_path)
+  key = OpenSSL::PKey::RSA.new(File.read(key_path))
+  now = Time.now.to_i
+  b64url = ->(data) { Base64.urlsafe_encode64(data).tr('=', '') }
+  signing_input = "#{b64url.call({ alg: 'RS256', typ: 'JWT' }.to_json)}.#{b64url.call({ iat: now - 60, exp: now + 600, iss: app_id.to_s }.to_json)}"
+  sig = b64url.call(key.sign(OpenSSL::Digest::SHA256.new, signing_input))
+  jwt = "#{signing_input}.#{sig}"
+
+  uri = URI("https://api.github.com/app/installations/#{installation_id}/access_tokens")
+  req = Net::HTTP::Post.new(uri)
+  scheme = 'Bearer'
+  req['Authorization'] = "#{scheme} #{jwt}"
+  req['Accept'] = 'application/vnd.github+json'
+  req['User-Agent'] = 'omni-vagrant'
+  req['Content-Type'] = 'application/json'
+  req.body = '{}'
+  res = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 30, read_timeout: 30) do |http|
+    http.request(req)
+  end
+  raise "GitHub token request failed: HTTP #{res.code} #{res.body}" unless res.code == '201'
+  JSON.parse(res.body)['token']
+end
+
+# Clone credential resolution:
+#   1. config.yml `repo_token` (static PAT) - if set, it wins.
+#   2. GitHub App auto-mint (config.yml github_app_id + github_installation_id
+#      + github_app_private_key): a FRESH token is minted on every vagrant run,
+#      so provisioning never fails from an expired token.
+#   3. Neither - plain/SSH clone.
+app_key_path = File.join(__dir__, config_file.dig('github_app_private_key') || '')
+REPO_TOKEN = if config_file.dig('repo_token').to_s != ''
+               config_file.dig('repo_token')
+             elsif config_file.dig('github_app_id').to_s != '' &&
+                   config_file.dig('github_installation_id').to_s != '' &&
+                   File.exist?(app_key_path)
+               generate_installation_token(config_file.dig('github_app_id'),
+                                           config_file.dig('github_installation_id'),
+                                           app_key_path)
+             else
+               if config_file.dig('github_app_id').to_s != '' && !File.exist?(app_key_path)
+                 warn "config.yml: github_app_private_key file not found at #{app_key_path} - falling back to unauthenticated clone"
+               end
+               ''
+             end
 
 Vagrant.configure("2") do |config|
   #  Base Box 

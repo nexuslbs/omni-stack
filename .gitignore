@@ -14,6 +14,8 @@ dist/
 .env.omnidev
 omnidev.env
 omnideploy.env
+*.pem
+*.key
 
 # ── Temporary / generated files ──
 COMMIT_MSG.txt

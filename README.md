@@ -18,7 +18,7 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 ├ docker-compose.dev.yml     # Development overrides (build from source, host ports 12345/12346)
 ├ .env.example               # Environment template
 │
-├ profiles/                  # RUNTIME-ONLY — not shipped by the seed.
+├ profiles/                  # RUNTIME-ONLY - not shipped by the seed.
 │   └ omni/                  # The core auto-creates profiles/<default>/config.json
 │                            # at startup ({ "allowed_tools": [] }) and the dir is
 │                            # removed when a deploy ends. Forked data repos
@@ -34,7 +34,7 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 │   ├ toolbox/               #   Maintenance container (Dockerfile + scripts/)
 │   └ vector/                #   Log shipping (Dockerfile + sinks/sources/transforms.toml)
 │
-├ config/                    # OMNI_DIR yml config — see "Config directory" below
+├ config/                    # OMNI_DIR yml config - see "Config directory" below
 │   ├ actions.yml            #   Action plugin definitions
 │   ├ boards.yml             #   Kanban boards (default channel/profile/workflow/plan per board)
 │   ├ channels.yml           #   Channels (map key = channel name = stable identifier)
@@ -45,7 +45,7 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 │   ├ tasks.yml              #   Hook/cron task templates
 │   └ workflows.yml          #   Kanban workflows (roles: executor/tester/reviewer, auto_approve, review_on_fail)
 │
-├ plugins/                   # Bundled plugins — see "Plugins" below
+├ plugins/                   # Bundled plugins - see "Plugins" below
 │   ├ providers/             #   Provider plugins (DeepSeek, OpenAI, ...)
 │   ├ platforms/             #   Platform plugins (Mattermost, Telegram, ...)
 │   └ tools/                 #   MCP tool plugins
@@ -61,12 +61,12 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 
 ```env
 # ── Required ──
-POSTGRES_PASSWORD=***                  # PostgreSQL — everything else derivable
+POSTGRES_PASSWORD=***                  # PostgreSQL - everything else derivable
 TUNNEL_TOKEN=***                       # Cloudflare tunnel to reach the
  dashboard
 COMPOSE_PROFILES=tunnel                # Which optional services to enable
 
-# ── S3 (backup / checkpoint — optional) ──
+# ── S3 (backup / checkpoint - optional) ──
 # Only needed if you enable the backup/checkpoint cron schedules in docker-compose.yml.
 S3_ACCESS_KEY=<key_id>
 S3_SECRET_KEY=<application_key>
@@ -77,7 +77,7 @@ S3_BUCKET=<bucket_name>
 
 `POSTGRES_PASSWORD` is the **only** truly required secret. `DATABASE_URL` is auto-derived from it in `docker-compose.yml`.
 
-**Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are built into the omniagent Docker image. No manual setup needed in this repo — just add your API key via the dashboard Settings page after starting. Provider **model lists / overrides** can be customized without touching plugins via `config/models.yml` (see [Models](#models-modelsyml)).
+**Provider plugins** (DeepSeek, OpenAI, OpenCode Go, Noop) are built into the omniagent Docker image. No manual setup needed in this repo - just add your API key via the dashboard Settings page after starting. Provider **model lists / overrides** can be customized without touching plugins via `config/models.yml` (see [Models](#models-modelsyml)).
 
 ### Start
 
@@ -86,11 +86,11 @@ docker compose up -d
 ```
 
 This starts the core stack:
-- **postgres** — message storage with pgvector
-- **omniagent** — the agent API
-- **dashboard** — web UI on port 3001 (behind the tunnel)
-- **toolbox** — utility container (cron, backup, maintenance)
-- **cloudflared** — tunnel to the dashboard (if `COMPOSE_PROFILES` includes `tunnel`)
+- **postgres** - message storage with pgvector
+- **omniagent** - the agent API
+- **dashboard** - web UI on port 3001 (behind the tunnel)
+- **toolbox** - utility container (cron, backup, maintenance)
+- **cloudflared** - tunnel to the dashboard (if `COMPOSE_PROFILES` includes `tunnel`)
 
 Optional services (gated by `COMPOSE_PROFILES`):
 
@@ -124,13 +124,13 @@ After the stack starts, open the dashboard. Configure your LLM provider API key 
 
 OMNI_DIR root-level YAML. `settings.yml`, `channels.yml`, `boards.yml`, `workflows.yml`, `models.yml`, `plugins.yml`, `remote.yml`, `actions.yml` and `tasks.yml` are all read at omniagent startup. See `config/README.md` for the detailed reference. Highlights:
 
-- **settings.yml** — global settings. `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` control which channel each producer (cron, hooks, kanban) uses when no explicit channel is given. Token budgets live here too: `prompt_token_budget_soft` / `prompt_token_budget_hard`.
-- **channels.yml** — the map **key is the channel NAME** (the stable identifier used in the API, `threads.channel_id`, `kanban_tasks.channel_id`, ...). Entries without a `platform:` key are `cli` channels (kanban/cron system channels are platform-less).
-- **boards.yml** — kanban boards (feature-gated: active only while the file exists).
-- **workflows.yml** — kanban role workflows.
-- **models.yml** — provider/model overrides (plugin-less providers, model lists, per-model token budgets).
-- **plugins.yml / remote.yml / actions.yml** — plugin registry, remote git sources, action plugins.
-- **tasks.yml** — hook and cron task templates (the `hooks:` and `schedules:` sections).
+- **settings.yml** - global settings. `default_schedule_channel` / `default_hook_channel` / `default_kanban_channel` control which channel each producer (cron, hooks, kanban) uses when no explicit channel is given. Token budgets live here too: `prompt_token_budget_soft` / `prompt_token_budget_hard`.
+- **channels.yml** - the map **key is the channel NAME** (the stable identifier used in the API, `threads.channel_id`, `kanban_tasks.channel_id`, ...). Entries without a `platform:` key are `cli` channels (kanban/cron system channels are platform-less).
+- **boards.yml** - kanban boards (feature-gated: active only while the file exists).
+- **workflows.yml** - kanban role workflows.
+- **models.yml** - provider/model overrides (plugin-less providers, model lists, per-model token budgets).
+- **plugins.yml / remote.yml / actions.yml** - plugin registry, remote git sources, action plugins.
+- **tasks.yml** - hook and cron task templates (the `hooks:` and `schedules:` sections).
 
 ## Usage
 
@@ -187,9 +187,9 @@ workflows:
 ```
 
 Key semantics:
-- **`auto_approve: true`** — no reviewer step; the workflow is executor-only and executor success completes the task (`dev-executor` workflow).
-- **`review_on_fail: true`** — a failed step routes the task to `review` (reviewer gets a second look) instead of straight to `blocked`.
-- **`mode: agent` vs `mode: action`** — per-role Mode select; `action` runs a fixed `action_id` instead of an LLM thread.
+- **`auto_approve: true`** - no reviewer step; the workflow is executor-only and executor success completes the task (`dev-executor` workflow).
+- **`review_on_fail: true`** - a failed step routes the task to `review` (reviewer gets a second look) instead of straight to `blocked`.
+- **`mode: agent` vs `mode: action`** - per-role Mode select; `action` runs a fixed `action_id` instead of an LLM thread.
 - Per-role `profile`/`provider`/`model`/`plan_mode`/`retries` override the workflow defaults.
 
 ### Hooks
@@ -218,10 +218,10 @@ Channels represent communication endpoints (Telegram, Mattermost, API, cron, cli
 
 `config/models.yml` is a **pure definition file** (no plugin code) for provider/model overrides:
 
-- `providers.<name>.plugin` — `true`/plugin name → use the provider plugin (`plugins.yml`); `false` → builtin `chat_completions`/`anthropic` support (plugin-less providers, e.g. from omni-plugins' root `models.yml`).
-- `providers.<name>.models` — replaces the plugin's `default_model.allowed_values` in selectors (channels page, providers page, `/models`).
+- `providers.<name>.plugin` - `true`/plugin name → use the provider plugin (`plugins.yml`); `false` → builtin `chat_completions`/`anthropic` support (plugin-less providers, e.g. from omni-plugins' root `models.yml`).
+- `providers.<name>.models` - replaces the plugin's `default_model.allowed_values` in selectors (channels page, providers page, `/models`).
 - Provider-level fields (`api_mode`, `supports_reasoning`, `default_base_url`, `refresh_url`, `default_model`, `api_key`, `token_budget_*`, `max_tokens*`) override the plugin config.
-- `model_config.<model>` — per-model overrides, highest precedence.
+- `model_config.<model>` - per-model overrides, highest precedence.
 
 Token budget / max_tokens precedence for each of soft/hard independently:
 `model_config.<model> > providers.<name> > global settings` (defaults `prompt_token_budget_soft` 100000 / `prompt_token_budget_hard` 500000).
@@ -230,9 +230,9 @@ Token budget / max_tokens precedence for each of soft/hard independently:
 
 ### Plugins
 
-Plugins extend OmniAgent with new providers, platforms, and MCP tools. They can be added to this repository under `plugins/{type}/{name}/` (each containing a `plugin.json` manifest) and configured via YAML files in the `config/` directory (`config/plugins.yml`, `config/actions.yml`, `config/remote.yml`, `config/settings.yml`, `config/workflows.yml`). The only gitignored content under `plugins/` is `.remote/` (auto-generated clones from remote installs) — everything else a deployment adds is tracked by default, never silently excluded. During test runs plugins may be added to the bind-mounted `plugins/` dir transiently, but they must be removed after the tests.
+Plugins extend OmniAgent with new providers, platforms, and MCP tools. They can be added to this repository under `plugins/{type}/{name}/` (each containing a `plugin.json` manifest) and configured via YAML files in the `config/` directory (`config/plugins.yml`, `config/actions.yml`, `config/remote.yml`, `config/settings.yml`, `config/workflows.yml`). The only gitignored content under `plugins/` is `.remote/` (auto-generated clones from remote installs) - everything else a deployment adds is tracked by default, never silently excluded. During test runs plugins may be added to the bind-mounted `plugins/` dir transiently, but they must be removed after the tests.
 
-Plugins can be **installed and enabled on the fly in the running omniagent** — via the dashboard or the plugin API — without rebuilding or restarting the container.
+Plugins can be **installed and enabled on the fly in the running omniagent** - via the dashboard or the plugin API - without rebuilding or restarting the container.
 
 OmniAgent uses a **three-source** plugin system:
 
@@ -250,9 +250,9 @@ OmniAgent uses a **three-source** plugin system:
 
 **Builtin plugins** (cron, kanban, memory, metrics, plugin-manager, query, search, subtasks, hindsight) are workspace members of omniagent at `/app/plugins/{type}/{name}/`. They require `builtin: true` in YAML to activate and are disabled by default.
 
-**Bundled plugins** — standalone plugin crates under `plugins/{type}/{name}/` with a `plugin.json` manifest. These compile independently of omniagent and ship with the deployment.
+**Bundled plugins** - standalone plugin crates under `plugins/{type}/{name}/` with a `plugin.json` manifest. These compile independently of omniagent and ship with the deployment.
 
-**Remote plugins** — defined in `config/remote.yml` as a git URL + path (e.g. `https://github.com/...` or a local `file://` checkout). Installing a remote plugin clones its source into `plugins/{type}/.remote/{name}/`. Defining remote plugins in `config/remote.yml` can be **preferable for organization and separation of concerns**: the plugin source lives in its own repository, is versioned independently, and can be updated without touching this repo.
+**Remote plugins** - defined in `config/remote.yml` as a git URL + path (e.g. `https://github.com/...` or a local `file://` checkout). Installing a remote plugin clones its source into `plugins/{type}/.remote/{name}/`. Defining remote plugins in `config/remote.yml` can be **preferable for organization and separation of concerns**: the plugin source lives in its own repository, is versioned independently, and can be updated without touching this repo.
 
 For detailed internal documentation, see [AGENTS.md](AGENTS.md).
 
@@ -325,4 +325,4 @@ rm -rf .git-cache/
 | [nexuslbs/omniagent](https://github.com/nexuslbs/omniagent) | Core agent (Rust API, MCP framework, LLM execution) |
 | [nexuslbs/omni-dashboard](https://github.com/nexuslbs/omni-dashboard) | Web dashboard (Vite + TypeScript SPA) |
 | [nexuslbs/omni-plugins](https://github.com/nexuslbs/omni-plugins) | Plugin-less provider definitions (`models.yml`) |
-| **This repository** | Docker Compose, plugins, config (profiles/ is runtime-only — forks commit their own) |
+| **This repository** | Docker Compose, plugins, config (profiles/ is runtime-only - forks commit their own) |

@@ -131,6 +131,21 @@ ASKPASS
               chmod 700 /tmp/git-askpass.sh
               export GIT_ASKPASS=/tmp/git-askpass.sh
               export GIT_TERMINAL_PROMPT=0
+              # Validate the token against the GitHub API before cloning.
+              # Prints only the HTTP status code - the token is never echoed.
+              if command -v curl >/dev/null 2>&1 && [[ "${url}" == https://github.com/* ]]; then
+                repo_slug="${url#https://github.com/}"
+                repo_slug="${repo_slug%.git}"
+                api_code="$(curl -s -o /dev/null -w '%{http_code}' --oauth2-bearer "${token}" -H 'Accept: application/vnd.github+json' -H 'User-Agent: omni-bootstrap' "https://api.github.com/repos/${repo_slug}" || echo 000)"
+                case "${api_code}" in
+                  200) echo "Token check OK: can read ${repo_slug}" ;;
+                  401|404)
+                    echo "ERROR: GitHub token rejected (API ${api_code}) - invalid, expired, or no access to ${repo_slug}. Check the 'repo_token' value in config.yml." >&2
+                    exit 1
+                    ;;
+                  *)   echo "WARN: token check returned HTTP ${api_code} - continuing anyway" >&2 ;;
+                esac
+              fi
               set -x
               git clone "${url}" /opt/omni
             else
@@ -149,7 +164,11 @@ ASKPASS
       fi
     }
 
+    # Call with xtrace OFF so the token never appears in the provision log
+    # (set -x would print it in the `local url=... token=...` trace line).
+    set +x
     clone_or_update "${REPO_URL}" "${REPO_TOKEN}"
+    set -x
 
     cd /opt/omni
 

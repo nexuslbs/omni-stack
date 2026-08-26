@@ -37,6 +37,13 @@ services:
       # host node_modules can hide them (and the host may not have them).
       - /opt/workspace/omni-dashboard:/opt/repo:rw
 
+  toolbox:
+    # Source build for the toolbox (the base compose is image-only). The
+    # Dockerfile lives in this repo's services/toolbox directory.
+    build:
+      context: /opt/workspace/omni-stack/services/toolbox
+      dockerfile: Dockerfile
+
   mattermost:
     ports:
       - "12346:8065"

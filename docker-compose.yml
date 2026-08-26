@@ -101,10 +101,10 @@ services:
       driver: journald
 
   toolbox:
+    # Image-only (like omniagent/dashboard): consumes the PUBLIC CI image by
+    # default (ghcr.io/nexuslbs/omni-deployer/toolbox:latest). Source builds
+    # live in the dev overlay (docker-compose.dev.yml).
     image: ${TOOLBOX_IMAGE:-ghcr.io/nexuslbs/omni-deployer/toolbox:latest}
-    build:
-      context: ./services/toolbox
-      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       PGHOST: postgres

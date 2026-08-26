@@ -318,6 +318,25 @@ rm -rf .git-cache/
 
 ---
 
+## Bootstrap a Fresh Machine (Vagrant / Cloud VM)
+
+The stack can be brought up on a fresh Linux box two ways:
+
+- **Local VM**: `vagrant up` (see [Vagrantfile](Vagrantfile)) - installs Docker,
+  clones the configured repo into `/opt/omni`, then runs
+  `docker compose pull` + `docker compose build` for the core (non-profiled)
+  services only. Profiled services (mattermost, paperclip, noop, observability)
+  are operator opt-in later via `COMPOSE_PROFILES` / `.env`.
+- **Cloud VM**: `sudo bash scripts/bootstrap-remote.sh` - the cloud equivalent
+  of the Vagrantfile provisioning: installs Docker + the compose plugin
+  (apt/yum/dnf detection), reads the repo URL from `config.yml` (`repo` key,
+  falling back to `config.example.yml`), clones it into `/opt/omni`, and
+  pull/builds the core services. Prints the next steps (create `.env`, run
+  services).
+
+Both read `config.yml` (a gitignored copy of
+[config.example.yml](config.example.yml)) for the `repo` URL and VM settings.
+
 ## Related Repositories
 
 | Repository | Description |

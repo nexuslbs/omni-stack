@@ -225,23 +225,11 @@ ASKPASS
 
     cd /opt/omni
 
-    # Fresh-machine bootstrap: create .env from the tracked template when
-    # missing (generates a random POSTGRES_PASSWORD; the template pins the
-    # PUBLIC omni-deployer GHCR images so `docker compose pull` needs no
-    # registry login).
-    if [ ! -f .env ]; then
-      echo "Creating /opt/omni/.env from .env.example..."
-      cp .env.example .env
-      if ! grep -q '^POSTGRES_PASSWORD=.\+' .env; then
-        GEN_PW="$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-        printf 'POSTGRES_PASSWORD=%s\n' "$GEN_PW" >> .env
-        echo "  (generated random POSTGRES_PASSWORD)"
-      fi
-    fi
-
     # Pull + build ONLY the core (non-profiled) services. Profiled services
     # (mattermost, paperclip, noop, observability, ...) are opt-in: the
-    # operator enables them later via COMPOSE_PROFILES / .env.
+    # operator enables them later via COMPOSE_PROFILES / .env. The compose
+    # defaults point at the PUBLIC omni-deployer GHCR images, so no .env and
+    # no registry login are needed to pull.
     CORE_SERVICES=$(docker compose config --services)
     docker compose pull ${CORE_SERVICES}
     # Best-effort source build for services with a build context (e.g. the
@@ -251,8 +239,8 @@ ASKPASS
 
     echo
     echo "Core images ready. Next steps (operator):"
-    echo "  1. /opt/omni/.env was auto-created (generated POSTGRES_PASSWORD + public GHCR image pins)."
-    echo "     Edit it if you want COMPOSE_PROFILES or other secrets."
+    echo "  1. Create /opt/omni/.env (cp .env.example .env) and set POSTGRES_PASSWORD"
+    echo "     before starting the stack (required by postgres)."
     echo "  2. Start the core services:  docker compose up -d  (in /opt/omni)"
     echo "  3. Start opt-in profiles:    docker compose --profile mattermost up -d"
   SHELL

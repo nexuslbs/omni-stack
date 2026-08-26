@@ -90,16 +90,19 @@ Vagrant.configure("2") do |config|
 
     sleep 2
 
-    # Cleanup guard: never leave a credential file or helper behind, even on failure.
-    trap 'git config --system --unset credential.helper 2>/dev/null || true; rm -f /root/.git-credentials' EXIT
+    # Cleanup guard: remove the askpass helper. It contains no secrets - the
+    # token lives only in the environment, never in a file, git config, the
+    # clone URL, /opt/omni/.git/config, or the provision log.
+    trap 'rm -f /tmp/git-askpass.sh' EXIT
 
     # Clone the configured repo (config.yml `repo` key) into /opt/omni.
     # Private-repo auth:
     #   - SSH URL (repo: git@github.com:nexuslbs/<repo>.git): uses the
     #     forwarded SSH agent (config.ssh.forward_agent = true).
-    #   - HTTPS + config.yml `repo_token` (GitHub PAT): used via a temporary
-    #     git credential store so the token never lands in the clone URL,
-    #     /opt/omni/.git/config, or the provision log; removed afterwards.
+    #   - HTTPS + config.yml `repo_token` (GitHub PAT): authenticated via
+    #     GIT_ASKPASS - git invokes a tiny helper script with the login prompt
+    #     and reads the answer from it; the token is read from the environment
+    #     at runtime (env: {...} on the provisioner).
     clone_or_update() {
       local url="${1:-}" token="${2:-}"
       [ -n "$url" ] || { echo "ERROR: repo URL is empty (set the 'repo' key in config.yml)" >&2; exit 1; }
@@ -113,9 +116,21 @@ Vagrant.configure("2") do |config|
             if [ -n "${token}" ]; then
               echo "Cloning private repo over HTTPS with token auth..."
               set +x
-              umask 077
-              printf 'https://x-access-token:%s@github.com/\n' "${token}" > /root/.git-credentials
-              git config --system credential.helper 'store --file=/root/.git-credentials'
+              # GIT_ASKPASS: git calls this script with the prompt
+              # ("Username for ..." / "Password for ...") and reads the reply.
+              # The script holds no secrets - REPO_TOKEN is read from the
+              # environment at call time.
+              cat > /tmp/git-askpass.sh <<'ASKPASS'
+#!/bin/sh
+case "$1" in
+  Username*) echo "x-access-token" ;;
+  Password*) echo "$REPO_TOKEN" ;;
+  *) exit 1 ;;
+esac
+ASKPASS
+              chmod 700 /tmp/git-askpass.sh
+              export GIT_ASKPASS=/tmp/git-askpass.sh
+              export GIT_TERMINAL_PROMPT=0
               set -x
               git clone "${url}" /opt/omni
             else

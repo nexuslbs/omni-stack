@@ -341,12 +341,14 @@ Both read `config.yml` (a gitignored copy of
 **Private repositories:** the target repo is private by default (`nexuslbs/*`).
 Two auth options:
 - **HTTPS token** — set `repo_token: <PAT>` in `config.yml` (GitHub personal
-  access token with `repo` scope). Used only for the initial clone via a
-  temporary git credential store; never written to `/opt/omni/.git/config` or
-  logs (Vagrant or bootstrap-remote.sh).
-- **SSH** — set `repo: git@github.com:nexuslbs/<repo>.git`. For Vagrant the
-  host SSH agent is forwarded (`config.ssh.forward_agent = true`); for a cloud
-  VM install a key on the machine or use `repo_token`.
+  access token with `repo` scope). Used only for the initial clone via
+  `GIT_ASKPASS`: git invokes a tiny helper script with the login prompt and
+  reads the reply from it, so the token is read from the environment at
+  runtime and never written to a credential file, `/opt/omni/.git/config`,
+  the clone URL, or the provision log.
+- **SSH** — set `repo: git@github.com:nexuslbs/<repo>.git`; the Vagrantfile
+  forwards the host SSH agent (`config.ssh.forward_agent = true`), so add your
+  GitHub SSH key to the host agent first (`ssh-add`).
 
 ## Related Repositories
 

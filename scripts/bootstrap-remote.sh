@@ -111,14 +111,25 @@ clone_or_update() {
         ;;
       https://*)
         if [ -n "$token" ]; then
-          log "Cloning private repo over HTTPS with token auth (credential file is removed afterwards)..."
-          cleanup_creds() { git config --system --unset credential.helper 2>/dev/null || true; rm -f /root/.git-credentials; }
-          trap cleanup_creds EXIT
-          umask 077
-          printf 'https://x-access-token:%s@github.com/\n' "$token" > /root/.git-credentials
-          git config --system credential.helper 'store --file=/root/.git-credentials'
+          log "Cloning private repo over HTTPS with token auth (GIT_ASKPASS; token never touches disk)..."
+          # GIT_ASKPASS: git calls this script with the prompt ("Username for ..." /
+          # "Password for ...") and reads the reply. The script holds no secrets -
+          # REPO_TOKEN is read from the environment at call time.
+          cat > /tmp/git-askpass.sh <<'ASKPASS'
+#!/bin/sh
+case "$1" in
+  Username*) echo "x-access-token" ;;
+  Password*) echo "$REPO_TOKEN" ;;
+  *) exit 1 ;;
+esac
+ASKPASS
+          chmod 700 /tmp/git-askpass.sh
+          trap 'rm -f /tmp/git-askpass.sh' EXIT
+          export REPO_TOKEN="$token"
+          export GIT_ASKPASS=/tmp/git-askpass.sh
+          export GIT_TERMINAL_PROMPT=0
           git clone "$url" /opt/omni
-          cleanup_creds
+          rm -f /tmp/git-askpass.sh
           trap - EXIT
         else
           log "Cloning: $url"

@@ -17,7 +17,7 @@ content must live in the layer that matches its role. See
 1. **Memory = always-know only.** Task-flavor rules (dev commit cadence, research
    output paths) belong in that flavor's template, NOT in MEMORY.md. Memory is read
    every turn; bloat taxes every task.
-2. **Templates are generic and task-flavor-focused — never project-specific.**
+2. **Templates are generic and task-flavor-focused - never project-specific.**
    One template per flavor of task. Project specifics go in the task body or wiki.
    Project-specific templates are deleted, not accumulated (legacy
    `blog-markdown.md`/`build-blog.md` were removed for violating this rule).
@@ -30,21 +30,21 @@ content must live in the layer that matches its role. See
    and templates at task start; long files get skimmed and rules get missed.
 
 Task flavors currently defined:
-- `dev-development.md` — implementation tasks (budget discipline, commit rules, testing)
-- `research.md` — research/synthesis tasks (batch fetches, notes-first, output path)
-- `knowledge-pipeline.md` — periodic maintenance (summarize, wiki/skill update, indexing)
-- `code-improvement.md` — legacy lighter dev variant; prefer `dev-development.md`
+- `dev-development.md` - implementation tasks (budget discipline, commit rules, testing)
+- `research.md` - research/synthesis tasks (batch fetches, notes-first, output path)
+- `knowledge-pipeline.md` - periodic maintenance (summarize, wiki/skill update, indexing)
+- `code-improvement.md` - legacy lighter dev variant; prefer `dev-development.md`
 
 ## Seed vs Custom Fork
 
 `omni-stack` is the **seed repository**: by default it tracks NO `config/`
-directory and NO `plugins/` directory (both are runtime-only state — the seed
+directory and NO `plugins/` directory (both are runtime-only state - the seed
 config lives in omni-deployer, and plugins are installed at runtime). Custom
 forks (e.g. `omni-root`) MAY track `config/` (customized OMNI_DIR YAML) and
 `plugins/` (bundled plugins). Everything else in this file applies identically
 to both.
 
-The only exception is the `tools/util/` crate — a shared library dependency
+The only exception is the `tools/util/` crate - a shared library dependency
 used by bundled MCP plugins. It has no `plugin.json` and is not a plugin
 itself; it's a workspace member that other plugins depend on via path.
 
@@ -255,7 +255,7 @@ If you see infinite noop loops, check whether:
 - Planning phase is disabled for test-tool-caller (`"plan": False` in the channel PATCH)
 - Omniagent is making redundant model calls after receiving `finish_reason: "stop"`
 
-### Erroneous Plugin Copies (Binary-Only — Cleaned from Seed Repo)
+### Erroneous Plugin Copies (Binary-Only - Cleaned from Seed Repo)
 
 The following directories in a custom repo's `plugins/tools/` are **erroneous copies** of built-in plugins, containing only binaries (no source code: no `Cargo.toml`, no `src/`):
 - `cron`, `kanban`, `search`, `memory`, `metrics`, `query`, `plugin-manager`, `subtasks`, `hindsight`
@@ -375,10 +375,10 @@ docker exec -e PYTHONUNBUFFERED=1 omnidev-omniagent-1 \
 
 ---
 
-## Config directory (`config/`) — kanban boards, workflows, models, hooks
+## Config directory (`config/`) - kanban boards, workflows, models, hooks
 
 Beyond plugins, the repo carries the OMNI_DIR YAML config. Agents working here
-must know these files — they gate real behavior:
+must know these files - they gate real behavior:
 
 | File | Purpose | Notes |
 |------|---------|-------|
@@ -390,6 +390,6 @@ must know these files — they gate real behavior:
 | `config/hooks` | Event hooks | `thread_started` / `thread_finished` / `new_message` fire-and-forget events; `tasks.yml` carries hook task templates; channel resolved via `default_hook_channel`. |
 
 Full reference: `config/README.md`. The config files are the reference
-implementation — do not rename fields or restructure these files without
+implementation - do not rename fields or restructure these files without
 updating `config/README.md` and the omni-deployer integration suite
 (`scripts/tests.py` groups 26–49) that exercises them.

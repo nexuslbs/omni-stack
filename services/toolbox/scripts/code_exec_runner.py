@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""code_exec_runner — dsh-style codeRuntime seam inside the toolbox container.
+"""code_exec_runner - dsh-style codeRuntime seam inside the toolbox container.
 
 Runs a model-written program (read from stdin) with a JSON `args` object,
 supports top-level `return` and `await`, and prints the completion value as
@@ -58,7 +58,7 @@ def main():
         def _alarm(*_):
             # os.write is async-signal-safe-ish in CPython; emit the error as a
             # FIELD (marker line) so the caller sees "timed out", then exit
-            # hard — mid-loop, without unwinding the program.
+            # hard - mid-loop, without unwinding the program.
             os.write(
                 1,
                 (ERR_MARKER

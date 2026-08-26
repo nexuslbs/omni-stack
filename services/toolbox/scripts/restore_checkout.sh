@@ -10,7 +10,7 @@ S3_REGION="${S3_REGION:-us-east-005}"
 
 # ── Compose project resolution ─────────────────────────────────────────────
 # Containers/volumes are auto-named per project ({project}-{service}-{index},
-# {project}_{volume}) — there are no fixed omni-* names. Derive the project
+# {project}_{volume}) - there are no fixed omni-* names. Derive the project
 # from this container's compose label; fall back to the default directory name.
 PROJECT="$(docker inspect "$HOSTNAME" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
 PROJECT="${PROJECT:-omni-stack}"

@@ -339,13 +339,20 @@ Both read `config.yml` (a gitignored copy of
 `repo_token`, and VM settings.
 
 **Private repositories:** the target repo is private by default (`nexuslbs/*`).
-Two auth options:
+Auth options (in priority order):
+- **GitHub App auto-mint (recommended)** — with `repo_token` empty and the app
+  keys set in `config.yml` (see [config.example.yml](config.example.yml):
+  `github_app_id`, `github_installation_id`, `github_app_private_key`), the
+  Vagrantfile mints a FRESH installation token on every run from the org GitHub
+  App's private key (pure Ruby stdlib — no gems). Nothing to manage, no expiry
+  failures; the key never leaves the host, only the 1-hour token reaches the VM.
 - **HTTPS token** — set `repo_token: <PAT>` in `config.yml` (GitHub personal
-  access token with `repo` scope). Used only for the initial clone via
+  access token with `repo` scope); if set, it overrides the auto-mint. Auth via
   `GIT_ASKPASS`: git invokes a tiny helper script with the login prompt and
-  reads the reply from it, so the token is read from the environment at
-  runtime and never written to a credential file, `/opt/omni/.git/config`,
-  the clone URL, or the provision log.
+  reads the reply from it, so the token is read from the environment at runtime
+  and never written to a credential file, `/opt/omni/.git/config`, the clone
+  URL, or the provision log. The token is validated against the GitHub API
+  before cloning (200 = OK, 401/404 = clear error and abort).
 - **SSH** — set `repo: git@github.com:nexuslbs/<repo>.git`; the Vagrantfile
   forwards the host SSH agent (`config.ssh.forward_agent = true`), so add your
   GitHub SSH key to the host agent first (`ssh-add`).

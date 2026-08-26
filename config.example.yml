@@ -11,10 +11,21 @@
 repo: https://github.com/nexuslbs/omni-stack
 
 # Optional: token for cloning a PRIVATE repository over HTTPS (e.g. a GitHub
-# personal access token with `repo` scope). Leave empty ("") for public repos
-# or when using an SSH URL. The token is used only for the initial clone, is
-# never stored in /opt/omni/.git/config, and is never printed to logs.
+# personal access token with `repo` scope). Leave empty ("") to use the GitHub
+# App auto-mint below instead (recommended). The token is used only for the
+# initial clone, is never stored in /opt/omni/.git/config, and is never printed
+# to logs.
 repo_token: ""
+
+# GitHub App auto-mint (recommended for private repos - nothing to manage):
+# when `repo_token` is empty, the Vagrantfile mints a FRESH installation token
+# on every vagrant run from the nexuslbs GitHub App credentials below, so
+# provisioning never fails from an expired token. The private key file must
+# exist next to this file (path is relative to the repo root) and never leaves
+# the host - only the short-lived token reaches the VM.
+github_app_id: 3967918
+github_installation_id: 138119822
+github_app_private_key: "nexuslbs-app.private-key.pem"
 
 # VM resource defaults (used by the Vagrantfile).
 vm:

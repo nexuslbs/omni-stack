@@ -255,6 +255,26 @@ services:
     logging:
       driver: journald
 
+  #  Observability: Host Metrics: node_exporter → Prometheus 
+  node-exporter:
+    profiles: ["monitor", "cadvisor", "all"]
+    image: ${NODE_EXPORTER_IMAGE:-prom/node-exporter:v1.8.2}
+    restart: unless-stopped
+    # Host PID namespace + read-only host mounts: reports the VM's own
+    # metrics (CPU, memory, disk, network) for the Node Exporter dashboard.
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    mem_limit: 100M
+    logging:
+      driver: journald
+
   #  Observability: Metrics: cAdvisor → Prometheus 
   cadvisor:
     profiles: ["cadvisor", "all"]

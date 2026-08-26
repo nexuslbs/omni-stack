@@ -161,6 +161,44 @@ ASKPASS
 clone_or_update "$REPO_URL" "$REPO_TOKEN"
 
 # ---------------------------------------------------------------------------
+# 3b. Install Node Exporter (host metrics for Prometheus - mirrors hermes-repo)
+# ---------------------------------------------------------------------------
+log "Installing Node Exporter (host metrics on :9100)..."
+if ! command -v node_exporter >/dev/null 2>&1; then
+  VERSION="1.8.2"
+  ARCH="linux-amd64"
+  FILENAME="node_exporter-${VERSION}.${ARCH}"
+  URL="https://github.com/prometheus/node_exporter/releases/download/v${VERSION}/${FILENAME}.tar.gz"
+  cd /tmp
+  curl -fsSL "$URL" -o node_exporter.tar.gz
+  tar xzf node_exporter.tar.gz
+  cp "${FILENAME}/node_exporter" /usr/local/bin/node_exporter
+  rm -rf "${FILENAME}" node_exporter.tar.gz
+  id -u node_exporter &>/dev/null || useradd -rs /bin/false node_exporter
+  cat > /etc/systemd/system/node_exporter.service <<'UNIT'
+[Unit]
+Description=Prometheus Node Exporter
+After=network.target
+
+[Service]
+Type=simple
+User=node_exporter
+Group=node_exporter
+ExecStart=/usr/local/bin/node_exporter \
+  --web.listen-address=:9100 \
+  --path.rootfs=/ \
+  --collector.systemd \
+  --collector.processes
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable --now node_exporter
+fi
+
+# ---------------------------------------------------------------------------
 # 4. docker compose pull + build (services WITHOUT a profile only)
 # ---------------------------------------------------------------------------
 cd /opt/omni

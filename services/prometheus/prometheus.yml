@@ -6,7 +6,8 @@ scrape_configs:
   - job_name: 'cadvisor'
     # cadvisor's first fs-scan can take minutes on hosts with many containers
     # (the /var/lib/docker mount), blowing the default 10s timeout.
-    scrape_interval: 60s
+    # Note: prometheus requires scrape_timeout <= scrape_interval.
+    scrape_interval: 240s
     scrape_timeout: 180s
     static_configs:
       - targets: ['cadvisor:8080']

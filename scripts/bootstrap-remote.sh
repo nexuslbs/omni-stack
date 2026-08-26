@@ -67,42 +67,73 @@ while [ ! -f "$REPO_DIR/config.example.yml" ] && [ "$REPO_DIR" != "/" ]; do
 done
 [ -f "$REPO_DIR/config.example.yml" ] || die "config.example.yml not found under $SCRIPT_DIR"
 
-read_repo_key() { # $1 = yaml file -> prints repo URL (or empty)
-  local file="$1"
+read_config_value() { # $1 = yaml file, $2 = key -> prints value (or empty)
+  local file="$1" key="$2"
   if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' 2>/dev/null; then
-    python3 - "$file" <<'PY'
+    python3 - "$file" "$key" <<'PY'
 import sys, yaml
 try:
     data = yaml.safe_load(open(sys.argv[1])) or {}
-    print(data.get("repo") or "")
+    print(data.get(sys.argv[2]) or "")
 except Exception:
     pass
 PY
   else
-    sed -n 's/^repo:[[:space:]]*//p' "$file" | head -1
+    sed -n "s/^${key}:[[:space:]]*//p" "$file" | head -1
   fi
 }
 
-REPO_URL="$(read_repo_key "$REPO_DIR/config.yml")"
+REPO_URL="$(read_config_value "$REPO_DIR/config.yml" repo)"
 if [ -z "$REPO_URL" ]; then
   log "No config.yml repo key - falling back to config.example.yml default"
-  REPO_URL="$(read_repo_key "$REPO_DIR/config.example.yml")"
+  REPO_URL="$(read_config_value "$REPO_DIR/config.example.yml" repo)"
 fi
 [ -n "$REPO_URL" ] || die "could not determine repo URL (set the 'repo' key in config.yml)"
+REPO_TOKEN="$(read_config_value "$REPO_DIR/config.yml" repo_token)"
 log "Repo URL: $REPO_URL"
 
 # ---------------------------------------------------------------------------
-# 3. git clone <repo> /opt/omni
+# 3. git clone <repo> /opt/omni (private-repo auth: SSH URL or repo_token)
 # ---------------------------------------------------------------------------
-if [ -d /opt/omni/.git ]; then
-  log "/opt/omni already exists - pulling latest"
-  git -C /opt/omni pull --ff-only || true
-elif [ -e /opt/omni ]; then
-  die "/opt/omni exists but is not a git checkout - move it away and re-run"
-else
-  log "Cloning $REPO_URL -> /opt/omni"
-  git clone "$REPO_URL" /opt/omni
-fi
+clone_or_update() {
+  local url="${1:-}" token="${2:-}"
+  [ -n "$url" ] || die "could not determine repo URL (set the 'repo' key in config.yml)"
+  if [ -d /opt/omni/.git ]; then
+    log "/opt/omni already exists - pulling latest"
+    git -C /opt/omni pull --ff-only || true
+  elif [ -e /opt/omni ]; then
+    die "/opt/omni exists but is not a git checkout - move it away and re-run"
+  else
+    case "$url" in
+      git@*|ssh://*)
+        log "Cloning via SSH: $url"
+        git clone "$url" /opt/omni
+        ;;
+      https://*)
+        if [ -n "$token" ]; then
+          log "Cloning private repo over HTTPS with token auth (credential file is removed afterwards)..."
+          cleanup_creds() { git config --system --unset credential.helper 2>/dev/null || true; rm -f /root/.git-credentials; }
+          trap cleanup_creds EXIT
+          umask 077
+          printf 'https://x-access-token:%s@github.com/\n' "$token" > /root/.git-credentials
+          git config --system credential.helper 'store --file=/root/.git-credentials'
+          git clone "$url" /opt/omni
+          cleanup_creds
+          trap - EXIT
+        else
+          log "Cloning: $url"
+          git clone "$url" /opt/omni
+        fi
+        ;;
+      *)
+        log "Cloning: $url"
+        git clone "$url" /opt/omni
+        ;;
+    esac
+  fi
+}
+
+clone_or_update "$REPO_URL" "$REPO_TOKEN"
 
 # ---------------------------------------------------------------------------
 # 4. docker compose pull + build (services WITHOUT a profile only)

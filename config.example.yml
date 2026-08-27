@@ -1,8 +1,10 @@
 # Omni Stack - example configuration
 #
 # Copy this file to `config.yml` (gitignored, like .env) and adjust values.
-# The Vagrantfile and scripts/bootstrap-remote.sh read the `repo` key to know
-# which repository to clone into /opt/omni on a fresh machine.
+# setup.sh (repo root) reads the `repo` key to know which repository to clone
+# into /opt/omni on a fresh machine. In the Vagrant flow the file lives next to
+# the Vagrantfile and is copied into /opt/secrets/ on the VM; in the remote
+# flow you place it at /opt/secrets/config.yml yourself.
 
 # Repository to clone into /opt/omni on a fresh VM / remote host.
 # Public: https://github.com/nexuslbs/omni-stack
@@ -18,14 +20,21 @@ repo: https://github.com/nexuslbs/omni-stack
 repo_token: ""
 
 # GitHub App auto-mint (recommended for private repos - nothing to manage):
-# when `repo_token` is empty, the Vagrantfile mints a FRESH installation token
-# on every vagrant run from the nexuslbs GitHub App credentials below, so
-# provisioning never fails from an expired token. The private key file must
-# exist next to this file (path is relative to the repo root) and never leaves
-# the host - only the short-lived token reaches the VM.
+# when `repo_token` is empty, setup.sh mints a FRESH installation token on
+# every run from the nexuslbs GitHub App credentials below, so provisioning
+# never fails from an expired token. The private key file must be placed in
+# /opt/secrets/ (file name is the value of `github_app_private_key`, as today;
+# the Vagrantfile copies it from next to the Vagrantfile automatically) and
+# never leaves the machine - only the short-lived token is used to clone.
 github_app_id: 3967918
 github_installation_id: 138119822
 github_app_private_key: "nexuslbs-app.private-key.pem"
+
+# Optional: top-level `secrets:` dict. Each entry is registered via the
+# omniagent API (POST /secrets {name, value}) after the stack starts.
+# secrets:
+#   OPENAI_API_KEY: sk-...
+#   ANTHROPIC_API_KEY: sk-ant-...
 
 # VM resource defaults (used by the Vagrantfile).
 vm:

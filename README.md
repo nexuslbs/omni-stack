@@ -17,6 +17,7 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 ├ docker-compose.yml         # Production stack
 ├ docker-compose.dev.yml     # Development overrides (build from source, host ports 12345/12346)
 ├ .env.example               # Environment template
+├ setup.sh                   # One-shot provisioning (Vagrant VM / remote box)
 │
 ├ profiles/                  # RUNTIME-ONLY - not shipped by the seed.
 │   └ omni/                  # The core auto-creates profiles/<default>/config.json
@@ -318,34 +319,63 @@ rm -rf .git-cache/
 
 ---
 
-## Bootstrap a Fresh Machine (Vagrant / Cloud VM)
+## Bootstrap a Fresh Machine (Vagrant / Cloud VM / Remote)
 
-The stack can be brought up on a fresh Linux box two ways:
+A fresh Linux box can be provisioned with a single script: `setup.sh` (repo
+root). It replaced the old Vagrantfile provisioning and
+`scripts/bootstrap-remote.sh` — the `scripts/` directory no longer exists.
 
-- **Local VM**: `vagrant up` (see [Vagrantfile](Vagrantfile)) - installs Docker,
-  clones the configured repo into `/opt/omni`, then runs
-  `docker compose pull` + `docker compose build` for the core (non-profiled)
-  services only. Profiled services (mattermost, paperclip, noop, observability)
-  are operator opt-in later via `COMPOSE_PROFILES` / `.env`.
-- **Cloud VM**: `sudo bash scripts/bootstrap-remote.sh` - the cloud equivalent
-  of the Vagrantfile provisioning: installs Docker + the compose plugin
-  (apt/yum/dnf detection), reads the repo URL from `config.yml` (`repo` key,
-  falling back to `config.example.yml`), clones it into `/opt/omni`, and
-  pull/builds the core services. Prints the next steps (create `.env`, run
-  services).
+The script expects **optional** files in `/opt/secrets/`:
+- `config.yml` — repo URL, private-repo auth (`repo_token` / `github_app_*`),
+  and an optional top-level `secrets:` dict (name → value).
+- `.env` — compose environment (may enable `COMPOSE_PROFILES` / services).
+- `<key>.pem` — GitHub App private key; the file name is the value of the
+  `github_app_private_key` key in config.yml (as today).
+
+What it does:
+
+1. Installs Docker Engine + compose plugin + node-exporter (apt/yum/dnf).
+2. Without `config.yml` (or without a `repo` key) it **stops after step 1** —
+   a bare remote box gets Docker + node-exporter only.
+3. Otherwise clones the configured repo into `/opt/omni`. Private repos are
+   cloned via `repo_token` or a **freshly minted GitHub App installation
+   token** — the same flow the Vagrantfile used to do on the host: JWT RS256
+   signed with the app private key, exchanged for a 1-hour token via the GitHub
+   API. The key never leaves `/opt/secrets/`; only the short-lived token is
+   used for the clone.
+4. After the clone:
+   - `.env` present → copied to `/opt/omni/.env`, then `docker compose pull` +
+     `build` + `up -d` (the profiles the user defined are started).
+   - no `.env` → pull + build the **non-profile-gated** compose services only
+     (as the Vagrantfile did today).
+5. If `config.yml` has a top-level `secrets:` dict, each entry is registered
+   via the omniagent API (`POST /secrets {name, value}`).
+
+Two ways to run it:
+
+- **Local VM**: `vagrant up` (see [Vagrantfile](Vagrantfile)) — the Vagrantfile
+  no longer provisions anything itself. Its single provision copies `config.yml`,
+  `.env` and the key file (same dir as the Vagrantfile) into `/opt/secrets/` in
+  the VM, then — if `config.yml` is present — runs the remote `setup.sh` from
+  the **omni-stack** repo via bash. The setup used is ALWAYS the omni-stack one,
+  even when the repo in `config.yml` is a different repository.
+- **Cloud / remote VM**: `sudo bash setup.sh` (or fetch it from this repo) with
+  the optional files already placed in `/opt/secrets/`. If there is no
+  `config.yml`, setup just installs Docker + compose + node-exporter.
 
 Both read `config.yml` (a gitignored copy of
 [config.example.yml](config.example.yml)) for the `repo` URL, optional
-`repo_token`, and VM settings.
+`repo_token`, GitHub App keys, and VM settings.
 
 **Private repositories:** the target repo is private by default (`nexuslbs/*`).
 Auth options (in priority order):
 - **GitHub App auto-mint (recommended)** — with `repo_token` empty and the app
   keys set in `config.yml` (see [config.example.yml](config.example.yml):
-  `github_app_id`, `github_installation_id`, `github_app_private_key`), the
-  Vagrantfile mints a FRESH installation token on every run from the org GitHub
-  App's private key (pure Ruby stdlib — no gems). Nothing to manage, no expiry
-  failures; the key never leaves the host, only the 1-hour token reaches the VM.
+  `github_app_id`, `github_installation_id`, `github_app_private_key`), setup.sh
+  mints a FRESH installation token on every run from the org GitHub App's
+  private key (JWT RS256 signed with openssl). Nothing to manage, no expiry
+  failures; the key never leaves `/opt/secrets/`, only the 1-hour token is used
+  to clone.
 - **HTTPS token** — set `repo_token: <PAT>` in `config.yml` (GitHub personal
   access token with `repo` scope); if set, it overrides the auto-mint. Auth via
   `GIT_ASKPASS`: git invokes a tiny helper script with the login prompt and

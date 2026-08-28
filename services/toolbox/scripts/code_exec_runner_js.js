@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* code_exec_runner_js — dsh-style codeRuntime seam (node) inside the toolbox.
+/* code_exec_runner_js: dsh-style codeRuntime seam (node) inside the toolbox.
  *
  * Reads the model-written program from stdin, wraps it as an async function
  * with top-level `return`/`await` support, and prints the completion value as

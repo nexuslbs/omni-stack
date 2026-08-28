@@ -25,7 +25,7 @@ COPY scripts/restore_checkout.sh /usr/bin/restore_checkout
 COPY scripts/entrypoint.sh /entrypoint.sh
 
 # Code-exec runners (builtin `code_exec` MCP tool executes model-written
-# programs in THIS container — the dsh codeRuntime seam: program via stdin,
+# programs in THIS container: the dsh codeRuntime seam: program via stdin,
 # typed JSON completion value on a marker line). The core never runs the
 # program in-process; it `docker exec`s into the toolbox instead.
 COPY scripts/code_exec_runner.py /usr/bin/code_exec_runner

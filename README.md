@@ -323,23 +323,23 @@ rm -rf .git-cache/
 
 A fresh Linux box can be provisioned with a single script: `setup.sh` (repo
 root). It replaced the old Vagrantfile provisioning and
-`scripts/bootstrap-remote.sh` — the `scripts/` directory no longer exists.
+`scripts/bootstrap-remote.sh`: the `scripts/` directory no longer exists.
 
 The script expects **optional** files in `/opt/secrets/`:
-- `config.yml` — repo URL, private-repo auth (`repo_token` / `github_app_*`),
+- `config.yml`: repo URL, private-repo auth (`repo_token` / `github_app_*`),
   and an optional top-level `secrets:` dict (name → value).
-- `.env` — compose environment (may enable `COMPOSE_PROFILES` / services).
-- `<key>.pem` — GitHub App private key; the file name is the value of the
+- `.env`: compose environment (may enable `COMPOSE_PROFILES` / services).
+- `<key>.pem`: GitHub App private key; the file name is the value of the
   `github_app_private_key` key in config.yml (as today).
 
 What it does:
 
 1. Installs Docker Engine + compose plugin + node-exporter (apt/yum/dnf).
-2. Without `config.yml` (or without a `repo` key) it **stops after step 1** —
+2. Without `config.yml` (or without a `repo` key) it **stops after step 1**.
    a bare remote box gets Docker + node-exporter only.
 3. Otherwise clones the configured repo into `/opt/omni`. Private repos are
    cloned via `repo_token` or a **freshly minted GitHub App installation
-   token** — the same flow the Vagrantfile used to do on the host: JWT RS256
+   token**; the same flow the Vagrantfile used to do on the host: JWT RS256
    signed with the app private key, exchanged for a 1-hour token via the GitHub
    API. The key never leaves `/opt/secrets/`; only the short-lived token is
    used for the clone.
@@ -353,10 +353,10 @@ What it does:
 
 Two ways to run it:
 
-- **Local VM**: `vagrant up` (see [Vagrantfile](Vagrantfile)) — the Vagrantfile
+- **Local VM**: `vagrant up` (see [Vagrantfile](Vagrantfile)): the Vagrantfile
   no longer provisions anything itself. Its single provision copies `config.yml`,
   `.env` and the key file (same dir as the Vagrantfile) into `/opt/secrets/` in
-  the VM, then — if `config.yml` is present — runs the remote `setup.sh` from
+  the VM, then, if `config.yml` is present, runs the remote `setup.sh` from
   the **omni-stack** repo via bash. The setup used is ALWAYS the omni-stack one,
   even when the repo in `config.yml` is a different repository.
 - **Cloud / remote VM**: `sudo bash setup.sh` (or fetch it from this repo) with
@@ -369,21 +369,21 @@ Both read `config.yml` (a gitignored copy of
 
 **Private repositories:** the target repo is private by default (`nexuslbs/*`).
 Auth options (in priority order):
-- **GitHub App auto-mint (recommended)** — with `repo_token` empty and the app
+- **GitHub App auto-mint (recommended)**; with `repo_token` empty and the app
   keys set in `config.yml` (see [config.example.yml](config.example.yml):
   `github_app_id`, `github_installation_id`, `github_app_private_key`), setup.sh
   mints a FRESH installation token on every run from the org GitHub App's
   private key (JWT RS256 signed with openssl). Nothing to manage, no expiry
   failures; the key never leaves `/opt/secrets/`, only the 1-hour token is used
   to clone.
-- **HTTPS token** — set `repo_token: <PAT>` in `config.yml` (GitHub personal
+- **HTTPS token**: set `repo_token: <PAT>` in `config.yml` (GitHub personal
   access token with `repo` scope); if set, it overrides the auto-mint. Auth via
   `GIT_ASKPASS`: git invokes a tiny helper script with the login prompt and
   reads the reply from it, so the token is read from the environment at runtime
   and never written to a credential file, `/opt/omni/.git/config`, the clone
   URL, or the provision log. The token is validated against the GitHub API
   before cloning (200 = OK, 401/404 = clear error and abort).
-- **SSH** — set `repo: git@github.com:nexuslbs/<repo>.git`; the Vagrantfile
+- **SSH**: set `repo: git@github.com:nexuslbs/<repo>.git`; the Vagrantfile
   forwards the host SSH agent (`config.ssh.forward_agent = true`), so add your
   GitHub SSH key to the host agent first (`ssh-add`).
 

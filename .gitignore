@@ -1,5 +1,5 @@
 # omni-stack .gitignore
-# Allow everything by default — only exclude build artifacts, env files, and secrets.
+# Allow everything by default; only exclude build artifacts, env files, and secrets.
 
 # ── Build artifacts ──
 target/
@@ -34,7 +34,7 @@ Thumbs.db
 *.log
 tmp/
 
-# ── Eliminated struct — workspace root, each plugin has own Cargo.toml ──
+# Eliminated struct: workspace root, each plugin has own Cargo.toml
 /Cargo.toml
 
 # ── Runtime config artifacts created at repo root by deploy/test tooling ──
@@ -62,7 +62,7 @@ tmp/
 /data/
 # ── Auto-generated remote plugin clones (ignored per type dir) ──
 # ONLY these are gitignored: tests install remote plugins via install-git
-# into plugins/<type>/.remote/ — they are clones, never seed content. All
+# into plugins/<type>/.remote/; they are clones, never seed content. All
 # OTHER plugin content under plugins/ is deliberately NOT gitignored, so a
 # fork adding its own plugins never gets them silently excluded; test
 # artifacts (test-* tools) are removed after the test run instead of being

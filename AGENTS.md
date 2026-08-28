@@ -394,7 +394,7 @@ implementation - do not rename fields or restructure these files without
 updating `config/README.md` and the omni-deployer integration suite
 (`scripts/tests.py` groups 26–49) that exercises them.
 
-    ## DB Write Guard — dev-built omniagent/migrations must NEVER write to the production DB (MANDATORY)
+    ## DB Write Guard: dev-built omniagent/migrations must NEVER write to the production DB (MANDATORY)
 
     Omniagent migrations are DECLARATIVE and auto-run at every startup
     (CREATE TABLE IF NOT EXISTS ...; there is no schema_migrations versioning).
@@ -420,6 +420,6 @@ updating `config/README.md` and the omni-deployer integration suite
        (deploy.py / shared.py stable mode write it into the deploy env). Dev stacks
        leave it unset/false.
     4. The dev overlay (docker-compose.dev.yml) forces the dev stack onto its own
-       postgres via the `omnidev-postgres` alias — a dev binary can never resolve
+       postgres via the `omnidev-postgres` alias; a dev binary can never resolve
        to the omni-stack DB.
     

@@ -54,6 +54,13 @@ services:
       # at compile time). The dev overlay overrides this to false so omnidev
       # builds validate queries against the live migrated DB instead.
       SQLX_OFFLINE: "true"
+      # DB-write guard: db-migrations refuses schema writes to
+      # non-dev databases unless this is true. Dev stacks (omnidev)
+      # keep it false and reach their postgres via the dev-only
+      # alias `omnidev-postgres` (docker-compose.dev.yml); production
+      # deploys set it explicitly (deploy.py writes
+      # OMNIAGENT_ALLOW_DB_WRITE=true to omni.env).
+      OMNIAGENT_ALLOW_DB_WRITE: ${OMNIAGENT_ALLOW_DB_WRITE:-false}
     volumes:
       # NOTE: the omniagent SOURCE repo must NOT be mounted here - omnistable
       # (and any image-based deploy) runs the omniagent binary + built-in

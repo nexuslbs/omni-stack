@@ -14,6 +14,13 @@ services:
       # Dev builds validate queries against the live DB (SQLX_OFFLINE=false),
       # so code + migrations can change on the fly without a stale .sqlx cache.
       SQLX_OFFLINE: "false"
+      # Force the dev stack onto ITS OWN postgres (project omnidev,
+      # separate volume) via the dev-only alias `omnidev-postgres`;
+      # a dev binary can never resolve to the omni-stack (production)
+      # DB. The db-migrations DB-write guard allows schema writes only
+      # to known dev hosts, and the bare `postgres` service name
+      # (which the production omni-stack uses too) is refused.
+      DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD:-}@omnidev-postgres:5432/omniagent
     dns:
       - 8.8.8.8
     volumes:
@@ -51,6 +58,17 @@ services:
   paperclip:
     ports:
       - "3101:3100"
+
+  postgres:
+    # Dev-only network alias for the DB-write guard: schema writes
+    # are only allowed to known dev hosts, so the dev stack must
+    # reach its postgres via `omnidev-postgres`, never the ambiguous
+    # bare `postgres` service name (used by the production
+    # omni-stack too).
+    networks:
+      default:
+        aliases:
+          - omnidev-postgres
 
 networks:
   default:

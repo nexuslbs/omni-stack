@@ -27,6 +27,9 @@
 #                           `build` + `up -d` (profiles the user defined).
 #        - no .env       -> pull + build the NON-profile-gated compose services
 #                           only (as the Vagrantfile did today).
+#      If S3_ACCESS_KEY and S3_SECRET_KEY are defined in .env, the toolbox is
+#      started and a restore is run from S3 AFTER pull+build and BEFORE `up -d`
+#      (see restore_from_s3()).
 #   5. If config.yml has a top-level `secrets:` dict, register each secret via
 #      the omniagent API (POST /secrets {name, value, fieldType}).
 #
@@ -277,6 +280,7 @@ run_compose() {
     log "Starting services (pull + build + up -d; profiles from .env)..."
     docker compose pull
     docker compose build || warn "source build incomplete - the stack will run from the pulled images"
+    restore_from_s3
     docker compose up -d
   else
     log "No .env found - pulling + building core (non-profiled) services only"
@@ -292,6 +296,36 @@ run_compose() {
   3. Start opt-in profiles:    docker compose --profile mattermost up -d
 MSG
   fi
+}
+
+# ---------------------------------------------------------------------------
+# 5b. S3 restore: after pull + build but BEFORE the full stack starts, if S3
+#     credentials (access key + secret) are defined in .env, start the toolbox
+#     container and run a restore from S3. Best-effort: a failed restore warns
+#     and continues with the stack start (retry manually with
+#     `docker compose exec -T toolbox restore_backup`).
+# ---------------------------------------------------------------------------
+restore_from_s3() {
+  [ -f "${OMNI_DIR}/.env" ] || return 0
+  set -a
+  . "${OMNI_DIR}/.env"
+  set +a
+  if [ -z "${S3_ACCESS_KEY:-}" ] || [ -z "${S3_SECRET_KEY:-}" ]; then
+    log "No S3 credentials (S3_ACCESS_KEY/S3_SECRET_KEY) defined - skipping restore"
+    return 0
+  fi
+  log "S3 credentials found - starting toolbox and running restore from S3 before stack start..."
+  cd "$OMNI_DIR"
+  # restore_backup restores into postgres (psql -h postgres), so postgres must
+  # be up first; the toolbox container carries the restore scripts + rclone.
+  docker compose up -d postgres toolbox
+  local i
+  for i in $(seq 1 30); do
+    docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-omniagent}" -d "${POSTGRES_DB:-omniagent}" >/dev/null 2>&1 && break
+    sleep 2
+  done
+  docker compose exec -T toolbox restore_backup \
+    || warn "S3 restore failed - continuing with stack start (retry: cd ${OMNI_DIR} && docker compose exec -T toolbox restore_backup)"
 }
 
 # ---------------------------------------------------------------------------

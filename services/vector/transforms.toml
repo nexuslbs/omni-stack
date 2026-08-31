@@ -141,10 +141,13 @@ if !_has_json_level {
 # 3.6. Non-JSON container logs: derive the level from the message token
 # instead of blindly trusting PRIORITY (which is missing or unreliable for
 # plain-text lines). JSON lines keep their own level/stream fields.
+# NOTE: \\b is written with a double backslash so the TOML parser passes a
+# single backslash to the VRL regex (TOML basic strings would otherwise turn
+# \\b into a literal backspace escape).
 if _is_container && !_has_json_level && !_is_json {
-    _lvl_token, _lvl_found = match(_msg, r'\b(DEBUG|INFO|WARN|ERROR|CRITICAL)\b')
-    if _lvl_found {
-        _my_level = upcase(_lvl_token)
+    _lvl_parsed, _lvl_err = parse_regex(_msg, r'\\b(?P<level>DEBUG|INFO|WARN|ERROR|CRITICAL)\\b')
+    if _lvl_err == null && is_object(_lvl_parsed) && !is_null(_lvl_parsed.level) {
+        _my_level = upcase(string!(_lvl_parsed.level))
         level_val = if _my_level == "CRITICAL" {
             2
         } else if _my_level == "ERROR" {

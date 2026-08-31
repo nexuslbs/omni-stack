@@ -133,10 +133,17 @@ fi
 echo "[backup] Step 4/5: Grafana data..."
 if [ -n "${GRAFANA_CT}" ]; then
   GRAFANA_BACKUP="${BACKUP_DIR}/grafana/grafana.db"
-  # Use SQLite backup to get a consistent snapshot
-  if docker exec "${GRAFANA_CT}" sh -c 'sqlite3 /var/lib/grafana/grafana.db ".backup /tmp/grafana-backup.db"' 2>/dev/null; then
-    docker cp "${GRAFANA_CT}:/tmp/grafana-backup.db" "$GRAFANA_BACKUP" 2>/dev/null
-    docker exec "${GRAFANA_CT}" rm -f /tmp/grafana-backup.db 2>/dev/null
+  # The grafana image ships NO sqlite3 CLI (exec exits 127), so pull the db
+  # (+ wal/shm, best-effort) out of the container and take a consistent
+  # snapshot with python3's sqlite3 backup API (toolbox alpine ships python3
+  # with the sqlite3 module built in). Verified: backup API output passes
+  # PRAGMA integrity_check.
+  if docker cp "${GRAFANA_CT}:/var/lib/grafana/grafana.db" /tmp/grafana-src.db 2>/dev/null \
+     && (docker cp "${GRAFANA_CT}:/var/lib/grafana/grafana.db-wal" /tmp/grafana-src.db-wal 2>/dev/null || true) \
+     && (docker cp "${GRAFANA_CT}:/var/lib/grafana/grafana.db-shm" /tmp/grafana-src.db-shm 2>/dev/null || true) \
+     && python3 -c 'import sqlite3; src=sqlite3.connect("/tmp/grafana-src.db"); dst=sqlite3.connect("/tmp/grafana-backup.db"); src.backup(dst); dst.close(); src.close()' \
+     && mv /tmp/grafana-backup.db "$GRAFANA_BACKUP"; then
+    rm -f /tmp/grafana-src.db /tmp/grafana-src.db-wal /tmp/grafana-src.db-shm
     if [ -f "$GRAFANA_BACKUP" ] && [ "$(stat -c%s "$GRAFANA_BACKUP")" -gt 1000 ]; then
       echo "[backup] Grafana backup OK ($(stat -c%s "$GRAFANA_BACKUP") bytes)"
     else
@@ -144,6 +151,7 @@ if [ -n "${GRAFANA_CT}" ]; then
       rm -f "$GRAFANA_BACKUP"
     fi
   else
+    rm -f /tmp/grafana-src.db /tmp/grafana-src.db-wal /tmp/grafana-src.db-shm /tmp/grafana-backup.db
     echo "[backup] Grafana SQLite backup failed -- continuing."
   fi
 else

@@ -11,12 +11,15 @@ _my_service = "unknown-service"
 _my_level = .level || "unknown-level"
 _stream = "unknown-stream"
 _stream_path = "unknown"
+_is_container = false
+_is_json = false
 
 del(.level)
 
 if exists(.CONTAINER_NAME) {
     # --- journald source (docker) ---
     _my_container = .CONTAINER_NAME
+    _is_container = true
     _service_raw = .IMAGE_NAME || ""
     _my_level = .PRIORITY || _my_level
 
@@ -59,6 +62,7 @@ if exists(.CONTAINER_NAME) {
     # --- GELF / socket source ---
     _my_container = ._container_name
     _my_service = ._service_name || ."_com.docker.compose.service"
+    _is_container = true
 }
 
 # Ensure _my_level is always a string for consistent processing
@@ -87,6 +91,7 @@ _stream_path = if level_val <= 3 { "error" } else { "out" }
 parsed, err = parse_json(_msg)
 _has_json_level = false
 if err == null && is_object(parsed) {
+    _is_json = true
     . = merge!(., parsed)
     if .message != null && .message != _msg {
         _msg = string!(.message)
@@ -130,6 +135,29 @@ if err == null {
 if !_has_json_level {
     if _my_level == "unknown-level" || _my_level == "DEBUG" {
         _my_level = "INFO"
+    }
+}
+
+# 3.6. Non-JSON container logs: derive the level from the message token
+# instead of blindly trusting PRIORITY (which is missing or unreliable for
+# plain-text lines). JSON lines keep their own level/stream fields.
+if _is_container && !_has_json_level && !_is_json {
+    _lvl_token, _lvl_found = match(_msg, r'\b(DEBUG|INFO|WARN|ERROR|CRITICAL)\b')
+    if _lvl_found {
+        _my_level = upcase(_lvl_token)
+        level_val = if _my_level == "CRITICAL" {
+            2
+        } else if _my_level == "ERROR" {
+            3
+        } else if _my_level == "WARN" {
+            4
+        } else if _my_level == "INFO" {
+            6
+        } else {
+            7
+        }
+        _stream = if level_val <= 3 { "stderr" } else { "stdout" }
+        _stream_path = if level_val <= 3 { "error" } else { "out" }
     }
 }
 

@@ -320,6 +320,12 @@ class NoopHandler(BaseHTTPRequestHandler):
         for m in reversed(msgs):
             if m.get("role") == "user":
                 content = m.get("content", "") or ""
+                # Skip agent-injected marker blocks (=== Budget ===, === Working
+                # Notes ===, === Auto-Saved Reads ===) so the echo returns the
+                # actual posted message, not the agent's internal context blocks.
+                if content.lstrip().startswith("==="):
+                    _log(f"_last_text: skipping agent-injected block {repr(content[:60])}")
+                    continue
                 _log(f"_last_text: content={repr(content[:200])}")
                 # Handle prompt_generate wrapped format
                 if content.startswith("{"):

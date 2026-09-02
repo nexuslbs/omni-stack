@@ -317,31 +317,31 @@ class NoopHandler(BaseHTTPRequestHandler):
                 f"using the model **{model}**.\n\nYour original message:\n\n{quoted}", None)
 
     def _last_text(self, msgs):
+        # Skip omniagent-injected user-role context blocks (WS-3 working
+        # notes, WS-4c budget hint, compaction notices) so the echo carries
+        # the user's real message instead of an internal context block.
         for m in reversed(msgs):
-            if m.get("role") == "user":
-                content = m.get("content", "") or ""
-                # Skip agent-injected marker blocks (=== Budget ===, === Working
-                # Notes ===, === Auto-Saved Reads ===) so the echo returns the
-                # actual posted message, not the agent's internal context blocks.
-                if content.lstrip().startswith("==="):
-                    _log(f"_last_text: skipping agent-injected block {repr(content[:60])}")
-                    continue
-                _log(f"_last_text: content={repr(content[:200])}")
-                # Handle prompt_generate wrapped format
-                if content.startswith("{"):
-                    try:
-                        p = json.loads(content)
-                        if isinstance(p, dict):
-                            for field in ("user", "content"):
-                                if p.get(field):
-                                    _log(f"_last_text: extracted '{field}'={repr(p[field][:200])}")
-                                    return p[field]
-                    except Exception:
-                        pass
-                return content
+            if m.get("role") != "user":
+                continue
+            content = m.get("content", "") or ""
+            if content.startswith(("=== Budget ===", "=== Working Notes",
+                                   "=== Context Compacted", "=== Compaction Summary ===")):
+                _log(f"_last_text: skipping internal context block {content[:48]!r}")
+                continue
+            _log(f"_last_text: content={repr(content[:200])}")
+            # Handle prompt_generate wrapped format
+            if content.startswith("{"):
+                try:
+                    p = json.loads(content)
+                    if isinstance(p, dict):
+                        for field in ("user", "content"):
+                            if p.get(field):
+                                _log(f"_last_text: extracted '{field}'={repr(p[field][:200])}")
+                                return p[field]
+                except Exception:
+                    pass
+            return content
         return ""
-        return ""
-
     def _send_json(self, status, data):
         b = json.dumps(data).encode()
         self.send_response(status)

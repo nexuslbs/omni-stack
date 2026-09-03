@@ -48,7 +48,7 @@ services:
     # Source build for the toolbox (the base compose is image-only). The
     # Dockerfile lives in this repo's services/toolbox directory.
     build:
-      context: /opt/workspace/omni-stack/services/toolbox
+      context: ./services/toolbox
       dockerfile: Dockerfile
 
   mattermost:

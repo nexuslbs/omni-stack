@@ -3,6 +3,9 @@
 # - PG dumps in custom format → data/backups/omniagent/ and data/backups/mattermost/
 # - Grafana SQLite dump → data/backups/grafana/
 # - File data sync to S3
+# - FINAL step: git sync via the omniagent API (same call as the dashboard
+#   explorer sync button), so the local config repo state is pushed to the
+#   remote right after the backup lands in S3.
 set -euo pipefail
 
 OMNI_DIR="${OMNI_DIR:-/opt/omni-stack}"
@@ -54,13 +57,13 @@ DEST="omni-s3:${S3_BUCKET}/${S3_PREFIX}"
 echo "[backup] Starting backup to ${DEST}/"
 
 # ─── Step 1: Copy .env to data/credentials/.env ────────────────────────────
-echo "[backup] Step 1/5: Copying .env to data/credentials/.env..."
+echo "[backup] Step 1/6: Copying .env to data/credentials/.env..."
 mkdir -p "${OMNI_DIR}/data/credentials"
 cp "${OMNI_DIR}/.env" "${OMNI_DIR}/data/credentials/.env"
 echo "[backup] .env copied."
 
 # ─── Step 2: OmniAgent PG dump (custom format) ────────────────────────────
-echo "[backup] Step 2/5: OmniAgent PostgreSQL dump..."
+echo "[backup] Step 2/6: OmniAgent PostgreSQL dump..."
 OA_USER="${POSTGRES_USER:-omniagent}"
 OA_DB="${POSTGRES_DB:-omniagent}"
 
@@ -95,7 +98,7 @@ fi
 
 # ─── Step 3: Mattermost PG dump (custom format) ────────────────────────────
 MM_PROFILE="${COMPOSE_PROFILES:-}"
-echo "[backup] Step 3/5: Mattermost PostgreSQL (profiles: ${MM_PROFILE})..."
+echo "[backup] Step 3/6: Mattermost PostgreSQL (profiles: ${MM_PROFILE})..."
 
 if echo "$MM_PROFILE" | grep -qE '(mattermost|all)'; then
   if [ -n "${MM_POSTGRES_PASSWORD:-}" ]; then
@@ -126,11 +129,11 @@ if echo "$MM_PROFILE" | grep -qE '(mattermost|all)'; then
     echo "[backup] MM_POSTGRES_PASSWORD not set -- skipping Mattermost PG dump."
   fi
 else
-  echo "[backup] Step 3/5: Mattermost profile not active -- skipping."
+  echo "[backup] Step 3/6: Mattermost profile not active -- skipping."
 fi
 
 # ─── Step 4: Grafana SQLite backup ────────────────────────────────────────
-echo "[backup] Step 4/5: Grafana data..."
+echo "[backup] Step 4/6: Grafana data..."
 if [ -n "${GRAFANA_CT}" ]; then
   GRAFANA_BACKUP="${BACKUP_DIR}/grafana/grafana.db"
   # The grafana image ships NO sqlite3 CLI (exec exits 127), so pull the db
@@ -159,12 +162,34 @@ else
 fi
 
 # ─── Step 5: Sync data/ to S3 (includes backups/) ──────────────────────────
-echo "[backup] Step 5/5: Syncing file data to S3..."
+echo "[backup] Step 5/6: Syncing file data to S3..."
 $RC sync "${OMNI_DIR}/data/" "${DEST}/" \
   --create-empty-src-dirs \
   --s3-no-check-bucket \
   --fast-list \
   --verbose 2>&1 | tail -5
+
+# ─── Step 6: Git sync via omniagent API (FINAL step) ───────────────────────
+# Push the local config repo state - the SAME API call the dashboard
+# explorer sync button performs (POST /git/sync on the omniagent HTTP API,
+# which runs the configured sync tool, default `git_sync` from the builtin
+# git plugin). Guard: only run when the omniagent container is running (the
+# sync needs the omniagent HTTP API); never start omniagent just for this -
+# skip and log why instead. Fail-soft: a sync error is logged and the backup
+# still completes; the sync must never abort or roll back the backup.
+echo "[backup] Step 6/6: Git sync via omniagent API..."
+OA_CT="$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT}" --filter "name=omniagent" 2>/dev/null | head -1 || true)"
+if [ -n "${OA_CT}" ]; then
+  if curl -sf -m 90 -X POST -H 'Content-Type: application/json' -d '{}' \
+      http://omniagent:8080/git/sync >/tmp/git-sync.out 2>/tmp/git-sync.err; then
+    echo "[backup] Git sync OK: $(cat /tmp/git-sync.out)"
+  else
+    echo "[backup] WARNING: git sync failed - backup continues: $(tail -1 /tmp/git-sync.err 2>/dev/null)"
+  fi
+  rm -f /tmp/git-sync.out /tmp/git-sync.err
+else
+  echo "[backup] omniagent container not running - SKIPPING git sync (sync needs the omniagent HTTP API; not starting omniagent just for this)"
+fi
 
 # Clean up rclone config
 rm -f "$RCLONE_CONF"

@@ -30,16 +30,16 @@ services:
 
   omniagent:
     # Image-only service (like dashboard): the base compose is the stable/
-    # runtime definition and carries NO build section - it consumes a
-    # pre-built image by tag. omnistable pulls the GHCR CI image;
-    # deploy.py hybrid builds the production Dockerfile locally and tags it
-    # local/omniagent:latest (omni.env) before `up`. Only the dev overlay
-    # (docker-compose.dev.yml) adds a build section (Dockerfile.dev) for
-    # omnidev source builds. (Regression note: 3d4bfd2 had pointed the base
-    # compose at Dockerfile.dev; reverted to image-only in d552b9f.)
-    # The default is the PUBLIC CI image from the omni-deployer pipeline -
-    # fresh machines pull with no .env / registry login; override via
-    # OMNIAGENT_IMAGE in .env to pin a version.
+    # runtime definition and carries NO build section - it consumes the PUBLIC
+    # CI image published by the omni-deployer pipeline
+    # (ghcr.io/nexuslbs/omni-deployer/omniagent:latest), so a fresh machine
+    # can `docker compose pull` with no .env and no registry login. Override
+    # via OMNIAGENT_IMAGE in .env to pin a version; deploy.py hybrid builds
+    # the production Dockerfile locally and tags it local/omniagent:latest
+    # (omni.env) before `up`. Only the dev overlay (docker-compose.dev.yml)
+    # adds a build section (Dockerfile.dev) for omnidev source builds.
+    # (Regression note: 3d4bfd2 had pointed the base compose at
+    # Dockerfile.dev; reverted to image-only in d552b9f.)
     image: ${OMNIAGENT_IMAGE:-ghcr.io/nexuslbs/omni-deployer/omniagent:latest}
     depends_on:
       postgres:
@@ -145,6 +145,8 @@ services:
       args:
         CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.7.1}
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     command: tunnel --no-autoupdate run

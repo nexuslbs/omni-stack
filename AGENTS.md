@@ -413,12 +413,12 @@ updating `config/README.md` and the omni-deployer integration suite
        NEVER point a dev binary/`db-migrations` at `omni-stack-postgres-1` or the
        omni-stack postgres IP (172.18.0.4:5432).
     2. `db-migrations::run()` refuses to auto-apply schema to any database whose
-       host is NOT a known dev target (localhost/127.0.0.1/::1/`omnidev-postgres`)
-       unless `OMNIAGENT_ALLOW_DB_WRITE=true` is set. The bare `postgres` service
-       name is deliberately NOT a dev host (the production omni-stack uses it).
-    3. Production deploys set `OMNIAGENT_ALLOW_DB_WRITE=true` explicitly
-       (deploy.py / shared.py stable mode write it into the deploy env). Dev stacks
-       leave it unset/false.
+       host is NOT a known dev target (localhost/127.0.0.1/::1/`omnidev-postgres`).
+       The bare `postgres` service name is deliberately NOT a dev host (the
+       production omni-stack uses it).
+    3. There is NO env-var override: only the RELEASE image (baked
+       `OMNIAGENT_BUILD_MODE=release`) auto-applies migrations on container
+       start; a dev-built binary is refused against any non-dev DB host.
     4. The dev overlay (docker-compose.dev.yml) forces the dev stack onto its own
        postgres via the `omnidev-postgres` alias; a dev binary can never resolve
        to the omni-stack DB.

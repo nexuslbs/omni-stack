@@ -96,7 +96,7 @@ install_node_exporter() {
   log "Installing Node Exporter (host metrics on :9100)..."
   local VERSION="1.8.2" ARCH="linux-amd64" FILENAME URL
   ARCH="$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
-  FILENAME="node_exporter-${VERSION}.${ARCH}"
+  FILENAME="node_exporter-${VERSION}.linux-${ARCH}"
   URL="https://github.com/prometheus/node_exporter/releases/download/v${VERSION}/${FILENAME}.tar.gz"
   ( cd /tmp
     curl -fsSL "$URL" -o node_exporter.tar.gz

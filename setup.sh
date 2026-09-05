@@ -316,14 +316,29 @@ restore_from_s3() {
   fi
   log "S3 credentials found - starting toolbox and running restore from S3 before stack start..."
   cd "$OMNI_DIR"
-  # restore_backup restores into postgres (psql -h postgres), so postgres must
-  # be up first; the toolbox container carries the restore scripts + rclone.
-  docker compose up -d postgres toolbox
+  # restore_backup restores into postgres (psql -h postgres) and, when the
+  # mattermost profile is active, into its own postgres (mattermost-db,
+  # psql -h mattermost-db). Both database containers must be up before the
+  # restore runs; the toolbox container carries the restore scripts + rclone.
+  # mattermost-db is profile-gated, so only pre-start it when the profile is
+  # active (matching restore_backup's Step 5 gate).
+  local PRE_SERVICES="postgres toolbox"
+  if echo "${COMPOSE_PROFILES:-}" | grep -qE '(^|[, ])(mattermost|all)([, ]|$)'; then
+    PRE_SERVICES="postgres toolbox mattermost-db"
+  fi
+  # shellcheck disable=SC2086
+  docker compose up -d ${PRE_SERVICES}
   local i
   for i in $(seq 1 30); do
     docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-omniagent}" -d "${POSTGRES_DB:-omniagent}" >/dev/null 2>&1 && break
     sleep 2
   done
+  if echo "${PRE_SERVICES}" | grep -q mattermost-db; then
+    for i in $(seq 1 30); do
+      docker compose exec -T mattermost-db pg_isready -U "${MM_POSTGRES_USER:-mmuser}" -d mattermost >/dev/null 2>&1 && break
+      sleep 2
+    done
+  fi
   docker compose exec -T toolbox restore_backup \
     || warn "S3 restore failed - continuing with stack start (retry: cd ${OMNI_DIR} && docker compose exec -T toolbox restore_backup)"
 }

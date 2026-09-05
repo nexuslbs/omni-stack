@@ -139,22 +139,60 @@ if echo "$MM_PROFILE" | grep -qE '(mattermost|all)'; then
   echo "[restore] Step 5/8: Restoring Mattermost PostgreSQL..."
   if [ -f "${BACKUP_DIR}/mattermost/mattermost.dump" ]; then
     if [ -n "${MM_POSTGRES_PASSWORD:-}" ]; then
+      MM_DB_HOST="${MM_DB_HOST:-mattermost-db}"
+      # The setup restore phase runs BEFORE the stack start: only the core
+      # postgres + toolbox containers are up, so the profile-gated mattermost
+      # postgres (mattermost-db) may not exist yet and psql -h mattermost-db
+      # would die with "could not translate host name". Ensure it is running
+      # (create it via compose when it does not exist), wait until it accepts
+      # connections, and surface real errors instead of swallowing them.
+      MMDB_CT="$(docker ps -a -q --filter "label=com.docker.compose.project=${PROJECT}" --filter "name=mattermost-db" 2>/dev/null | head -1 || true)"
+      if [ -n "${MMDB_CT}" ]; then
+        docker start "${MMDB_CT}" >/dev/null 2>&1 || true
+      elif [ -f "${OMNI_DIR}/docker-compose.yml" ]; then
+        (cd "${OMNI_DIR}" && docker compose up -d mattermost-db) >/dev/null 2>&1 \
+          || echo "[restore] WARNING: could not start mattermost-db via compose - trying restore anyway"
+      fi
+      MMDB_READY=""
+      for _i in $(seq 1 30); do
+        if pg_isready -h "${MM_DB_HOST}" -U "${MM_POSTGRES_USER:-mmuser}" -d mattermost >/dev/null 2>&1; then
+          MMDB_READY="1"
+          break
+        fi
+        sleep 2
+      done
+      if [ -z "${MMDB_READY}" ]; then
+        echo "[restore] ERROR: mattermost-db (${MM_DB_HOST}) not reachable - Mattermost restore FAILED" >&2
+        echo "[restore]        fix: cd ${OMNI_DIR} && docker compose up -d mattermost-db, then re-run restore_backup" >&2
+        exit 1
+      fi
+
       echo "[restore] Terminating connections to mattermost DB..."
       export PGPASSWORD="${MM_POSTGRES_PASSWORD}"
-      psql -h mattermost-db -U "${MM_POSTGRES_USER:-mmuser}" -d postgres \
-        -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'mattermost' AND pid <> pg_backend_pid();" 2>/dev/null || true
-      psql -h mattermost-db -U "${MM_POSTGRES_USER:-mmuser}" -d postgres \
-        -c "DROP DATABASE IF EXISTS mattermost;" 2>/dev/null || true
-      psql -h mattermost-db -U "${MM_POSTGRES_USER:-mmuser}" -d postgres \
-        -c "CREATE DATABASE mattermost;" 2>/dev/null
-      
-      pg_restore -h mattermost-db -U "${MM_POSTGRES_USER:-mmuser}" -d mattermost \
-        --clean --if-exists \
-        "${BACKUP_DIR}/mattermost/mattermost.dump" 2>/dev/null || \
-        echo "[restore] WARNING: Mattermost restore had warnings"
-      
+      psql -h "${MM_DB_HOST}" -U "${MM_POSTGRES_USER:-mmuser}" -d postgres \
+        -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'mattermost' AND pid <> pg_backend_pid();" || true
+      psql -h "${MM_DB_HOST}" -U "${MM_POSTGRES_USER:-mmuser}" -d postgres \
+        -c "DROP DATABASE IF EXISTS mattermost;" || true
+      if ! psql -h "${MM_DB_HOST}" -U "${MM_POSTGRES_USER:-mmuser}" -d postgres -c "CREATE DATABASE mattermost;"; then
+        echo "[restore] ERROR: could not (re)create the mattermost database on ${MM_DB_HOST} - Mattermost restore FAILED" >&2
+        exit 1
+      fi
+
+      # pg_restore (no --exit-on-error) keeps restoring after benign errors and
+      # then exits non-zero, e.g. a "SET transaction_timeout = 0" header from a
+      # newer source server replayed on an older target. Tolerate the non-zero
+      # rc (output stays visible) and verify the restore actually landed.
+      pg_restore -h "${MM_DB_HOST}" -U "${MM_POSTGRES_USER:-mmuser}" -d mattermost \
+          --clean --if-exists \
+          "${BACKUP_DIR}/mattermost/mattermost.dump" || true
+      MM_TBL="$(psql -h "${MM_DB_HOST}" -U "${MM_POSTGRES_USER:-mmuser}" -d mattermost -tAc "SELECT to_regclass('public.users');" 2>/dev/null || true)"
+      if [ "${MM_TBL}" != "users" ]; then
+        echo "[restore] ERROR: Mattermost restore did not land (users table missing) - see pg_restore output above; dump: ${BACKUP_DIR}/mattermost/mattermost.dump" >&2
+        exit 1
+      fi
+
       unset PGPASSWORD
-      echo "[restore] Mattermost PG restored."
+      echo "[restore] Mattermost PG restored (verified: public.users present)."
     fi
   else
     echo "[restore] No Mattermost backup found -- skipping."

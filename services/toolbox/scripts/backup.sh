@@ -1,5 +1,5 @@
 #!/bin/bash
-# Backup: sync OMNI_DIR/data/ (including DB backups) to S3
+# Backup: sync the compose project's data/ directory (including DB backups) to S3
 # - PG dumps in custom format -> data/backups/omniagent/ and data/backups/mattermost/
 # - Grafana SQLite dump -> data/backups/grafana/
 # - File data sync to S3 (rclone)
@@ -8,62 +8,108 @@
 #   a non-zero exit instead of reporting a silent success.
 # - FINAL step: git sync via the omniagent API (same call as the dashboard
 #   explorer sync button), fail-soft.
+#
+# DATA-DIR DETERMINISM (operator requirement, 2026-09-05):
+#   The backup source is the data/ directory that sits next to the docker-compose
+#   of THIS toolbox container: <compose-project-dir>/data. The project dir is
+#   resolved DETERMINISTICALLY from the container's own compose labels
+#   (com.docker.compose.project.working_dir, fallback config_files) - NEVER by
+#   scanning candidate paths (/opt/omni-stack, /opt/omni) and picking whichever
+#   .env happens to carry S3 credentials. OMNI_DIR remains an explicit override
+#   for manual runs outside the toolbox container only.
 set -euo pipefail
 
-# ---- OMNI_DIR resolution ----------------------------------------------------
-# Inside the toolbox container the compose project dir is bind-mounted at
-# /opt/omni-stack (container env OMNI_DIR=/opt/omni-stack). Outside compose /
-# on the host the real install lives at /opt/omni. Prefer an explicit OMNI_DIR;
-# otherwise use the first candidate whose .env carries S3 credentials. Any other
-# case is a LOUD fatal error (never a silent cp failure like thread 949:
-# "cp: can't stat '/opt/omni-stack/.env'").
+# ---- Deterministic project-dir resolution -----------------------------------
+# Print the container-visible path of the compose project directory that defines
+# this toolbox container; empty when it cannot be determined.
+resolve_project_dir() {
+    local host_dir="" dst="" mounts
+    # 1) Directory docker compose was invoked from (= where the docker-compose
+    #    of this container lives), recorded by Docker at container creation.
+    host_dir="$(docker inspect "$HOSTNAME" \
+        --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' 2>/dev/null || true)"
+    # 2) Fallback: first compose file of the project, take its directory.
+    if [ -z "${host_dir}" ]; then
+        host_dir="$(docker inspect "$HOSTNAME" \
+            --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null || true)"
+        host_dir="${host_dir%%,*}"
+        host_dir="${host_dir%/*}"
+    fi
+    [ -n "${host_dir}" ] || return 1
+    # 3) Translate host path -> container-visible path: if the project dir (or a
+    #    parent of it, e.g. /opt) is bind-mounted into this container, the mount
+    #    destination is where the project dir is visible here.
+    mounts="$(docker inspect "$HOSTNAME" \
+        --format '{{range .Mounts}}{{.Source}}|{{.Destination}}{{"\n"}}{{end}}' 2>/dev/null || true)"
+    dst="$(printf '%s' "${mounts}" | awk -F'|' -v h="${host_dir}" '
+        $1 == h { print $2; exit }
+        $1 != "/" && substr(h, 1, length($1)) == $1 {
+            cand = $2 substr(h, length($1) + 1)
+            if (length($1) > best) { best = length($1); bestcand = cand }
+        }
+        END { if (best > 0) print bestcand }
+    ')"
+    # 4) No matching bind: assume the host path is visible unchanged.
+    if [ -z "${dst}" ]; then
+        dst="${host_dir}"
+    fi
+    printf '%s\n' "${dst}"
+}
+
+# ---- Compose project dir + data dir -----------------------------------------
+PROJECT_DIR=""
 if [ -n "${OMNI_DIR:-}" ]; then
-    if [ ! -f "${OMNI_DIR}/.env" ] || [ ! -r "${OMNI_DIR}/.env" ]; then
-        echo "[backup] ERROR: OMNI_DIR=${OMNI_DIR} has no readable .env. The backup"
-        echo "[backup]        needs the real install dir (toolbox container: /opt/omni-stack"
-        echo "[backup]        = mounted production dir; host: /opt/omni). Fix the compose"
-        echo "[backup]        project_dir / env before running. Aborting (exit 2)." >&2
-        exit 2
-    fi
+    # Explicit override (manual run outside the toolbox container). It must
+    # point at the real project dir; validated below like every other source.
+    PROJECT_DIR="${OMNI_DIR}"
 else
-    OMNI_DIR=""
-    for cand in /opt/omni-stack /opt/omni; do
-        if [ -f "${cand}/.env" ] && grep -q '^S3_ACCESS_KEY=' "${cand}/.env" 2>/dev/null; then
-            OMNI_DIR="${cand}"
-            break
-        fi
-    done
-    if [ -z "${OMNI_DIR}" ]; then
-        echo "[backup] ERROR: no OMNI_DIR candidate with a .env found (checked:"
-        echo "[backup]        /opt/omni-stack, /opt/omni). Aborting (exit 2)." >&2
-        exit 2
-    fi
+    PROJECT_DIR="$(resolve_project_dir || true)"
 fi
-echo "[backup] OMNI_DIR=${OMNI_DIR}"
+
+if [ -z "${PROJECT_DIR}" ]; then
+    echo "[backup] ERROR: cannot determine the compose project directory of this" >&2
+    echo "[backup]        toolbox container (com.docker.compose.project.* labels" >&2
+    echo "[backup]        missing). Manual runs outside the container must set" >&2
+    echo "[backup]        OMNI_DIR=<project dir containing docker-compose.yml, .env and data/>." >&2
+    exit 2
+fi
+if [ ! -f "${PROJECT_DIR}/.env" ] || [ ! -r "${PROJECT_DIR}/.env" ]; then
+    echo "[backup] ERROR: ${PROJECT_DIR}/.env missing or unreadable - the compose" >&2
+    echo "[backup]        project dir must contain its .env (S3 credentials)." >&2
+    exit 2
+fi
+if [ ! -d "${PROJECT_DIR}/data" ]; then
+    echo "[backup] ERROR: ${PROJECT_DIR}/data not found - the compose project dir" >&2
+    echo "[backup]        must contain the data/ directory to back up." >&2
+    exit 2
+fi
+DATA_DIR="${PROJECT_DIR}/data"
+echo "[backup] Compose project dir (deterministic): ${PROJECT_DIR}"
+echo "[backup] Backup source data dir: ${DATA_DIR}/"
 
 S3_BUCKET="${S3_BUCKET:-hermes-nexuslbs}"
 S3_PREFIX="${S3_PATH:-omni}/data"
 S3_ENDPOINT="${S3_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}"
 S3_REGION="${S3_REGION:-us-east-005}"
 
-# ---- Compose project resolution ---------------------------------------------
+# ---- Compose project NAME (container filtering) -----------------------------
 # Containers/volumes are auto-named per project ({project}-{service}-{index},
 # {project}_{volume}) - there are no fixed omni-* names. Derive the project
-# from this container's compose label; fall back to the directory name.
-PROJECT="$(docker inspect "$HOSTNAME" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
-PROJECT="${PROJECT:-omni}"
-GRAFANA_CT="$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT}" --filter "name=grafana" 2>/dev/null | head -1 || true)"
+# name from this container's compose label; fall back to the default name.
+COMPOSE_PROJECT="$(docker inspect "$HOSTNAME" --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)"
+COMPOSE_PROJECT="${COMPOSE_PROJECT:-omni}"
+GRAFANA_CT="$(docker ps -q --filter "label=com.docker.compose.project=${COMPOSE_PROJECT}" --filter "name=grafana" 2>/dev/null | head -1 || true)"
 
-BACKUP_DIR="${OMNI_DIR}/data/backups"
+BACKUP_DIR="${DATA_DIR}/backups"
 mkdir -p "${BACKUP_DIR}/omniagent" "${BACKUP_DIR}/mattermost" "${BACKUP_DIR}/grafana"
 
 # ---- Source credentials ------------------------------------------------------
 set -a
-. "${OMNI_DIR}/.env"
+. "${PROJECT_DIR}/.env"
 set +a
 
 if [ -z "${S3_ACCESS_KEY:-}" ] || [ -z "${S3_SECRET_KEY:-}" ]; then
-    echo "[backup] ERROR: S3_ACCESS_KEY and S3_SECRET_KEY must be present in ${OMNI_DIR}/.env" >&2
+    echo "[backup] ERROR: S3_ACCESS_KEY and S3_SECRET_KEY must be present in ${PROJECT_DIR}/.env" >&2
     exit 2
 fi
 
@@ -95,16 +141,16 @@ echo "[backup] Starting backup to ${DEST}/"
 
 # ---- Step 1: Copy .env to data/credentials/.env -----------------------------
 echo "[backup] Step 1/7: Copying .env to data/credentials/.env..."
-mkdir -p "${OMNI_DIR}/data/credentials"
-if ! cp "${OMNI_DIR}/.env" "${OMNI_DIR}/data/credentials/.env"; then
-    echo "[backup] ERROR: failed to copy ${OMNI_DIR}/.env to data/credentials/.env" >&2
+mkdir -p "${DATA_DIR}/credentials"
+if ! cp "${PROJECT_DIR}/.env" "${DATA_DIR}/credentials/.env"; then
+    echo "[backup] ERROR: failed to copy ${PROJECT_DIR}/.env to data/credentials/.env" >&2
     exit 2
 fi
-if [ ! -s "${OMNI_DIR}/data/credentials/.env" ]; then
+if [ ! -s "${DATA_DIR}/credentials/.env" ]; then
     echo "[backup] ERROR: data/credentials/.env is empty after copy" >&2
     exit 2
 fi
-echo "[backup] .env copied (${OMNI_DIR}/data/credentials/.env)."
+echo "[backup] .env copied (${DATA_DIR}/credentials/.env)."
 
 # ---- Step 2: OmniAgent PG dump (custom format) ------------------------------
 echo "[backup] Step 2/7: OmniAgent PostgreSQL dump..."
@@ -141,7 +187,7 @@ if [ -n "${POSTGRES_PASSWORD:-}" ]; then
         fail "OmniAgent PG dump missing or too small"
     fi
 else
-    fail "POSTGRES_PASSWORD not set in ${OMNI_DIR}/.env - cannot dump omniagent DB"
+    fail "POSTGRES_PASSWORD not set in ${PROJECT_DIR}/.env - cannot dump omniagent DB"
 fi
 
 # ---- Step 3: Mattermost PG dump (custom format) ------------------------------
@@ -207,7 +253,7 @@ fi
 
 # ---- Step 5: Sync data/ to S3 (includes backups/) ----------------------------
 echo "[backup] Step 5/7: Syncing file data to S3..."
-if ! $RC sync "${OMNI_DIR}/data/" "${DEST}/" \
+if ! $RC sync "${DATA_DIR}/" "${DEST}/" \
     --create-empty-src-dirs \
     --s3-no-check-bucket \
     --fast-list \
@@ -253,7 +299,7 @@ echo "${REMOTE_STATS:-unavailable}"
 
 # ---- Step 7: Git sync via omniagent API (FINAL, fail-soft) -------------------
 echo "[backup] Step 7/7: Git sync via omniagent API..."
-OA_CT="$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT}" --filter "name=omniagent" 2>/dev/null | head -1 || true)"
+OA_CT="$(docker ps -q --filter "label=com.docker.compose.project=${COMPOSE_PROJECT}" --filter "name=omniagent" 2>/dev/null | head -1 || true)"
 if [ -n "${OA_CT}" ]; then
     if curl -sf -m 90 -X POST -H 'Content-Type: application/json' -d '{}' \
         http://omniagent:8080/git/sync >/tmp/git-sync.out 2>/tmp/git-sync.err; then

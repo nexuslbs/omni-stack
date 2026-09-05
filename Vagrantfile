@@ -81,7 +81,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.provision "shell", name: "setup-omni", privileged: true, inline: <<-'SHELL'
     set -euxo pipefail
-    cp -f /tmp/omni-secrets/* /opt/secrets/ 2>/dev/null || true
+    cp -fR /tmp/omni-secrets/. /opt/secrets/ 2>/dev/null || true
     if [ -f /opt/secrets/config.yml ]; then
       # Run the remote setup.sh from the omni-stack repo (bash). The setup
       # used is ALWAYS the omni-stack one, even when config.yml's repo key

@@ -98,8 +98,6 @@ services:
       - ${HOST_OMNI_DIR:-/opt/omni}/profiles/:/opt/omni/profiles:rw
       - ${WORKSPACE_DIR:-/opt/workspace}/omni-dashboard:/opt/repo:rw
       - /opt/data:/opt/data:ro
-      - /opt/hermes:/opt/hermes:ro
-      - /opt/hermes-repo:/opt/hermes-repo:ro
       - ${WORKSPACE_DIR:-/opt/workspace}:/opt/workspace:ro
     logging:
       driver: journald

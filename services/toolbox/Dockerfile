@@ -12,7 +12,18 @@ RUN apk add --no-cache \
     docker-cli docker-compose \
     python3 py3-pip \
     py3-psycopg2 \
-    jq
+    jq \
+    # External-interaction tooling (email + TOTP, ships in the next version).
+    # himalaya email CLI: Alpine package (v1.2.0, apk-managed).
+    # oathtool CLI (TOTP/HOTP): Alpine package oath-toolkit-oathtool (the
+    # oath-toolkit meta package alone ships only pskctool, not oathtool).
+    himalaya \
+    oath-toolkit-oathtool
+
+# pyotp: TOTP library for python3. Not packaged in Alpine repos as py3-pyotp
+# (Alpine's py3-otp is the unrelated 'otp' library), so install the pinned
+# pure-python PyPI release (no build deps needed).
+RUN python3 -m pip install --no-cache-dir --break-system-packages pyotp==2.10.0
 
 # Copy backup/utility scripts
 COPY scripts/backup.sh /usr/bin/backup

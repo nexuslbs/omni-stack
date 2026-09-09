@@ -27,7 +27,7 @@ Uses: rclone → Backblaze B2 (S3-compatible), pg_dump (plain format, gzipped), 
 ## 2. What's Good ✓
 
 ### 2.1. Self-Contained & No External Dependencies
-The scripts source everything from `OMNI_DIR/.env`: no Hermes dependency, no hardcoded secrets, no manual steps. This is excellent for disaster recovery where the Hermes container itself might be gone.
+The scripts source everything from `OMNI_DIR/.env`: no omniagent dependency, no hardcoded secrets, no manual steps. This is excellent for disaster recovery where the agent's own container might be gone.
 
 ### 2.2. Offsite Storage (Backblaze B2 / S3)
 Storing backups on an S3-compatible object store in a different region/zone provides **geographic redundancy**. Even if the entire docker host fails, the data survives. This satisfies the "1 offsite" requirement of the 3-2-1 rule.

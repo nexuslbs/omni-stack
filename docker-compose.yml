@@ -50,6 +50,9 @@ services:
     environment:
       DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD:-}@postgres:5432/omniagent
       OMNI_DIR: ${OMNI_DIR:-/opt/omni}
+      # Endpoint of the opt-in 'qdrant' compose profile, consumed by the
+      # semantic_search MCP plugin (omni-plugins) via its $env:QDRANT_URL config.
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
       # Stable/image builds use the committed .sqlx offline cache (no live DB
       # at compile time). The dev overlay overrides this to false so omnidev
       # builds validate queries against the live migrated DB instead.

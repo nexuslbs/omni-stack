@@ -50,14 +50,58 @@ Vagrant.configure("2") do |config|
   #  Provisioning
   #  The Vagrantfile no longer provisions the machine itself: all real setup
   #  (docker, node-exporter, repo clone, compose pull/build/up, secrets) lives
-  #  in the remote setup.sh from the omni-stack repo. Here we only:
-  #    1. stage the host-side files that exist next to this Vagrantfile
+  #  in the remote setup.sh from the omni-stack repo. Here we only do the
+  #  host-shape fixes that MUST happen before anything else:
+  #    0. grow the root filesystem to the disk size configured in config.yml
+  #       (`vm.disk`) - FIRST STEP, always (without it the VM fills up),
+  #    1. disable swap permanently,
+  #    2. stage the host-side files that exist next to this Vagrantfile
   #       (config.yml, .env, <key>.pem - the key file name is the
   #       `github_app_private_key` value in config.yml) into the VM,
-  #    2. move them into /opt/secrets/, and
-  #    3. if config.yml is present, run the omni-stack setup.sh via bash -
+  #    3. move them into /opt/secrets/, and
+  #    4. if config.yml is present, run the omni-stack setup.sh via bash -
   #       ALWAYS the omni-stack setup, even when the repo in config.yml is a
   #       different repository.
+
+  #  STEP 0 (MUST stay the FIRST provisioner): grow the disk.
+  #  `config.vm.disk :disk, size: VM_DISK` only enlarges the virtual disk;
+  #  the guest filesystem keeps the small box-image size until the GPT/MBR
+  #  partition, the LVM physical volume and the root logical volume are grown.
+  #  Without this the box runs out of space (docker images/builds fill it) and
+  #  everything gets slow. Provisioners run as root, so no sudo is needed.
+  config.vm.provision "shell", name: "grow-disk", privileged: true, inline: <<-'SHELL'
+    set -euxo pipefail
+    export DEBIAN_FRONTEND=noninteractive
+    # cloud-guest-utils ships growpart; install it if the box image lacks it.
+    if ! command -v growpart >/dev/null 2>&1; then
+      apt-get update -qq
+      apt-get install -y -qq cloud-guest-utils
+    fi
+    # Default generic/ubuntu2204 layout: /dev/sda3 is the LVM PV inside
+    # ubuntu-vg (ubuntu-lv mounted on /). Grow partition -> PV -> LV -> fs.
+    growpart /dev/sda 3 || true
+    pvresize /dev/sda3 || true
+    lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv --resizefs || true
+    df -h /
+  SHELL
+
+  #  STEP 1 (MUST run before any container work): disable swap.
+  #  The VM ended up with a huge swap file on the small disk; swapping made
+  #  the whole machine (and the agent) pathologically slow while swapoff took
+  #  ages / got OOM-killed. Disable swap now AND persistently (fstab).
+  config.vm.provision "shell", name: "disable-swap", privileged: true, inline: <<-'SHELL'
+    set -euxo pipefail
+    swapoff -a || true
+    if grep -Eq '^[^#]*[[:space:]]swap[[:space:]]' /etc/fstab; then
+      cp -n /etc/fstab /etc/fstab.omni.bak || true
+      sed -i -E '/^[^#].*[[:space:]]swap[[:space:]]/s/^/# omni: swap disabled /' /etc/fstab
+    fi
+    # Drop any systemd swap unit generated from the old fstab entry.
+    systemctl daemon-reload || true
+    systemctl --no-pager --type swap list-units || true
+    free -m
+  SHELL
+
   config.vm.provision "shell", name: "prepare-secrets-dir", privileged: true, inline: <<-SHELL
     set -euxo pipefail
     mkdir -p /tmp/omni-secrets /opt/secrets

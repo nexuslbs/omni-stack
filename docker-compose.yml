@@ -25,6 +25,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    # Hard memory cap: a single stack must never be able to eat the whole VM RAM.
+    mem_limit: 1g
     logging:
       driver: journald
 
@@ -83,6 +85,8 @@ services:
     user: root
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Hard memory cap: the agent (plus dev cargo builds) must stay bounded.
+    mem_limit: 2g
     logging:
       driver: journald
 
@@ -102,6 +106,8 @@ services:
       - ${WORKSPACE_DIR:-/opt/workspace}/omni-dashboard:/opt/repo:rw
       - /opt/data:/opt/data:ro
       - ${WORKSPACE_DIR:-/opt/workspace}:/opt/workspace:ro
+    # Hard memory cap: the dashboard is a small Node service.
+    mem_limit: 512m
     logging:
       driver: journald
 
@@ -131,6 +137,8 @@ services:
       - /opt:/opt/:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - omni-toolbox-cron:/var/log
+    # Hard memory cap: the toolbox runs the backup/checkpoint cron jobs.
+    mem_limit: 1g
     logging:
       driver: journald
 

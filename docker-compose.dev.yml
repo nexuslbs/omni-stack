@@ -21,6 +21,14 @@ services:
       # to known dev hosts, and the bare `postgres` service name
       # (which the production omni-stack uses too) is refused.
       DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD:-}@omnidev-postgres:5432/omniagent
+    # Dev builds are far hungrier than the runtime: deploy.py pretests run
+    # `cargo check/clippy --workspace --all-targets --release`, where a single
+    # rustc on the omniagent crate peaks at ~1.9 GB anon-rss and cargo runs 2
+    # jobs in parallel (nproc=2). The base compose 2g cap made the kernel
+    # OOM-kill rustc/clippy-driver inside the container cgroup
+    # (CONSTRAINT_MEMCG) and aborted the deploy. Dev gets more headroom;
+    # production keeps the base 2g cap.
+    mem_limit: 4g
     dns:
       - 8.8.8.8
     volumes:

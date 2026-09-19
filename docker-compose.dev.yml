@@ -41,6 +41,10 @@ services:
     build:
       context: /opt/workspace/omni-dashboard
       dockerfile: Dockerfile
+    # Explicit local image name: the base compose is image-only with the
+    # PUBLISHED dashboard image as its default, so a local build must never
+    # re-tag it (deploy.py hybrid builds this same local/omni-dashboard name).
+    image: local/omni-dashboard:latest
     # The image copies the compiled backend to /app/server; /opt/repo is the
     # source bind mount and does not contain generated server-dist output.
     command: ["node", "/app/server/index.js"]
@@ -59,6 +63,9 @@ services:
     build:
       context: ./services/toolbox
       dockerfile: Dockerfile
+    # Explicit local image name: never the published base image (a merged build
+    # would otherwise re-tag the published image locally).
+    image: local/omni-toolbox:latest
 
   mattermost:
     ports:

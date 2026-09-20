@@ -247,6 +247,35 @@ services:
     logging:
       driver: journald
 
+  #  Browser service (profile: browser) - a SEPARATE image, never the workbench image 
+  # The published workbench image stays BROWSER-FREE (no chromium): the
+  # `browser-use-playwright` provider only ATTACHES to this service over CDP,
+  # resolved through the general-service@1 seam
+  # (`browser-use-playwright.browserService.endpoint` -> http://browser:9222).
+  # Opt-in service: gated behind the "browser" (or "all") compose profile, so it
+  # is NOT part of the default stack and nothing is pulled/started unless asked.
+  browser:
+    profiles: ["browser", "all"]
+    # Published from workbench-plugins/browser (built FROM the upstream Playwright
+    # image, chromium baked in). BROWSER_IMAGE overrides it.
+    image: ${BROWSER_IMAGE:-ghcr.io/nexuslbs/workbench-plugins/browser:0.0.1}
+    restart: unless-stopped
+    # Chromium needs a bigger /dev/shm than the docker default (64M).
+    shm_size: 1gb
+    environment:
+      BROWSER_CDP_PORT: "9222"
+    expose:
+      # Container-INTERNAL CDP port: reached as browser:9222 on the stack
+      # network. No host port is published - the CDP endpoint has no auth, so it
+      # must never be exposed outside the stack.
+      - "9222"
+    # Hard memory cap. This service is opt-in (profile "browser"), so its cap is
+    # NOT part of the always-on stack budget; re-check the budget before enabling
+    # it next to the default services.
+    mem_limit: 1024M
+    logging:
+      driver: journald
+
   #  Observability: Cloudflare Tunnel 
   cloudflared:
     profiles: ["tunnel", "all"]

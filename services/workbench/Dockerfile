@@ -108,7 +108,7 @@ WORKDIR ${WORKBENCH_DIR}
 # Status endpoint of the long-running `serve` command (published by the dev
 # overlay). CONFIG_FILE is read from the environment at start: empty = the core
 # default config (${WORKBENCH_DIR}/workbench.config.yml), non-empty = that path.
-EXPOSE 12347
+EXPOSE 8080
 
 # Long-running entrypoint: boot the plugins and STAY UP (a sleep loop would
 # report Up while hosting nothing). --max-old-space-size keeps the V8 heap

@@ -55,6 +55,16 @@ services:
       qdrant:
         condition: service_started
         required: false
+      # Start-order guard against the boot race (incident 2026-09-21): the
+      # omniagent container can come up before the mattermost HTTP port starts
+      # accepting connections, and a single `Connection refused` used to leave
+      # EVERY mattermost channel without inbound until a manual plugin restart.
+      # The mattermost image ships its own HEALTHCHECK, so wait for it whenever
+      # the mattermost profile is active; `required: false` keeps omniagent
+      # independent when mattermost is not deployed.
+      mattermost:
+        condition: service_healthy
+        required: false
     environment:
       DATABASE_URL: postgres://omniagent:${POSTGRES_PASSWORD:-}@postgres:5432/omniagent
       OMNI_DIR: ${OMNI_DIR:-/opt/omni}

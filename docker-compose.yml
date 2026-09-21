@@ -93,7 +93,14 @@ services:
       - "host.docker.internal:host-gateway"
     # Hard memory cap (see the 4 GB stack budget at the top). The dev overlay
     # (docker-compose.dev.yml) raises this to 4g for source builds.
-    mem_limit: 1024m
+    # Overridable via OMNIAGENT_MEM_LIMIT: deploy.py hybrid/ci write 2048m into
+    # omni.env because the deploy suite's GROUP 17B spawns 50 parallel
+    # `docker compose` CLI processes INSIDE this container (~660 MB peak on top
+    # of a ~400 MB baseline grown by PASS 1), which the 1 GiB default
+    # OOM-killed in PASS 2 (exit 137, CONSTRAINT_MEMCG; threads 2741/2744).
+    # The DEFAULT stays 1024m, so the shipped stack budget (<= 4.5 GB) and the
+    # production footprint are unchanged.
+    mem_limit: ${OMNIAGENT_MEM_LIMIT:-1024m}
     logging:
       driver: journald
 

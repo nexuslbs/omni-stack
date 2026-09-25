@@ -264,6 +264,104 @@ services:
     logging:
       driver: journald
 
+  workstation:
+    # Opt-in service: gated behind the "workstation" (or "all") compose profile -
+    # it is NOT part of the default stack. The base compose is the stable/runtime
+    # definition and is IMAGE-ONLY: it carries NO build section. The image is
+    # built from services/workstation/Dockerfile (build args WORKSTATION_REPO_URL /
+    # WORKSTATION_REF) by the dev overlay (docker-compose.dev.yml). The container
+    # start clones and installs NOTHING: it boots the plugins and stays up (the
+    # core's `serve` command). workstation is agent-agnostic - this service is the
+    # only coupling with the stack.
+    profiles: ["workstation", "all"]
+    # Default: the PUBLISHED core image (ghcr.io/nexuslbs/deepseek-harness:latest,
+    # built by the core repo's CI); WORKSTATION_IMAGE overrides it.
+    image: ${WORKSTATION_IMAGE:-ghcr.io/nexuslbs/deepseek-harness:latest}
+    restart: unless-stopped
+    # Long-running mode: `serve` boots the plugins behind a status endpoint and
+    # blocks until SIGINT/SIGTERM (a sleep loop would report Up while hosting
+    # nothing). --max-old-space-size keeps the V8 heap inside mem_limit.
+    command: ["node", "--max-old-space-size=384", "src/cli.ts", "serve"]
+    environment:
+      # Plugins config file (the WORKSTATION_CONFIG_FILE .env var overrides it).
+      # EMPTY (the default) = the core default config shipped in the image
+      # (/workstation/workstation.config.yml, core plugins only). Non-empty = that
+      # exact path, e.g. the operator's
+      # WORKSTATION_CONFIG_FILE=/opt/omni/config/workstation.yml (a tracked file of
+      # the omni-root stack) - see .env.example.
+      CONFIG_FILE: ${WORKSTATION_CONFIG_FILE:-}
+      # Status endpoint port of `serve` INSIDE the container (the core's
+      # WORKSTATION_PORT, default 8080); the dev overlay publishes it on the host
+      # as 12348:8080.
+      WORKSTATION_PORT: ${WORKSTATION_PORT:-8080}
+      # Where git plugin sources are checked out. Backed by the EXTERNAL NAMED
+      # VOLUME `workstation-cache` (declared in the service's volumes list and in
+      # the top-level volumes: block below): the checkout survives container
+      # recreation and never pollutes the tracked /opt/omni config directory of
+      # the host. WORKSTATION_CACHE_DIR is the path INSIDE the container.
+      WORKSTATION_CACHE_DIR: ${WORKSTATION_CACHE_DIR:-/var/lib/workstation/sources}
+      # Omni root of the deployment whose stack the plugins may exec INTO: the
+      # `container` transport (docker-impl) launches
+      #   docker compose --project-directory <OMNI_DIR> ... exec -T <service>
+      # so the plugins config derives the compose project from it
+      # (`${env:OMNI_DIR}`, e.g. himalaya -> service `toolbox`). Same convention
+      # as the omniagent / dashboard services of this stack.
+      OMNI_DIR: ${OMNI_DIR:-/opt/omni}
+      # Compose project name of that stack. The transport's compose block may
+      # omit `project_name`, in which case the docker CLI falls back to
+      # COMPOSE_PROJECT_NAME (and then to the project directory basename - a
+      # CHECKOUT name, not the runtime project name). Pinned to the production
+      # project here; a deployment overrides it (dev: `omnidev`, inherited from
+      # the launch env file).
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-omni-stack}
+    volumes:
+      # /opt mapped IN AND OUT: a CONFIG_FILE under /opt/... resolves to the
+      # SAME host file inside the container (this is how the operator's
+      # /opt/omni/config/workstation.yml is read, and how the dev overlay reaches
+      # the tracked config/workstation.dev.yml). The image's own checkout
+      # lives in /workstation, outside /opt, so this mount never shadows it.
+      - /opt:/opt:rw
+      # EXTERNAL NAMED VOLUME (NOT a bind mount): the `git` plugin-source
+      # checkout persists across container recreation and never leaks into the
+      # host tree. WORKSTATION_CACHE_DIR is the path INSIDE the container; the
+      # volume itself is declared in the top-level `volumes:` below.
+      - workstation-cache:${WORKSTATION_CACHE_DIR:-/var/lib/workstation/sources}:rw
+      # DOCKER DAEMON SOCKET (the host daemon, not a daemon in this container):
+      # the workstation plugins reach external tooling BEHIND THE SCENES through
+      # the `container` transport, which is
+      #   docker compose -p <project> --env-file <env> -f <file> exec -T
+      #     <service> sh -c '<args>'
+      # - i.e. it needs the docker CLIENT (shipped in the image) plus access to
+      # the daemon that owns the stack it exec's into. /opt is mounted in-and-out
+      # above, so the SAME compose file / .env paths resolve inside and outside
+      # the container; this socket is what lets that client talk to the daemon.
+      # SECURITY: a container with the docker socket has control of the host
+      # docker daemon, which is equivalent to host root. That is the accepted
+      # cost of reaching a sibling service (himalaya lives only in the omni
+      # `toolbox` image) without publishing a network path. Optional hardening
+      # (NOT used here): a socket proxy such as tecnativa/docker-socket-proxy
+      # exposing only CONTAINERS/EXEC, and mounting its endpoint instead.
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    expose:
+      # Container-INTERNAL port (never a host port): the dev overlay publishes
+      # it on the host as 12348:8080.
+      - "8080"
+    healthcheck:
+      # curl (installed in the service image) probes the status endpoint, so the
+      # service is verifiably HOSTING the plugins, not merely running.
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:$${WORKSTATION_PORT:-8080}/health > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Hard memory cap: the core is a small plugin host, but 64M (with a 32M V8
+    # heap) is too small to run the core's own test suite inside this container:
+    # `node --test` was OOM-killed (exit 137). 512M fits `serve` plus one
+    # on-demand test run; the stack budget (top of file) was re-checked.
+    mem_limit: 512M
+    logging:
+      driver: journald
+
   #  Browser service (profile: browser) - a SEPARATE image, never the workbench image 
   # The published workbench image stays BROWSER-FREE (no chromium): the
   # `browser-use-playwright` provider only ATTACHES to this service over CDP,
@@ -582,3 +680,4 @@ volumes:
   prometheus-vol:
   vector-vol:
   workbench-cache:
+  workstation-cache:

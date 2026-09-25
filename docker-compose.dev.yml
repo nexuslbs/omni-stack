@@ -124,6 +124,37 @@ services:
     ports:
       - "12347:8080"
 
+  workstation:
+    # Dev-only source build: the base compose is IMAGE-ONLY; the image is built
+    # here from services/workstation/Dockerfile (build-time clone of the core repo
+    # via WORKSTATION_REPO_URL / WORKSTATION_REF).
+    build:
+      context: ./services/workstation
+      dockerfile: Dockerfile
+      args:
+        WORKSTATION_REPO_URL: ${WORKSTATION_REPO_URL:-https://github.com/nexuslbs/deepseek-harness}
+        WORKSTATION_REF: ${WORKSTATION_REF:-master}
+    # Explicit local image name: the image is built ON THE FLY here, so it is
+    # tagged local/workstation:latest - never the published
+    # ghcr.io/nexuslbs/workstation:latest of the base compose.
+    image: local/workstation:latest
+    # Dev config: the tracked dev config of THIS repo (config/workstation.dev.yml),
+    # read through the base compose /opt:/opt mount (same path in and out). It
+    # loads every capability plugin from the LOCAL workbench-plugins checkout
+    # /opt/workspace/workbench-plugins (no clone, no push): production uses the
+    # plugin sources on the `workstation-cache` named volume instead.
+    environment:
+      CONFIG_FILE: /opt/workspace/omni-root/config/workstation.dev.yml
+      # The dev stack is launched from the omni-stack checkout, not from
+      # /opt/omni: the `container` transport execs into a sibling service of the
+      # stack that owns this container and derives its compose project directory
+      # from ${env:OMNI_DIR} (plugins config: himalaya -> toolbox).
+      OMNI_DIR: ${WORKSTATION_OMNI_DIR:-/opt/workspace/omni-stack}
+    # Dev-only host access: host 12348 -> the container's INTERNAL port 8080
+    # (the base compose is expose-only and never publishes a host port).
+    ports:
+      - "12348:8080"
+
 networks:
   default:
     driver: bridge

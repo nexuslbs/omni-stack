@@ -34,7 +34,8 @@ This repository contains the Docker Compose stack, service definitions, plugin i
 │   ├ prometheus/            #   Metrics collection (Dockerfile + prometheus.yml)
 │   ├ toolbox/               #   Maintenance container (Dockerfile + scripts/)
 │   ├ vector/                #   Log shipping (Dockerfile + sinks/sources/transforms.toml)
-│   └ workbench/             #   Workbench plugins host (Dockerfile, build-time core clone)
+│   ├ workbench/             #   Workbench plugins host (Dockerfile, build-time core clone)
+│   └ workstation/           #   Workstation plugins host (Dockerfile, build-time core clone)
 │
 ├ config/                    # OMNI_DIR yml config - see "Config directory" below
 │   ├ actions.yml            #   Action plugin definitions
@@ -106,6 +107,7 @@ Optional services (gated by `COMPOSE_PROFILES`):
 | `monitor` | prometheus, grafana | Metrics & dashboards |
 | `cadvisor` | cadvisor + prometheus | Container metrics |
 | `workbench` | workbench | Workbench plugins host (long-running `serve`, container port :8080; the dev overlay publishes 12347:8080) |
+| `workstation` | workstation | Workstation plugins host (long-running `serve`, container port :8080; the dev overlay publishes 12348:8080) |
 | `all` | Everything | Full stack |
 
 Combine profiles with commas: `COMPOSE_PROFILES=tunnel,mattermost,memory` or just `COMPOSE_PROFILES=all`.
@@ -163,6 +165,45 @@ explicitly, so neither `DOCKER_HOST` nor `COMPOSE_PROJECT_NAME` has to be set.
 > cost of reaching the toolbox behind the scenes. Optional hardening (NOT used
 > here): put a socket proxy such as `tecnativa/docker-socket-proxy` in front and
 > mount its endpoint instead, exposing only the container/exec endpoints.
+
+### workstation service
+
+`workstation` (plugins host, Node) is an **opt-in** service: it starts only when
+the `workstation` (or `all`) compose profile is enabled. It mirrors `workbench`,
+but the runtime is the **DeepSeek Harness** core (`nexuslbs/deepseek-harness`)
+instead of the `nexuslbs/workbench` core, and the plugins config uses the
+harness' cordis `--patch` overlay format (`config/workstation.yml`). The base
+`docker-compose.yml` is **image-only** (NO `build` section and no published
+ports - `expose` only); the image is built by the dev overlay
+(`docker-compose.dev.yml`) from `services/workstation/Dockerfile`, which clones
+the harness CORE at **build** time (`WORKSTATION_REPO_URL` / `WORKSTATION_REF`,
+default `https://github.com/nexuslbs/deepseek-harness@master`). At container
+start the entrypoint clones the plugin sources into the named volume (once) and
+boots the harness behind the status endpoint. The service env var `CONFIG_FILE`
+(set from the `WORKSTATION_CONFIG_FILE` .env var) selects that config:
+
+- **empty (default)** - the core default config inside the image, core plugins only;
+- **absolute path** - e.g. `WORKSTATION_CONFIG_FILE=/opt/omni/config/workstation.yml`,
+  the tracked config of the omni-root stack (plugins sourced from the
+  `workstation-cache` named volume).
+
+Host `/opt` is mapped in-and-out (`/opt:/opt`), so a `CONFIG_FILE` under `/opt/...`
+is the SAME file inside and outside the container. The dev overlay
+(`docker-compose.dev.yml`) points it at `config/workstation.dev.yml` (the LOCAL
+`/opt/workspace/workbench-plugins` path source) and publishes it on the host as
+`12348:8080` (the container-internal status port is `8080`). The plugin-source
+checkout lives in the external named volume `workstation-cache` (mounted at
+`WORKSTATION_CACHE_DIR`, default `/var/lib/workstation/sources`), so it survives
+container recreation and never touches the host tree.
+
+Like `workbench`, the image carries the CLIENT tools the plugins need for their
+external transports (ssh client + docker CLI + compose v2 plugin) and mounts the
+host docker daemon socket: the `container` transport reaches external tooling
+behind the scenes by exec'ing into a sibling service of the stack (himalaya
+lives only in the omni `toolbox` image). The workstation image stays
+**browser-free** - the browser is the SEPARATE `browser` service of the stack,
+and the `browser-use-playwright` provider ATTACHES to it over CDP
+(`browserService.endpoint` -> `http://browser:9222`).
 
 ### Access
 
@@ -356,6 +397,11 @@ This replaces the old `"dynamic"` api_mode: no hardcoded model-to-mode mappings 
 | `WORKBENCH_REF` | `main` | workbench core ref (branch or tag) cloned at image build time |
 | `WORKBENCH_IMAGE` | `ghcr.io/nexuslbs/workbench:latest` | workbench service image (published core image; the dev overlay builds it locally from `services/workbench/Dockerfile`) |
 | `WORKBENCH_PORT` | `8080` | workbench status endpoint port INSIDE the container (the dev overlay publishes it as host 12347) |
+| `WORKSTATION_CONFIG_FILE` | `` | workstation plugins config (empty = the core default config inside the image; e.g. `/opt/omni/config/workstation.yml`) |
+| `WORKSTATION_REPO_URL` | `https://github.com/nexuslbs/deepseek-harness` | workstation core repo cloned at image build time |
+| `WORKSTATION_REF` | `master` | workstation core ref (branch or tag) cloned at image build time |
+| `WORKSTATION_IMAGE` | `ghcr.io/nexuslbs/deepseek-harness:latest` | workstation service image (published core image; the dev overlay builds it locally from `services/workstation/Dockerfile`) |
+| `WORKSTATION_PORT` | `8080` | workstation status endpoint port INSIDE the container (the dev overlay publishes it as host 12348) |
 
 ---
 

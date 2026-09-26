@@ -16,7 +16,13 @@ services:
   #  Core (always running) 
 
   postgres:
-    image: ${POSTGRES_IMAGE:-pgvector/pgvector:latest}
+    # Default pinned to the tag production actually runs (/opt/omni/docker-compose.yml).
+    # Upstream pgvector publishes no `latest` tag, so the previous
+    # `${POSTGRES_IMAGE:-pgvector/pgvector:latest}` default could not be pulled by any
+    # fresh host: a dev deploy died at "Starting databases" with
+    # `failed to resolve reference "docker.io/pgvector/pgvector:latest": not found`.
+    # An explicit POSTGRES_IMAGE still overrides this.
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
     environment:
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent

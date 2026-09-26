@@ -16,7 +16,7 @@ services:
   #  Core (always running) 
 
   postgres:
-    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:latest}
     environment:
       POSTGRES_DB: omniagent
       POSTGRES_USER: omniagent
@@ -373,7 +373,7 @@ services:
     profiles: ["browser", "all"]
     # Published from workbench-plugins/browser (built FROM the upstream Playwright
     # image, chromium baked in). BROWSER_IMAGE overrides it.
-    image: ${BROWSER_IMAGE:-ghcr.io/nexuslbs/workbench-plugins/browser:0.0.1}
+    image: ${BROWSER_IMAGE:-ghcr.io/nexuslbs/workbench-plugins/browser:latest}
     restart: unless-stopped
     # Chromium needs a bigger /dev/shm than the docker default (64M).
     shm_size: 1gb
@@ -398,7 +398,7 @@ services:
       context: services/cloudflared
       dockerfile: Dockerfile
       args:
-        CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.7.1}
+        CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -411,7 +411,7 @@ services:
 
   #  Mattermost (profile: mattermost) 
   mattermost-db:
-    image: ${MATTERMOST_DB_IMAGE:-postgres:16.14}
+    image: ${MATTERMOST_DB_IMAGE:-postgres:latest}
     profiles: ["mattermost", "all"]
     restart: unless-stopped
     environment:
@@ -430,7 +430,7 @@ services:
       driver: journald
 
   mattermost:
-    image: ${MATTERMOST_IMAGE:-mattermost/mattermost-team-edition:10.11.20}
+    image: ${MATTERMOST_IMAGE:-mattermost/mattermost-team-edition:latest}
     profiles: ["mattermost", "all"]
     restart: unless-stopped
     command: ["mattermost", "server"]
@@ -469,7 +469,7 @@ services:
     # profiles are unaffected). LLM keys (OPENAI_API_KEY / ANTHROPIC_API_KEY)
     # are operator-provided via env/secrets when agents need them -
     # intentionally not hardcoded here.
-    image: ${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:sha-e55d702}
+    image: ${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}
     profiles: ["paperclip", "all"]
     restart: unless-stopped
     expose:
@@ -492,7 +492,7 @@ services:
 
   #  Memory: Hindsight (profile: memory) 
   qdrant:
-    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:latest}
     # Individual profiles: 'qdrant' starts ONLY qdrant; 'hindsight' starts ONLY
     # hindsight; 'memory' (legacy) forces BOTH. Use the single-service profile
     # when only one is needed (2026-08-13: omnistable runs neither - profiles
@@ -507,7 +507,7 @@ services:
       driver: journald
 
   hindsight:
-    image: ${HINDSIGHT_IMAGE:-ghcr.io/vectorize-io/hindsight:0.7.2}
+    image: ${HINDSIGHT_IMAGE:-ghcr.io/vectorize-io/hindsight:latest}
     # Individual profiles: 'hindsight' starts ONLY hindsight; 'qdrant' starts
     # ONLY qdrant; 'memory' (legacy) forces BOTH. Use the single-service
     # profile when only one is needed (2026-08-13: omnistable runs neither -
@@ -526,7 +526,7 @@ services:
   #  Observability: Metrics: cAdvisor → Prometheus 
   cadvisor:
     profiles: ["cadvisor", "all"]
-    image: ${CADVISOR_IMAGE:-ghcr.io/google/cadvisor:v0.57.0}
+    image: ${CADVISOR_IMAGE:-ghcr.io/google/cadvisor:latest}
     restart: unless-stopped
     privileged: true
     command:
@@ -546,7 +546,7 @@ services:
       context: services/prometheus
       dockerfile: Dockerfile
       args:
-        PROMETHEUS_IMAGE: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.5}
+        PROMETHEUS_IMAGE: ${PROMETHEUS_IMAGE:-prom/prometheus:latest}
     restart: unless-stopped
     user: root
     extra_hosts:
@@ -569,7 +569,7 @@ services:
       context: services/vector
       dockerfile: Dockerfile
       args:
-        VECTOR_IMAGE: ${VECTOR_IMAGE:-timberio/vector:0.55.0-debian}
+        VECTOR_IMAGE: ${VECTOR_IMAGE:-timberio/vector:latest}
     restart: unless-stopped
     environment:
       # Container-name label used for vector's own logs. Auto-named per project
@@ -605,7 +605,7 @@ services:
       context: services/loki
       dockerfile: Dockerfile
       args:
-        LOKI_IMAGE: ${LOKI_IMAGE:-grafana/loki:3.7.2}
+        LOKI_IMAGE: ${LOKI_IMAGE:-grafana/loki:latest}
     restart: unless-stopped
     volumes:
       - loki-vol:/loki:rw
@@ -624,7 +624,7 @@ services:
       context: services/grafana
       dockerfile: Dockerfile
       args:
-        GRAFANA_IMAGE: ${GRAFANA_IMAGE:-grafana/grafana:13.0.1}
+        GRAFANA_IMAGE: ${GRAFANA_IMAGE:-grafana/grafana:latest}
     restart: unless-stopped
     user: root
     environment:

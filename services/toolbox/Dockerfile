@@ -13,11 +13,11 @@ RUN apk add --no-cache \
     python3 py3-pip \
     py3-psycopg2 \
     jq \
-    # External-interaction tooling (email + TOTP, ships in the next version).
-    # himalaya email CLI: Alpine package (v1.2.0, apk-managed).
+    # External-interaction tooling (email + TOTP). himalaya moved OUT of the
+    # toolbox into the omni-images `workstation-tools` image (operator
+    # 2026-09-26, threads 3165/3166); the workstation reaches it there.
     # oathtool CLI (TOTP/HOTP): Alpine package oath-toolkit-oathtool (the
     # oath-toolkit meta package alone ships only pskctool, not oathtool).
-    himalaya \
     oath-toolkit-oathtool
 
 # pyotp: TOTP library for python3. Not packaged in Alpine repos as py3-pyotp

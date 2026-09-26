@@ -165,6 +165,24 @@ services:
     mem_limit: 128m
     logging:
       driver: journald
+  workstation-tools:
+    # The external-interaction TOOLING of the workstation (himalaya email CLI +
+    # the general Linux tool set), as a SEPARATE versioned image published from
+    # nexuslbs/omni-images (operator 2026-09-26, threads 3165/3166: himalaya
+    # moves OUT of the toolbox into workstation-tools). It contains tools/CLIs
+    # that RUN AND FINISH - NOT a service: the container stays up with `sleep
+    # infinity` purely for exec-based use, exactly like the toolbox the
+    # workstation used to exec into. The workstation reaches it through the
+    # `container` transport (docker-impl): `docker compose exec -T
+    # workstation-tools sh -c <cmd>`. WORKSTATION_TOOLS_IMAGE overrides it.
+    profiles: ["workstation", "all"]
+    image: ${WORKSTATION_TOOLS_IMAGE:-ghcr.io/nexuslbs/omni-images/workstation-tools:0.0.1}
+    restart: unless-stopped
+    command: ["sleep", "infinity"]
+    # Hard memory cap: a sleep-only tools container needs almost nothing.
+    mem_limit: 128m
+    logging:
+      driver: journald
 
   #  workbench: agent equipment layer (plugins host, long-running) 
   workbench:
@@ -371,9 +389,9 @@ services:
   # is NOT part of the default stack and nothing is pulled/started unless asked.
   browser:
     profiles: ["browser", "all"]
-    # Published from workbench-plugins/browser (built FROM the upstream Playwright
-    # image, chromium baked in). BROWSER_IMAGE overrides it.
-    image: ${BROWSER_IMAGE:-ghcr.io/nexuslbs/workbench-plugins/browser:latest}
+    # Published from nexuslbs/omni-images/browser (built FROM the upstream
+    # Playwright image, chromium baked in). BROWSER_IMAGE overrides it.
+    image: ${BROWSER_IMAGE:-ghcr.io/nexuslbs/omni-images/browser:0.0.4}
     restart: unless-stopped
     # Chromium needs a bigger /dev/shm than the docker default (64M).
     shm_size: 1gb

@@ -4,14 +4,14 @@
 
 The agent gets its instructions from FOUR layers. Each layer has a distinct role;
 content must live in the layer that matches its role. See
-`profiles/omni/wiki/Reference/Agent-Guidance-Architecture.md` for the full model.
+`wiki/Reference/Agent-Guidance-Architecture.md` for the full model.
 
 | Layer | Path | Injected when | Role |
 |---|---|---|---|
 | MEMORY | `profiles/omni/memories/MEMORY.md` | Every prompt | Always-know facts (environment, tool capabilities, universal discipline) |
 | Templates | `profiles/omni/templates/<name>.md` | Only tasks that name the template | Task-flavor guidance (development, research, knowledge-pipeline) |
 | Skills | `profiles/omni/skills/<name>.md` | On demand (agent reads the matching skill) | Execution detail: concrete patterns, examples, commands |
-| Wiki | `profiles/omni/wiki/**` | On demand (search_wiki) | Long-term knowledge: architecture, invariants, detailed references |
+| Wiki | `wiki/**` | On demand (search_wiki) | Long-term knowledge: architecture, invariants, detailed references |
 
 **Conventions (enforced):**
 1. **Memory = always-know only.** Task-flavor rules (dev commit cadence, research

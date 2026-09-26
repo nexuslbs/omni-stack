@@ -117,7 +117,7 @@ services:
       # The dev stack is launched from THIS checkout, not from /opt/omni: the
       # `container` transport execs into a sibling service of the stack that
       # owns this container and derives its compose project directory from
-      # ${env:OMNI_DIR} (plugins config: himalaya -> toolbox).
+      # ${env:OMNI_DIR} (plugins config: himalaya -> workstation-tools).
       OMNI_DIR: ${WORKBENCH_OMNI_DIR:-/opt/workspace/omni-stack}
     # Dev-only host access: host 12347 -> the container's INTERNAL port 8080
     # (the base compose is expose-only and never publishes a host port).
@@ -148,7 +148,7 @@ services:
       # The dev stack is launched from the omni-stack checkout, not from
       # /opt/omni: the `container` transport execs into a sibling service of the
       # stack that owns this container and derives its compose project directory
-      # from ${env:OMNI_DIR} (plugins config: himalaya -> toolbox).
+      # from ${env:OMNI_DIR} (plugins config: himalaya -> workstation-tools).
       OMNI_DIR: ${WORKSTATION_OMNI_DIR:-/opt/workspace/omni-stack}
     # Dev-only host access: host 12348 -> the container's INTERNAL port 8080
     # (the base compose is expose-only and never publishes a host port).

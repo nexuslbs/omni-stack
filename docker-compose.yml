@@ -435,7 +435,12 @@ services:
 
   #  Mattermost (profile: mattermost) 
   mattermost-db:
-    image: ${MATTERMOST_DB_IMAGE:-postgres:latest}
+    # Pinned to the tag production runs (/opt/omni/docker-compose.yml): `latest` now
+    # resolves to PostgreSQL 18, whose image refuses to start with data at
+    # /var/lib/postgresql/data (18+ wants a single mount at /var/lib/postgresql), so
+    # the service restarted forever and never became healthy. An explicit
+    # MATTERMOST_DB_IMAGE still overrides this.
+    image: ${MATTERMOST_DB_IMAGE:-postgres:16.14}
     profiles: ["mattermost", "all"]
     restart: unless-stopped
     environment:
@@ -454,7 +459,10 @@ services:
       driver: journald
 
   mattermost:
-    image: ${MATTERMOST_IMAGE:-mattermost/mattermost-team-edition:latest}
+    # Pinned to the version production runs (/opt/omni/docker-compose.yml): a fresh
+    # pull of `latest` is not the release the stack is validated against. Overridable
+    # via MATTERMOST_IMAGE.
+    image: ${MATTERMOST_IMAGE:-mattermost/mattermost-team-edition:10.11.20}
     profiles: ["mattermost", "all"]
     restart: unless-stopped
     command: ["mattermost", "server"]
@@ -493,7 +501,9 @@ services:
     # profiles are unaffected). LLM keys (OPENAI_API_KEY / ANTHROPIC_API_KEY)
     # are operator-provided via env/secrets when agents need them -
     # intentionally not hardcoded here.
-    image: ${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}
+    # Pinned to the version production runs (/opt/omni/docker-compose.yml).
+    # Overridable via PAPERCLIP_IMAGE.
+    image: ${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:sha-e55d702}
     profiles: ["paperclip", "all"]
     restart: unless-stopped
     expose:
@@ -516,7 +526,9 @@ services:
 
   #  Memory: Hindsight (profile: memory) 
   qdrant:
-    image: ${QDRANT_IMAGE:-qdrant/qdrant:latest}
+    # Pinned to the version production runs (/opt/omni/docker-compose.yml).
+    # Overridable via QDRANT_IMAGE.
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.18.2}
     # Individual profiles: 'qdrant' starts ONLY qdrant; 'hindsight' starts ONLY
     # hindsight; 'memory' (legacy) forces BOTH. Use the single-service profile
     # when only one is needed (2026-08-13: omnistable runs neither - profiles

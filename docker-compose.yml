@@ -356,7 +356,7 @@ services:
       # SECURITY: a container with the docker socket has control of the host
       # docker daemon, which is equivalent to host root. That is the accepted
       # cost of reaching a sibling service (himalaya lives only in the omni
-      # `toolbox` image) without publishing a network path. Optional hardening
+      # `workstation-tools` image) without publishing a network path. Optional hardening
       # (NOT used here): a socket proxy such as tecnativa/docker-socket-proxy
       # exposing only CONTAINERS/EXEC, and mounting its endpoint instead.
       - /var/run/docker.sock:/var/run/docker.sock:rw

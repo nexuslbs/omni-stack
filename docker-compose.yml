@@ -6,6 +6,9 @@ name: ${COMPOSE_PROJECT_NAME:-omni}
 # shared VM. Adding a service or raising a cap means re-checking that total.
 # (workbench 64M -> 512M on 2026-09-18: running the core's own `node --test`
 # suite inside that container was OOM-killed, exit 137.)
+# (workstation 512M -> 1024M on 2026-09-26, operator directive: a burst of 6
+# parallel `agent run` dispatches OOM-killed the production facade; documented
+# total 4544M -> 5056M.)
 networks:
   obs-net:
     driver: bridge
@@ -378,11 +381,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    # Hard memory cap: the core is a small plugin host, but 64M (with a 32M V8
-    # heap) is too small to run the core's own test suite inside this container:
-    # `node --test` was OOM-killed (exit 137). 512M fits `serve` plus one
-    # on-demand test run; the stack budget (top of file) was re-checked.
-    mem_limit: 512M
+    # Hard memory cap (raised 512M -> 1024M on 2026-09-26, operator directive):
+    # 512M was OOM-killed by a burst of 6 PARALLEL `agent run` dispatches - the
+    # facade died (all calls fetch failed, /health unreachable) and only the
+    # `restart: unless-stopped` policy brought it back, with NO recreate. 1G
+    # keeps several concurrent agent runs alive; the stack budget (top of file)
+    # was re-checked.
+    mem_limit: 1024M
     logging:
       driver: journald
 

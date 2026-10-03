@@ -140,11 +140,19 @@ services:
     image: local/workstation:latest
     # Dev config: the tracked dev config of THIS repo (config/workstation.dev.yml),
     # read through the base compose /opt:/opt mount (same path in and out). It
-    # loads every capability plugin from the LOCAL workbench-plugins checkout
-    # /opt/workspace/workbench-plugins (no clone, no push): production uses the
+    # loads every capability plugin from the LOCAL workstation-plugins checkout
+    # /opt/workspace/workstation-plugins (no clone, no push): production uses the
     # plugin sources on the `workstation-cache` named volume instead.
     environment:
       CONFIG_FILE: /opt/workspace/omni-root/config/workstation.dev.yml
+      # The container entrypoint resolves its `--patch` overlay from
+      # WORKSTATION_CONFIG_FILE (the image ENV default is the PRODUCTION form
+      # /opt/omni/config/workstation.yml) and never reads CONFIG_FILE. Without
+      # this override the dev service boots the production config, whose plugin
+      # rows pin /var/lib/workstation/sources/workstation-plugins paths that do
+      # not exist on the dev `workstation-cache` volume: every row fails to
+      # import and the facade never listens on 8080 (no dsh worker spawnable).
+      WORKSTATION_CONFIG_FILE: /opt/workspace/omni-root/config/workstation.dev.yml
       # The dev stack is launched from the omni-stack checkout, not from
       # /opt/omni: the `container` transport execs into a sibling service of the
       # stack that owns this container and derives its compose project directory
